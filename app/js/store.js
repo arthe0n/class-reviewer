@@ -1,0 +1,401 @@
+/* ═══════════════════════════════════════════════════════════
+   ReviewApp · store.js
+   localStorage persistence & stats engine
+   Keys: reviewapp.v1.*
+   ═══════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var App = window.ReviewApp;
+  var PREFIX = 'reviewapp.v1.';
+
+  function key(k) { return PREFIX + k; }
+
+  function get(k, fallback) {
+    try {
+      var raw = localStorage.getItem(key(k));
+      if (raw == null) return fallback;
+      return JSON.parse(raw);
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function set(k, val) {
+    try {
+      localStorage.setItem(key(k), JSON.stringify(val));
+      return true;
+    } catch (e) {
+      console.warn('localStorage write failed', e);
+      return false;
+    }
+  }
+
+  function remove(k) {
+    localStorage.removeItem(key(k));
+  }
+
+  /* ── Answer log ─────────────────────────────────────────── */
+  // { id, qId, cert, chapter, tags, correct, type, ts, mode }
+  function logAnswer(entry) {
+    var log = get('answers', []);
+    entry.id = entry.id || App.core.utils.uid();
+    entry.ts = entry.ts || Date.now();
+    log.push(entry);
+    // Cap at 5000
+    if (log.length > 5000) log = log.slice(-5000);
+    set('answers', log);
+    updateStreak();
+    return entry;
+  }
+
+  function getAnswers(filter) {
+    var log = get('answers', []);
+    if (!filter) return log;
+    return log.filter(function (a) {
+      if (filter.cert && a.cert !== filter.cert) return false;
+      if (filter.chapter && a.chapter !== filter.chapter) return false;
+      if (filter.since && a.ts < filter.since) return false;
+      return true;
+    });
+  }
+
+  /* ── Accuracy helpers ───────────────────────────────────── */
+  function accuracyFor(filter) {
+    var ans = getAnswers(filter);
+    if (!ans.length) return null;
+    var correct = ans.filter(function (a) { return a.correct; }).length;
+    return Math.round((correct / ans.length) * 100);
+  }
+
+  function questionStats(qId) {
+    var ans = getAnswers().filter(function (a) { return a.qId === qId; });
+    if (!ans.length) return { seen: 0, correct: 0, accuracy: null };
+    var correct = ans.filter(function (a) { return a.correct; }).length;
+    return {
+      seen: ans.length,
+      correct: correct,
+      accuracy: Math.round((correct / ans.length) * 100)
+    };
+  }
+
+  function weakQuestions(threshold) {
+    threshold = threshold == null ? 60 : threshold;
+    var byQ = {};
+    getAnswers().forEach(function (a) {
+      if (!byQ[a.qId]) byQ[a.qId] = { correct: 0, total: 0, tags: a.tags, cert: a.cert, chapter: a.chapter };
+      byQ[a.qId].total++;
+      if (a.correct) byQ[a.qId].correct++;
+    });
+    var weak = [];
+    Object.keys(byQ).forEach(function (id) {
+      var s = byQ[id];
+      var acc = Math.round((s.correct / s.total) * 100);
+      if (acc < threshold) weak.push({ qId: id, accuracy: acc, total: s.total, tags: s.tags, cert: s.cert, chapter: s.chapter });
+    });
+    // Also include never-seen from registry if available
+    return weak.sort(function (a, b) { return a.accuracy - b.accuracy; });
+  }
+
+  /* ── Streak ─────────────────────────────────────────────── */
+  function updateStreak() {
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var todayTs = today.getTime();
+    var data = get('streak', { last: null, count: 0, best: 0 });
+    if (data.last === todayTs) return data;
+    var yesterday = todayTs - 86400000;
+    if (data.last === yesterday) {
+      data.count += 1;
+    } else if (data.last !== todayTs) {
+      data.count = 1;
+    }
+    data.last = todayTs;
+    if (data.count > data.best) data.best = data.count;
+    set('streak', data);
+    return data;
+  }
+
+  function getStreak() {
+    return get('streak', { last: null, count: 0, best: 0 });
+  }
+
+  /* ── Activity (14-day) ──────────────────────────────────── */
+  function getActivity(days) {
+    days = days || 14;
+    var ans = getAnswers();
+    var map = {};
+    var now = new Date();
+    now.setHours(0, 0, 0, 0);
+    for (var i = days - 1; i >= 0; i--) {
+      var d = new Date(now.getTime() - i * 86400000);
+      map[d.getTime()] = { count: 0, correct: 0 };
+    }
+    ans.forEach(function (a) {
+      var d = new Date(a.ts);
+      d.setHours(0, 0, 0, 0);
+      var k = d.getTime();
+      if (map[k]) {
+        map[k].count++;
+        if (a.correct) map[k].correct++;
+      }
+    });
+    return Object.keys(map).sort().map(function (k) {
+      return { date: Number(k), count: map[k].count, correct: map[k].correct };
+    });
+  }
+
+  /* ── Exam history ───────────────────────────────────────── */
+  function saveExamAttempt(attempt) {
+    var hist = get('exams', []);
+    attempt.id = attempt.id || App.core.utils.uid();
+    attempt.ts = attempt.ts || Date.now();
+    hist.unshift(attempt);
+    if (hist.length > 100) hist = hist.slice(0, 100);
+    set('exams', hist);
+    return attempt;
+  }
+
+  function getExams() {
+    return get('exams', []);
+  }
+
+  /* ── Labs completed ─────────────────────────────────────── */
+  function markLabComplete(labId) {
+    var done = get('labsDone', {});
+    done[labId] = Date.now();
+    set('labsDone', done);
+  }
+
+  function isLabDone(labId) {
+    var done = get('labsDone', {});
+    return !!done[labId];
+  }
+
+  function labsCompletedCount() {
+    return Object.keys(get('labsDone', {})).length;
+  }
+
+  /* ── Flashcard Leitner state ────────────────────────────── */
+  // cardKey -> { box: 1-5, lastSeen: ts, nextDue: ts }
+  function getCardState(cardKey) {
+    var all = get('leitner', {});
+    return all[cardKey] || { box: 1, lastSeen: 0, nextDue: 0 };
+  }
+
+  function setCardState(cardKey, state) {
+    var all = get('leitner', {});
+    all[cardKey] = state;
+    set('leitner', all);
+  }
+
+  // Intervals in days by box (after grading Good)
+  var BOX_INTERVALS = [0, 1, 3, 7, 14, 30]; // index = box
+
+  function gradeCard(cardKey, grade) {
+    // grade: 'again' | 'good' | 'easy'
+    var st = getCardState(cardKey);
+    var now = Date.now();
+    if (grade === 'again') {
+      st.box = 1;
+      st.nextDue = now; // due immediately
+    } else if (grade === 'good') {
+      st.box = Math.min(5, (st.box || 1) + 1);
+      st.nextDue = now + BOX_INTERVALS[st.box] * 86400000;
+    } else if (grade === 'easy') {
+      st.box = Math.min(5, (st.box || 1) + 2);
+      st.nextDue = now + BOX_INTERVALS[st.box] * 86400000;
+    }
+    st.lastSeen = now;
+    setCardState(cardKey, st);
+    return st;
+  }
+
+  function cardsDue(keys) {
+    var now = Date.now();
+    return (keys || []).filter(function (k) {
+      var st = getCardState(k);
+      return !st.nextDue || st.nextDue <= now;
+    });
+  }
+
+  function cardsDueCount() {
+    if (!App.content) return 0;
+    var cards = App.content.getAll('flashcards');
+    var keys = cards.map(function (c) { return c._key; });
+    return cardsDue(keys).length;
+  }
+
+  /* ── Personal notes ─────────────────────────────────────── */
+  function getPersonalNotes() {
+    return get('personalNotes', []);
+  }
+
+  function savePersonalNote(note) {
+    var notes = getPersonalNotes();
+    if (note.id) {
+      var idx = notes.findIndex(function (n) { return n.id === note.id; });
+      if (idx >= 0) notes[idx] = note;
+      else notes.push(note);
+    } else {
+      note.id = App.core.utils.uid();
+      note.created = Date.now();
+      notes.push(note);
+    }
+    note.updated = Date.now();
+    set('personalNotes', notes);
+    return note;
+  }
+
+  function deletePersonalNote(id) {
+    var notes = getPersonalNotes().filter(function (n) { return n.id !== id; });
+    set('personalNotes', notes);
+  }
+
+  /* ── Settings ───────────────────────────────────────────── */
+  function getSettings() {
+    return get('settings', {
+      theme: 'dark',
+      textSize: 'medium',
+      passThreshold: { 'linux-plus': 70, 'network-plus': 70 },
+      lastStudy: null
+    });
+  }
+
+  function saveSettings(s) {
+    set('settings', s);
+  }
+
+  function setLastStudy(info) {
+    var s = getSettings();
+    s.lastStudy = info;
+    saveSettings(s);
+  }
+
+  /* ── Time on task (rough) ───────────────────────────────── */
+  function addTimeOnTask(ms) {
+    var t = get('timeOnTask', 0);
+    set('timeOnTask', t + ms);
+  }
+
+  function getTimeOnTask() {
+    return get('timeOnTask', 0);
+  }
+
+  /* ── Content snapshot (deep-scan) ───────────────────────── */
+  function saveContentSnapshot(data) {
+    set('contentSnapshot', data);
+  }
+
+  function getContentSnapshot() {
+    return get('contentSnapshot', null);
+  }
+
+  /* ── Export / Import / Wipe ─────────────────────────────── */
+  function exportFullBackup() {
+    var data = {
+      version: 1,
+      exported: Date.now(),
+      answers: get('answers', []),
+      streak: get('streak', {}),
+      exams: get('exams', []),
+      labsDone: get('labsDone', {}),
+      leitner: get('leitner', {}),
+      personalNotes: get('personalNotes', []),
+      settings: get('settings', {}),
+      timeOnTask: get('timeOnTask', 0)
+    };
+    return data;
+  }
+
+  function importFullBackup(data) {
+    if (!data || data.version !== 1) throw new Error('Invalid backup format');
+    if (data.answers) set('answers', data.answers);
+    if (data.streak) set('streak', data.streak);
+    if (data.exams) set('exams', data.exams);
+    if (data.labsDone) set('labsDone', data.labsDone);
+    if (data.leitner) set('leitner', data.leitner);
+    if (data.personalNotes) set('personalNotes', data.personalNotes);
+    if (data.settings) set('settings', data.settings);
+    if (data.timeOnTask != null) set('timeOnTask', data.timeOnTask);
+  }
+
+  function wipeProgress() {
+    ['answers', 'streak', 'exams', 'labsDone', 'leitner', 'timeOnTask'].forEach(remove);
+  }
+
+  function exportAnswersCSV() {
+    var ans = getAnswers();
+    var header = 'id,qId,cert,chapter,tags,correct,type,ts,mode\n';
+    var rows = ans.map(function (a) {
+      return [
+        a.id,
+        a.qId,
+        a.cert,
+        JSON.stringify(a.chapter || ''),
+        JSON.stringify((a.tags || []).join(';')),
+        a.correct ? 1 : 0,
+        a.type || '',
+        a.ts,
+        a.mode || ''
+      ].join(',');
+    });
+    return header + rows.join('\n');
+  }
+
+  /* ── Aggregate stats for dashboard ──────────────────────── */
+  function getDashboardStats() {
+    var ans = getAnswers();
+    var total = ans.length;
+    var correct = ans.filter(function (a) { return a.correct; }).length;
+    var accuracy = total ? Math.round((correct / total) * 100) : 0;
+    var streak = getStreak();
+    return {
+      totalAnswered: total,
+      accuracy: accuracy,
+      streakDays: streak.count || 0,
+      cardsDue: cardsDueCount(),
+      labsDone: labsCompletedCount(),
+      timeOnTask: getTimeOnTask()
+    };
+  }
+
+  App.store = {
+    get: get,
+    set: set,
+    remove: remove,
+    logAnswer: logAnswer,
+    getAnswers: getAnswers,
+    accuracyFor: accuracyFor,
+    questionStats: questionStats,
+    weakQuestions: weakQuestions,
+    updateStreak: updateStreak,
+    getStreak: getStreak,
+    getActivity: getActivity,
+    saveExamAttempt: saveExamAttempt,
+    getExams: getExams,
+    markLabComplete: markLabComplete,
+    isLabDone: isLabDone,
+    labsCompletedCount: labsCompletedCount,
+    getCardState: getCardState,
+    setCardState: setCardState,
+    gradeCard: gradeCard,
+    cardsDue: cardsDue,
+    cardsDueCount: cardsDueCount,
+    getPersonalNotes: getPersonalNotes,
+    savePersonalNote: savePersonalNote,
+    deletePersonalNote: deletePersonalNote,
+    getSettings: getSettings,
+    saveSettings: saveSettings,
+    setLastStudy: setLastStudy,
+    addTimeOnTask: addTimeOnTask,
+    getTimeOnTask: getTimeOnTask,
+    saveContentSnapshot: saveContentSnapshot,
+    getContentSnapshot: getContentSnapshot,
+    exportFullBackup: exportFullBackup,
+    importFullBackup: importFullBackup,
+    wipeProgress: wipeProgress,
+    exportAnswersCSV: exportAnswersCSV,
+    getDashboardStats: getDashboardStats
+  };
+})();

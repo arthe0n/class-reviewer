@@ -1,0 +1,127 @@
+window.ReviewApp.content.register({
+  type: "questions",
+  cert: "linux-plus",
+  chapter: "Ch 01 · Exploring Linux",
+  items: [
+    {
+      q: "A server reports its kernel version as 6.8.12. Which number represents the minor revision?",
+      type: "mcq",
+      options: ["6", "8", "12", "6.8"],
+      answer: 1,
+      explain: "Linux kernel versions follow a major.minor.revision format. In 6.8.12, 6 is the major number, 8 is the minor number, and 12 is the revision number.",
+      tags: ["kernel", "versions"]
+    },
+    {
+      q: "A developer modifies the Linux kernel source code for a commercial product. Under which license must they release their modified source code to the public?",
+      type: "mcq",
+      options: ["MIT", "Apache", "GPL", "LGPL"],
+      answer: 2,
+      explain: "The GNU General Public License (GPL) requires that any changes made to the source code be released to the public under the same GPL license. MIT and Apache are permissive licenses without this requirement, and LGPL allows integration without public release.",
+      tags: ["licensing", "gpl"]
+    },
+    {
+      q: "Which of the following are considered permissive open source licenses? (Choose two.)",
+      type: "multi",
+      options: ["GPL", "Apache", "LGPL", "MIT"],
+      answer: [1, 3],
+      explain: "Permissive licenses such as Apache and MIT allow redistribution of derivative work under a different license or with no license at all. GPL and LGPL are copyleft licenses, which require derivative work to inherit the parent license terms.",
+      tags: ["licensing", "permissive"]
+    },
+    {
+      q: "The Linux kernel itself is licensed under GPL version 2, but not all Linux distributions use this same license for all included software.",
+      type: "tf",
+      answer: true,
+      explain: "True. While the Linux kernel is under GPL v2, distributions bundle third-party software that may be licensed under Apache, MIT, or other models, so the entire distro does not necessarily use GPL v2.",
+      tags: ["licensing", "kernel"]
+    },
+    {
+      q: "On an Ubuntu system, the command to refresh the package index before installing updates is `sudo ____ update`.",
+      type: "fill",
+      answer: "apt",
+      explain: "Ubuntu uses the apt package manager. Running `sudo apt update` refreshes the local package index with the latest changes from the repositories before upgrades are applied.",
+      tags: ["ubuntu", "apt", "package-management"]
+    },
+    {
+      q: "Which virtualization product uses dynamic binary translation to emulate a computer's CPU?",
+      type: "mcq",
+      options: ["Oracle VirtualBox", "Microsoft Hyper-V", "QEMU", "VMware ESXi"],
+      answer: 2,
+      explain: "QEMU (Quick Emulator) is unique among common hypervisors in that it emulates a computer's CPU using dynamic binary translation. VirtualBox and Hyper-V use hardware-assisted virtualization rather than CPU emulation.",
+      tags: ["virtualization", "qemu"]
+    },
+    {
+      q: "Which utility is described as a command-center tool that allows administrators to control many system services from a single interface on openSUSE?",
+      type: "mcq",
+      options: ["dnf", "YaST", "apt", "zypper"],
+      answer: 1,
+      explain: "Yet another Setup Tool (YaST) is openSUSE's comprehensive command-center utility for managing system services, network settings, and software. dnf and apt are package managers for other distributions, while zypper is openSUSE's command-line package manager.",
+      tags: ["opensuse", "yast"]
+    },
+    {
+      q: "Which CPU architectures are explicitly stressed for the CompTIA Linux+ exam? (Choose all that apply.)",
+      type: "multi",
+      options: ["Intel/AMD x86 and x86_64", "SPARC", "ARM (aarch64)", "IBM Z (s390x)", "RISC-V"],
+      answer: [0, 2, 3, 4],
+      explain: "The Linux+ exam stresses Intel/AMD x86 and x86_64, AMD64, ARM (aarch64), IBM Z (s390x), and RISC-V. SPARC is not mentioned in the exam objectives.",
+      tags: ["hardware", "architecture"]
+    },
+    {
+      q: "CentOS Stream is currently an exact duplicate of the latest RHEL version, just as the original CentOS was.",
+      type: "tf",
+      answer: false,
+      explain: "False. While the original CentOS was nearly an exact duplicate of RHEL, CentOS Stream is a rolling development distribution and no longer matches the current RHEL version exactly. Rocky Linux was created to fill the role of being an exact RHEL duplicate.",
+      tags: ["rhel", "centos", "distributions"]
+    },
+    {
+      q: "The open standard CPU architecture that any manufacturer can implement without licensing fees is ____. ",
+      type: "fill",
+      answer: "RISC-V",
+      explain: "RISC-V (Reduced Instruction Set Computing, version 5) is an open standard architecture, unlike proprietary architectures such as x86_64 or ARM, which require licensing.",
+      tags: ["hardware", "architecture", "risc-v"]
+    },
+    {
+      q: "A technician working at a graphical Ubuntu desktop needs to access a text-only terminal to run commands. Which key combination should they press?",
+      type: "mcq",
+      options: ["Ctrl + Alt + F1", "Ctrl + Alt + F2", "Ctrl + Alt + Delete", "Alt + F4"],
+      answer: 1,
+      explain: "Pressing Ctrl+Alt+F2 (or F3) switches to a virtual console (TTY) such as tty2, providing a text-only terminal. Ctrl+Alt+F1 or F7 typically returns to the graphical desktop, while Ctrl+Alt+Delete may reboot the system.",
+      tags: ["terminal", "tty", "ui"]
+    },
+    {
+      q: "Which statement best describes the fundamental difference between copyleft and permissive open source licenses?",
+      type: "mcq",
+      options: [
+        "Copyleft licenses are always free, while permissive licenses require payment.",
+        "Copyleft licenses require derivative work to use the same license, while permissive licenses do not.",
+        "Copyleft licenses allow closed-source derivatives, while permissive licenses prohibit them.",
+        "Copyleft licenses are issued by the GNU project only, while permissive licenses are issued by Apache only."
+      ],
+      answer: 1,
+      explain: "Copyleft licenses such as GPL require that any derivative work be released under the same license terms, ensuring the code remains open. Permissive licenses such as Apache and MIT impose no such restriction, allowing derivatives to use different licenses or remain closed source.",
+      tags: ["licensing", "copyleft"]
+    },
+    {
+      q: "Which of the following are core parts that make up a complete Linux system? (Choose all that apply.)",
+      type: "multi",
+      options: ["Linux kernel", "GNU utilities", "User interface", "Application software", "BIOS firmware"],
+      answer: [0, 1, 2, 3],
+      explain: "A complete Linux system consists of the Linux kernel, GNU utilities, a user interface (graphical or command-line), and application software. BIOS firmware is hardware-specific and not part of the Linux system itself.",
+      tags: ["linux-concepts", "components"]
+    },
+    {
+      q: "On a Rocky Linux system, the command `sudo ____ check-update` is used to verify whether updated packages are available.",
+      type: "fill",
+      answer: "dnf",
+      explain: "Rocky Linux, like RHEL and Fedora, uses the dnf package manager. The `sudo dnf check-update` command queries repositories for available updates before they are installed with `sudo dnf upgrade`.",
+      tags: ["rocky-linux", "dnf", "package-management"]
+    },
+    {
+      q: "An organization wants to deploy Linux virtual machines but lacks local hardware with sufficient resources. Which of the following is a valid cloud provider for running Linux VMs?",
+      type: "mcq",
+      options: ["Oracle VirtualBox", "Microsoft Hyper-V", "DigitalOcean", "QEMU"],
+      answer: 2,
+      explain: "DigitalOcean is a cloud service provider that offers Linux virtual machines. Oracle VirtualBox, Microsoft Hyper-V, and QEMU are local hypervisors or emulators that run on existing hardware, not cloud providers.",
+      tags: ["cloud", "virtualization"]
+    }
+  ]
+});

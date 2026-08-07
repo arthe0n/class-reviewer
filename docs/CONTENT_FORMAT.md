@@ -1,0 +1,212 @@
+# ReviewApp Content Format
+
+This document describes every schema field used by ReviewApp content files. Content is loaded from classic JavaScript files that self-register via `window.ReviewApp.content.register(...)`.
+
+---
+
+## Manifest (`certifications/_manifest.js`)
+
+```js
+window.ReviewApp.content.setManifest({
+  certs: [
+    { id: "linux-plus", name: "CompTIA Linux+", color: "#ffb454" },
+    { id: "network-plus", name: "CompTIA Network+", color: "#5ad1e6" }
+  ],
+  files: [
+    "linux-plus/questions/ch01-filesystem.js",
+    "linux-plus/flashcards/ch01-filesystem.js",
+    "linux-plus/labs/ch03-permissions.js",
+    "linux-plus/notes/ch01-notes.js",
+    "network-plus/questions/ch01-networking-fundamentals.js"
+  ]
+});
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `certs` | array | yes | List of certification objects |
+| `certs[].id` | string | yes | Stable ID used in content files |
+| `certs[].name` | string | yes | Display name |
+| `certs[].color` | string | no | Hex accent color for UI |
+| `files` | array of strings | yes | Paths relative to `certifications/` |
+
+When you add a new content file, append its path to `files` and click **Reload** in the app (or use Settings → Reload).
+
+---
+
+## Questions
+
+```js
+window.ReviewApp.content.register({
+  type: "questions",
+  cert: "linux-plus",
+  chapter: "Ch 01 · Filesystem Hierarchy",
+  items: [
+    {
+      q: "Which directory contains regular users' home folders?",
+      type: "mcq",
+      options: ["/home", "/etc", "/var", "/boot"],
+      answer: 0,
+      explain: "/home holds user directories; /root is the superuser's home.",
+      tags: ["filesystem", "paths"]
+    }
+  ]
+});
+```
+
+### Top-level fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | `"questions"` | yes | Content type |
+| `cert` | string | yes | Must match a `certs[].id` in the manifest |
+| `chapter` | string | yes | Chapter label shown in UI |
+| `items` | array | yes | Question objects |
+
+### Item fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `q` | string | yes | Question text |
+| `type` | `"mcq"` \| `"multi"` \| `"tf"` \| `"fill"` | yes | Question format |
+| `options` | string[] | mcq/multi | Answer choices |
+| `answer` | number \| number[] \| boolean \| string | yes | Correct answer (see below) |
+| `explain` | string | recommended | Shown after answering |
+| `tags` | string[] | no | Used for theme attack & stats |
+
+### Answer formats by type
+
+| Type | `answer` value |
+|------|----------------|
+| `mcq` | Zero-based index into `options` (e.g. `0`) |
+| `multi` | Array of zero-based indices (e.g. `[0, 2]`) |
+| `tf` | `true` or `false` |
+| `fill` | String; compared case-insensitively after trim |
+
+---
+
+## Flashcards
+
+```js
+window.ReviewApp.content.register({
+  type: "flashcards",
+  cert: "linux-plus",
+  chapter: "Ch 01 · Filesystem Hierarchy",
+  items: [
+    {
+      front: "What does the FHS stand for?",
+      back: "Filesystem Hierarchy Standard — …",
+      tags: ["fhs", "filesystem"]
+    }
+  ]
+});
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `front` | string | yes | Prompt side |
+| `back` | string | yes | Answer side |
+| `tags` | string[] | no | Filtering & search |
+
+Leitner state (box 1–5, due dates) is stored in `localStorage` and is independent of the content file.
+
+---
+
+## Labs
+
+```js
+window.ReviewApp.content.register({
+  type: "labs",
+  cert: "linux-plus",
+  chapter: "Ch 03 · Permissions",
+  items: [
+    {
+      title: "File Permissions & Ownership Lab",
+      difficulty: 2,
+      minutes: 25,
+      scenario: "Markdown description of the scenario…",
+      objectives: [
+        "Create a directory and set its owner and group",
+        "Apply correct mode bits"
+      ],
+      steps: [
+        {
+          do: "Create the project directory…",
+          hint: "Use mkdir and touch.",
+          solution: "sudo mkdir -p /srv/project",
+          check: "ls -ld /srv/project shows the directory exists."
+        }
+      ],
+      tags: ["permissions", "chmod"]
+    }
+  ]
+});
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | yes | Lab title |
+| `difficulty` | 1–3 | no | Shown as star chips |
+| `minutes` | number | no | Estimated time |
+| `scenario` | string (markdown) | yes | Context / story |
+| `objectives` | string[] | no | Checklist items |
+| `steps` | array | yes | Step objects |
+| `steps[].do` | string | yes | Instruction |
+| `steps[].hint` | string | no | Revealable hint |
+| `steps[].solution` | string | no | Revealable solution (copyable) |
+| `steps[].check` | string | no | Verification guidance |
+| `tags` | string[] | no | Filtering |
+
+---
+
+## Notes
+
+```js
+window.ReviewApp.content.register({
+  type: "notes",
+  cert: "linux-plus",
+  chapter: "Ch 01 · Filesystem Hierarchy",
+  items: [
+    {
+      title: "FHS Quick Reference",
+      body: "## Heading\n\nMarkdown body…",
+      tags: ["fhs", "reference"]
+    }
+  ]
+});
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | yes | Note title |
+| `body` | string (markdown) | yes | Full note content |
+| `tags` | string[] | no | Search |
+
+Supported markdown: headings (`#`–`###`), bold, italic, inline code, fenced code blocks, unordered/ordered lists, links (`[text](https://…)`), horizontal rules.
+
+---
+
+## Adding new content (checklist)
+
+1. Create a `.js` file under the appropriate cert folder (`questions/`, `flashcards/`, `labs/`, or `notes/`).
+2. Call `window.ReviewApp.content.register({ … })` with the correct `type` and `cert`.
+3. Add the relative path to `certifications/_manifest.js` → `files`.
+4. Open the app and click the **reload** button (top bar) or use Settings → Reload.
+5. Confirm the toast shows the new counts.
+
+Alternatively use **Settings → Deep-scan folder** to load files without editing the manifest (optional snapshot to `localStorage`).
+
+---
+
+## JSON alternative
+
+Deep-scan also accepts `.json` files with the same object shape as the argument to `register()`:
+
+```json
+{
+  "type": "questions",
+  "cert": "linux-plus",
+  "chapter": "Ch 02 · …",
+  "items": [ … ]
+}
+```

@@ -1,0 +1,10 @@
+# Freebuff local data — user progress DBs, run docs, preview logs
+.freebuff/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
