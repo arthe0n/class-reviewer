@@ -6,6 +6,19 @@ No install. No account. No network. Double-click `index.html` and study.
 
 ---
 
+## Screenshots
+
+| | |
+|---|---|
+| **Dashboard** — progress, recommendations, activity | **Quiz** — five practice modes |
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Quiz](docs/screenshots/quiz.png) |
+| **Exam Sim** — timed, CompTIA-style | **Flashcards** — Leitner boxes 1–5 |
+| ![Exam Sim](docs/screenshots/exam.png) | ![Flashcards](docs/screenshots/flashcards.png) |
+| **Labs** — hands-on scenarios | **Stats** — accuracy, coverage, streaks, history |
+| ![Labs](docs/screenshots/labs.png) | ![Stats](docs/screenshots/stats.png) |
+
+---
+
 ## Quick start
 
 1. Open the `Review` folder.
