@@ -943,7 +943,7 @@
     var fc = el('div', {
       className: 'flashcard' + (sess.flipped ? ' flipped' : ''),
       role: 'button', tabindex: '0', 'aria-label': 'Flashcard, press space to flip',
-      onClick: function () { App.flashcards.flip(); root.innerHTML = ''; renderFlashPlayer(root); }
+      onClick: function () { App.flashcards.flip(); syncFlip(); }
     });
     fc.appendChild(el('div', { className: 'flashcard-face front' }, [
       el('div', { className: 'flashcard-label', text: 'Front' }),
@@ -955,15 +955,20 @@
     ]));
     stage.appendChild(fc);
     root.appendChild(stage);
-    if (sess.flipped) {
-      var grades = el('div', { className: 'grade-btns' });
-      grades.appendChild(el('button', { className: 'btn btn-danger', text: '1 · Again', onClick: function () { gradeAndRefresh('again'); } }));
-      grades.appendChild(el('button', { className: 'btn btn-secondary', text: '2 · Good', onClick: function () { gradeAndRefresh('good'); } }));
-      grades.appendChild(el('button', { className: 'btn btn-primary', text: '3 · Easy', onClick: function () { gradeAndRefresh('easy'); } }));
-      root.appendChild(grades);
-    } else {
-      root.appendChild(el('p', { className: 'text-muted', style: { textAlign: 'center' }, text: 'Click card or press Space to flip' }));
+    var footer = el('div', { className: 'flashcard-footer' });
+    var hint = el('p', { className: 'text-muted flash-hint', style: { textAlign: 'center' }, text: 'Click card or press Space to flip' });
+    var grades = el('div', { className: 'grade-btns' });
+    grades.appendChild(el('button', { className: 'btn btn-danger', text: '1 · Again', onClick: function () { gradeAndRefresh('again'); } }));
+    grades.appendChild(el('button', { className: 'btn btn-secondary', text: '2 · Good', onClick: function () { gradeAndRefresh('good'); } }));
+    grades.appendChild(el('button', { className: 'btn btn-primary', text: '3 · Easy', onClick: function () { gradeAndRefresh('easy'); } }));
+    footer.appendChild(hint);
+    footer.appendChild(grades);
+    root.appendChild(footer);
+    function syncFlip() {
+      fc.classList.toggle('flipped', sess.flipped);
+      footer.classList.toggle('flipped', sess.flipped);
     }
+    syncFlip();
     function gradeAndRefresh(g) {
       App.flashcards.grade(g);
       root.innerHTML = '';
@@ -973,8 +978,7 @@
       if (e.key === ' ' || e.code === 'Space') {
         e.preventDefault();
         App.flashcards.flip();
-        root.innerHTML = '';
-        renderFlashPlayer(root);
+        syncFlip();
       } else if (sess.flipped) {
         if (e.key === '1') gradeAndRefresh('again');
         else if (e.key === '2') gradeAndRefresh('good');

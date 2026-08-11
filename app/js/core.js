@@ -158,9 +158,12 @@
   }
 
   /* ── Modal ──────────────────────────────────────────────── */
+  var _modalCloseTimer = null;
   function openModal(content, opts) {
     opts = opts || {};
     var root = utils.$('#modal-root');
+    if (_modalCloseTimer) { clearTimeout(_modalCloseTimer); _modalCloseTimer = null; }
+    root.classList.remove('closing');
     root.innerHTML = '';
     root.hidden = false;
     var modal = utils.el('div', { className: 'modal', role: 'dialog', 'aria-modal': 'true' });
@@ -189,10 +192,17 @@
 
   function closeModal() {
     var root = utils.$('#modal-root');
-    root.hidden = true;
-    root.innerHTML = '';
-    document.removeEventListener('keydown', _modalEsc);
-    root.removeEventListener('click', _modalBackdrop);
+    if (!root || root.hidden) return;
+    root.classList.add('closing');
+    if (_modalCloseTimer) clearTimeout(_modalCloseTimer);
+    _modalCloseTimer = setTimeout(function () {
+      _modalCloseTimer = null;
+      root.hidden = true;
+      root.classList.remove('closing');
+      root.innerHTML = '';
+      document.removeEventListener('keydown', _modalEsc);
+      root.removeEventListener('click', _modalBackdrop);
+    }, 130);
   }
 
   function _modalEsc(e) { if (e.key === 'Escape') closeModal(); }
