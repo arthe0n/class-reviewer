@@ -44,8 +44,9 @@ That’s it. All progress lives in your browser’s `localStorage`.
 | **Stats** | Accuracy, question coverage, chapter progress, streak, activity chart, weak tags, exam history, CSV/JSON/MD export |
 | **Tools** | Subnet calculator, number converter, common ports, Linux command reference |
 | **Search** | Live search across questions, cards, labs, notes, ports, and commands; keyboard navigation with arrows, Enter, and Esc |
+| **Appearance** | 9 themes with live swatch previews, text size, and an Animations on/off toggle |
 
-Dark theme by default. Light theme and small, medium, or large text options are available in Settings. Fully keyboard-accessible.
+**Purple Night** theme by default. 9 themes (Purple Night, Dracula, Monokai, Xcode, Nord, One Dark, Solarized Dark, Tokyo Night, and classic Light) with palette previews, plus small/medium/large text and an **Animations** on/off toggle — all in Settings. Fully keyboard-accessible.
 
 ---
 
@@ -80,6 +81,7 @@ Dark theme by default. Light theme and small, medium, or large text options are 
 Review/
 ├── index.html                 ← open this
 ├── app/
+│   ├── favicon.svg
 │   ├── css/styles.css
 │   └── js/
 │       ├── core.js            namespace, router, toasts, modal
@@ -100,7 +102,9 @@ Review/
 │   └── network-plus/
 │       └── questions/
 └── docs/
-    └── CONTENT_FORMAT.md      full schema + templates
+    ├── CONTENT_FORMAT.md      full schema + templates
+    ├── prompt-generator.txt   AI content-generation prompts
+    └── screenshots/           README screenshots
 ```
 
 ---
@@ -121,7 +125,7 @@ window.ReviewApp.content.register({
   items: [
     {
       q: "Which command prints the current working directory?",
-      type: "mcq",              // mcq | multi | tf | fill
+      type: "mcq",              // mcq | multi | tf | fill | command_match
       options: ["pwd", "cd", "ls", "cwd"],
       answer: 0,
       explain: "pwd = print working directory.",
@@ -131,7 +135,7 @@ window.ReviewApp.content.register({
 });
 ```
 
-See **`docs/CONTENT_FORMAT.md`** for full schemas (flashcards, labs, notes) and copy-paste templates.
+See **`docs/CONTENT_FORMAT.md`** for full schemas (flashcards, labs, notes, `command_match`) and copy-paste templates.
 
 ### 2. Register it in the manifest
 
@@ -153,7 +157,7 @@ A toast confirms how many questions, cards, labs, and notes were loaded.
 
 Feed unit notes to an AI with the prompts described in your workflow (questions / flashcards / labs / notes separately). Save each reply as a `.js` file under the matching folder, then update the manifest and reload.
 
-**Check [Prompt Generator](./prompt-generator.txt) file for the templates.**
+**Check the [Prompt Generator](./docs/prompt-generator.txt) file for the templates.**
 
 ---
 
@@ -165,7 +169,7 @@ Feed unit notes to an AI with the prompts described in your workflow (questions 
 | Leitner card boxes | `localStorage` |
 | Exam history | `localStorage` |
 | Personal notes | `localStorage` |
-| Settings (theme, pass %) | `localStorage` |
+| Settings (theme, text size, animations, pass %) | `localStorage` |
 
 Nothing leaves your machine.  
 **Settings → Export backup** downloads a full JSON snapshot.  
@@ -179,7 +183,8 @@ Nothing leaves your machine.
 - Runs on the `file://` protocol (classic `<script>` tags, no ES modules).
 - Inline SVG icons; system font stacks (mono for terminal flavor, sans for body).
 - Honors `prefers-reduced-motion`.
-- Ambient grid + soft glows; layered dark-blue surfaces; green / amber / cyan accents.
+- Ambient grid + soft glows; layered dark-blue surfaces.
+- Themeable accent system — Purple Night (violet) by default, plus Dracula, Monokai, Xcode, Nord, One Dark, Solarized Dark, Tokyo Night, and Light. Semantic green / amber / cyan / red states stay distinguishable in every theme.
 
 ---
 
