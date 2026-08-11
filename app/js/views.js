@@ -29,7 +29,7 @@
     svg.innerHTML =
       '<circle class="progress-ring-bg" cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" fill="none" stroke-width="6"/>' +
       '<circle class="progress-ring-fg" cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" fill="none" stroke-width="6" ' +
-      'stroke="' + (color || 'var(--accent-green)') + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>';
+      'stroke="' + (color || 'var(--accent-primary)') + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>';
     return svg;
   }
 
@@ -1717,30 +1717,85 @@
     }
   }
 
-  function viewSettings(root) {
-    root.appendChild(el('h1', { text: 'Settings' }));
-    var settings = App.store.getSettings();
-    var themePanel = el('div', { className: 'panel mb-3' });
-    themePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Theme' }));
-    var themeRow = el('div', { className: 'flex gap-sm' });
-    ['dark', 'light'].forEach(function (t) {
-      themeRow.appendChild(el('button', {
-        className: 'btn ' + ((settings.theme || 'dark') === t ? 'btn-primary' : 'btn-secondary') + ' btn-sm',
-        text: t.charAt(0).toUpperCase() + t.slice(1),
+  var THEME_META = [
+    { id: 'purple-night', name: 'Purple Night', desc: 'Deep purple technical', colors: ['#0d0b24', '#a78bfa', '#3dd68c', '#5ad1e6'] },
+    { id: 'dracula', name: 'Dracula', desc: 'Purple · pink · cyan', colors: ['#282a36', '#bd93f9', '#50fa7b', '#8be9fd'] },
+    { id: 'monokai', name: 'Monokai', desc: 'Classic editor palette', colors: ['#272822', '#a6e22e', '#66d9ef', '#f92672'] },
+    { id: 'xcode', name: 'Xcode', desc: 'Clean developer blue', colors: ['#232329', '#4da3ff', '#7ac943', '#ff9f0a'] },
+    { id: 'nord', name: 'Nord', desc: 'Calm arctic frost', colors: ['#2e3440', '#88c0d0', '#a3be8c', '#bf616a'] },
+    { id: 'one-dark', name: 'One Dark', desc: 'Restrained & professional', colors: ['#282c34', '#61afef', '#98c379', '#d19a66'] },
+    { id: 'solarized-dark', name: 'Solarized Dark', desc: 'Muted earthy tones', colors: ['#073642', '#268bd2', '#859900', '#b58900'] },
+    { id: 'tokyo-night', name: 'Tokyo Night', desc: 'Luminous indigo', colors: ['#1a1b26', '#7aa2f7', '#9ece6a', '#bb9af7'] },
+    { id: 'light', name: 'Light', desc: 'Classic light', colors: ['#ffffff', '#6c5ce7', '#1f9d61', '#0891b2'] }
+  ];
+  var themePickerOpen = false;
+
+  function themeMeta(id) {
+    for (var i = 0; i < THEME_META.length; i++) if (THEME_META[i].id === id) return THEME_META[i];
+    return THEME_META[0];
+  }
+
+  function buildThemePicker(settings, root) {
+    var current = App.core.normalizeTheme(settings.theme || 'purple-night');
+    var meta = themeMeta(current);
+    var panel = el('div', { className: 'panel theme-panel mb-3' + (themePickerOpen ? ' open' : '') });
+    var head = el('button', {
+      className: 'theme-picker-head',
+      'aria-expanded': themePickerOpen ? 'true' : 'false',
+      'aria-controls': 'theme-picker-body',
+      onClick: function () {
+        themePickerOpen = !themePickerOpen;
+        panel.classList.toggle('open', themePickerOpen);
+        head.setAttribute('aria-expanded', themePickerOpen ? 'true' : 'false');
+      }
+    });
+    head.appendChild(el('span', { className: 'label-upper', text: 'Theme' }));
+    head.appendChild(el('span', { className: 'theme-summary' }, [
+      el('span', { className: 'theme-swatches' }, meta.colors.map(function (c) { return el('i', { style: { background: c } }); })),
+      el('span', { text: meta.name })
+    ]));
+    head.appendChild(el('span', { className: 'theme-chevron', 'aria-hidden': 'true', text: '▾' }));
+    panel.appendChild(head);
+    var body = el('div', { className: 'theme-picker-body', id: 'theme-picker-body' });
+    var inner = el('div', { className: 'theme-picker-body-inner' });
+    var wrap = el('div');
+    var grid = el('div', { className: 'theme-grid' });
+    THEME_META.forEach(function (t) {
+      var isSel = t.id === current;
+      grid.appendChild(el('button', {
+        className: 'theme-card' + (isSel ? ' selected' : ''),
+        'aria-pressed': isSel ? 'true' : 'false',
         onClick: function () {
-          settings.theme = t;
+          settings.theme = t.id;
           App.store.saveSettings(settings);
-          App.core.applyTheme(t);
+          App.core.applyTheme(t.id);
           root.innerHTML = '';
           viewSettings(root);
         }
-      }));
+      }, [
+        el('span', { className: 'theme-card-swatches' }, t.colors.map(function (c) { return el('i', { style: { background: c } }); })),
+        el('span', { className: 'theme-card-name', text: t.name }),
+        el('span', { className: 'theme-card-desc', text: t.desc }),
+        isSel ? el('span', { className: 'theme-card-check', text: '✓' }) : null
+      ]));
     });
-    themePanel.appendChild(themeRow);
-    root.appendChild(themePanel);
+    wrap.appendChild(grid);
+    inner.appendChild(wrap);
+    body.appendChild(inner);
+    panel.appendChild(body);
+    return panel;
+  }
+
+  function viewSettings(root) {
+    root.appendChild(el('h1', { text: 'Settings' }));
+    var settings = App.store.getSettings();
+
+    // ── Appearance ──
+    root.appendChild(el('div', { className: 'settings-section', text: 'Appearance' }));
+    root.appendChild(buildThemePicker(settings, root));
 
     var accessPanel = el('div', { className: 'panel mb-3' });
-    accessPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Accessibility' }));
+    accessPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Text size' }));
     accessPanel.appendChild(el('p', { className: 'text-muted mb-2', text: 'Choose a comfortable reading size. This setting applies across the app and is saved on this device.' }));
     var sizeRow = el('div', { className: 'flex gap-sm', role: 'group', 'aria-label': 'Text size' });
     ['small', 'medium', 'large'].forEach(function (size) {
@@ -1784,6 +1839,8 @@
     motionPanel.appendChild(motionRow);
     root.appendChild(motionPanel);
 
+    // ── Study ──
+    root.appendChild(el('div', { className: 'settings-section', text: 'Study' }));
     var threshPanel = el('div', { className: 'panel mb-3' });
     threshPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Exam pass threshold' }));
     if (!settings.passThreshold) settings.passThreshold = {};
@@ -1804,6 +1861,8 @@
     });
     root.appendChild(threshPanel);
 
+    // ── Data ──
+    root.appendChild(el('div', { className: 'settings-section', text: 'Data' }));
     var contentPanel = el('div', { className: 'panel mb-3' });
     contentPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Content' }));
     contentPanel.appendChild(el('button', { className: 'btn btn-secondary btn-sm mb-2', text: 'Reload from certifications/', onClick: function () { App.content.reload(); } }));
@@ -1866,6 +1925,8 @@
     ]));
     root.appendChild(backupPanel);
 
+    // ── About ──
+    root.appendChild(el('div', { className: 'settings-section', text: 'About' }));
     var about = el('div', { className: 'panel' });
     about.appendChild(el('div', { className: 'label-upper mb-1', text: 'About' }));
     about.appendChild(el('p', { text: 'ReviewApp v1.0 — offline study hub for CompTIA Linux+ and Network+.' }));

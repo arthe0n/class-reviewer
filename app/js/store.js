@@ -255,7 +255,7 @@
   /* ── Settings ───────────────────────────────────────────── */
   function getSettings() {
     return get('settings', {
-      theme: 'dark',
+      theme: 'purple-night',
       textSize: 'medium',
       animations: true,
       passThreshold: { 'linux-plus': 70, 'network-plus': 70 },

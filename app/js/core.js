@@ -412,14 +412,33 @@
   }
 
   /* ── Theme ──────────────────────────────────────────────── */
+  var THEME_IDS = ['purple-night', 'dracula', 'monokai', 'xcode', 'nord', 'one-dark', 'solarized-dark', 'tokyo-night', 'light'];
+
+  function normalizeTheme(t) {
+    return THEME_IDS.indexOf(t) >= 0 ? t : 'purple-night';
+  }
+
   function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
-    localStorage.setItem('reviewapp.v1.theme', theme);
+    theme = normalizeTheme(theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    try { localStorage.setItem('reviewapp.v1.theme', theme); } catch (e) {}
+    try {
+      var s = App.store.getSettings();
+      if (s.theme !== theme) {
+        s.theme = theme;
+        App.store.saveSettings(s);
+      }
+    } catch (e) {}
   }
 
   function initTheme() {
-    var saved = localStorage.getItem('reviewapp.v1.theme') || 'dark';
-    applyTheme(saved);
+    // Legacy sources: the localStorage key and settings.theme ('dark' maps to
+    // the new default Purple Night; 'light' stays available as a legacy theme).
+    var stored = null;
+    try { stored = localStorage.getItem('reviewapp.v1.theme'); } catch (e) {}
+    var s = (App.store && App.store.getSettings) ? App.store.getSettings() : {};
+    var fromSettings = (s.theme && s.theme !== 'dark') ? s.theme : null;
+    applyTheme(stored || fromSettings || 'purple-night');
   }
 
   function applyTextSize(size) {
@@ -486,6 +505,8 @@
     getParams: function () { return currentParams; },
     applyTheme: applyTheme,
     applyTextSize: applyTextSize,
+    themeIds: THEME_IDS.slice(),
+    normalizeTheme: normalizeTheme,
     applyMotion: applyMotion,
     motionEnabled: motionEnabled,
     init: init
