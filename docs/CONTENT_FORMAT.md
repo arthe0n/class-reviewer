@@ -68,9 +68,11 @@ window.ReviewApp.content.register({
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `q` | string | yes | Question text |
-| `type` | `"mcq"` \| `"multi"` \| `"tf"` \| `"fill"` | yes | Question format |
+| `type` | `"mcq"` \| `"multi"` \| `"tf"` \| `"fill"` \| `"command_match"` | yes | Question format |
 | `options` | string[] | mcq/multi | Answer choices |
-| `answer` | number \| number[] \| boolean \| string | yes | Correct answer (see below) |
+| `answer` | number \| number[] \| boolean \| string | yes (except `command_match`) | Correct answer (see below) |
+| `command` | string | command_match | The command whose options are being matched |
+| `pairs` | array | command_match | Option/description pairs (see below) |
 | `explain` | string | recommended | Shown after answering |
 | `tags` | string[] | no | Used for theme attack & stats |
 
@@ -82,6 +84,32 @@ window.ReviewApp.content.register({
 | `multi` | Array of zero-based indices (e.g. `[0, 2]`) |
 | `tf` | `true` or `false` |
 | `fill` | String; compared case-insensitively after trim |
+| `command_match` | No `answer` field — the correct matching **is** the `pairs` array |
+
+### Command matching (`command_match`)
+
+The student must match each of a command's options/flags with its description. The command is shown as context, the options are listed in shuffled order, and each option has a dropdown of (shuffled) descriptions to pick from.
+
+```js
+{
+  q: "Match the ls options with their descriptions.",
+  type: "command_match",
+  command: "ls",
+  pairs: [
+    { option: "-a", description: "Show hidden files" },
+    { option: "-l", description: "Use long listing format" },
+    { option: "-h", description: "Show human-readable sizes" },
+    { option: "-R", description: "List directories recursively" }
+  ],
+  explain: "These options control which entries ls displays and how the output is formatted.",
+  tags: ["ls", "options"]
+}
+```
+
+- `command` (string, required): the command/tool the options belong to.
+- `pairs` (array, required): at least two `{ option, description }` objects. Options and descriptions must each be unique within the question; the engine silently drops pairs that are missing a side or duplicate an option/description. Questions with fewer than two valid pairs or no command are treated as invalid and rendered as "Question unavailable" instead of crashing.
+- A `command_match` question counts as **one** question for scoring and statistics, no matter how many pairs it contains.
+- The whole question is correct only if **every** option is matched to the right description (same all-or-nothing rule as `multi`).
 
 ---
 

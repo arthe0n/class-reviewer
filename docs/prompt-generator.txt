@@ -30,6 +30,7 @@ CONTENT REQUIREMENTS:
 - Prioritize compete coverage of the material over reaching a specific number. 
 - Fronts should be short (term, command, “What does X do?”, “Symbol for …”).
 - Backs must be accurate and useful for active recall.
+- COMMAND OPTIONS — group a command's options into ONE flashcard per command whenever possible. Front: the command, with a short label (e.g. “ls — Important options”), so the command stays visible on the front. Back: the option → description relationships, one per line (e.g. “-a → show all entries”). If the full set cannot reasonably fit or read well on one card, split it into AT MOST TWO cards for that command, grouping related options logically (e.g. display options vs. sorting/recursive options). NEVER create one flashcard per option for a multi-option command. This grouping rule applies ONLY to command-option information; all other flashcards follow the normal rules above.
 - Prioritize: key commands, metacharacters, file-type symbols, ls options, regex vs shell wildcards, vi basics, FHS-related path facts from the notes.
 - Tags: short lowercase keywords (e.g. ls, wildcards, grep, vi, file-types).
 - No duplicates. No fluff. No placeholders.
@@ -61,7 +62,7 @@ window.ReviewApp.content.register({
 QUESTION SCHEMA (every item must follow this):
 {
   q: "Clear, exam-style question text",
-  type: "mcq" | "multi" | "tf" | "fill",
+  type: "mcq" | "multi" | "tf" | "fill" | "command_match",
   options: ["A", "B", "C", "D"],   // required for mcq and multi only
   answer: <see below>,
   explain: "1–3 sentences explaining why the answer is correct and why common wrong answers fail",
@@ -73,6 +74,32 @@ ANSWER FORMATS:
 - multi: array of zero-based indices (e.g. [0, 2])
 - tf:    true or false
 - fill:  string (compared case-insensitive, trimmed)
+- command_match: no answer field — the pairs array IS the answer (see below)
+
+COMMAND MATCHING (command_match):
+A dedicated question type that tests the relationship between a command/tool and its options or flags. The command is the context, the options are listed, and the student must match each option to its description. It counts as ONE question no matter how many option/description pairs it contains — every pair belongs to that single question, and the whole question is correct only if every option is matched correctly.
+
+Schema (in addition to q and explain):
+{
+  q: "Match the ls options with their descriptions.",
+  type: "command_match",
+  command: "ls",
+  pairs: [
+    { option: "-a", description: "Show hidden files" },
+    { option: "-l", description: "Use long listing format" },
+    { option: "-h", description: "Show human-readable sizes" }
+  ],
+  explain: "These options modify how ls displays directory contents.",
+  tags: ["ls", "options"]
+}
+
+Rules for command_match:
+- command (string) and pairs (array of { option, description }) are required; include at least 2–6 meaningful pairs.
+- Options and descriptions must each be unique within the question. The pairs array IS the answer — do not add an answer field.
+- Use it when the notes contain a command option table or a meaningful set of options/flags worth memorizing (ls, grep, find, chmod, tar, ip, ss, ps, systemctl, curl, etc.). Do NOT generate one for every command automatically — skip commands whose options are trivial, redundant, or not worth testing.
+- Do NOT use it where a normal mcq is more appropriate (e.g. a single command/flag fact). command_match is for multi-option matching, not a replacement for mcq.
+- Options and descriptions must come ONLY from information supported by the provided notes. Do not invent flags.
+- The output must remain valid JavaScript matching the application's schema: q, type, command, pairs, explain, tags (all fields required except tags).
 
 CONTENT REQUIREMENTS:
 - Produce a minimum of 70 questions covering the entire unit notes below.

@@ -122,6 +122,33 @@ window.ReviewApp.content.register({
       answer: 2,
       explain: "DigitalOcean is a cloud service provider that offers Linux virtual machines. Oracle VirtualBox, Microsoft Hyper-V, and QEMU are local hypervisors or emulators that run on existing hardware, not cloud providers.",
       tags: ["cloud", "virtualization"]
+    },
+    {
+      q: "Match each ls option with its description.",
+      type: "command_match",
+      command: "ls",
+      pairs: [
+        { option: "-a", description: "Show all entries, including hidden files" },
+        { option: "-l", description: "Use long listing format with file details" },
+        { option: "-h", description: "Show human-readable file sizes" },
+        { option: "-R", description: "List subdirectories recursively" },
+        { option: "-t", description: "Sort by modification time, newest first" }
+      ],
+      explain: "These options control which entries ls displays and how the output is formatted: -a reveals hidden files, -l adds detail, -h makes sizes readable, -R recurses into subdirectories, and -t sorts by modification time.",
+      tags: ["ls", "options"]
+    },
+    {
+      q: "Match each grep option with its description.",
+      type: "command_match",
+      command: "grep",
+      pairs: [
+        { option: "-i", description: "Ignore case when matching" },
+        { option: "-r", description: "Search directories recursively" },
+        { option: "-n", description: "Print line numbers with matches" },
+        { option: "-v", description: "Show only lines that do NOT match" }
+      ],
+      explain: "grep options refine pattern matching: -i makes it case-insensitive, -r descends into directories, -n shows where matches occur, and -v inverts the match.",
+      tags: ["grep", "options"]
     }
   ]
 });

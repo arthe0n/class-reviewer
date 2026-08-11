@@ -446,6 +446,21 @@
     }));
   }
 
+  function appendQuestionReview(parent, q) {
+    parent.appendChild(el('div', { style: { fontWeight: '600' }, text: q.q }));
+    if (q.type === 'command_match' && Array.isArray(q.pairs)) {
+      var list = el('div', { className: 'cmd-match-answer mt-1' });
+      q.pairs.forEach(function (p) {
+        list.appendChild(el('div', { className: 'cmd-match-answer-row' }, [
+          el('code', { className: 'cmd-match-option', text: p.option }),
+          el('span', { className: 'text-muted', text: '→ ' + p.description })
+        ]));
+      });
+      parent.appendChild(list);
+    }
+    parent.appendChild(el('div', { className: 'explain-panel mt-1', text: q.explain || '' }));
+  }
+
   function renderQuizPlayer(root) {
     var sess = App.quiz.getQuizSession();
     if (!sess) { renderQuizSetup(root); return; }
@@ -466,6 +481,7 @@
     card.appendChild(el('div', { className: 'question-text', text: q.q }));
     var optsWrap = el('div', { className: 'options-list' });
     var selectedMulti = {};
+    var matchUI = null;
     function doSubmit(ua) {
       if (answered) return;
       answered = true;
@@ -488,6 +504,8 @@
           if ((q._correctShuffled || []).indexOf(i) >= 0) b.classList.add('correct');
           else if (selectedMulti[i]) b.classList.add('wrong');
         });
+      } else if (q.type === 'command_match' && matchUI) {
+        matchUI.lock();
       }
       card.appendChild(el('div', { className: 'explain-panel' }, [
         el('strong', { text: result.correct ? '✓ Correct. ' : '✗ Incorrect. ' }),
@@ -536,6 +554,15 @@
       });
     } else if (q.type === 'fill') {
       optsWrap.appendChild(el('input', { className: 'form-control', type: 'text', id: 'qz-fill', placeholder: 'Type answer…', autocomplete: 'off' }));
+    } else if (q.type === 'command_match') {
+      if (q._invalid) {
+        optsWrap.appendChild(emptyState('Question unavailable', 'This command-matching question is missing required data (command or pairs).'));
+      } else {
+        matchUI = App.quiz.renderCommandMatchUI(optsWrap, q, {
+          submitLabel: 'Submit',
+          onSubmit: function (arr) { doSubmit(arr); }
+        });
+      }
     }
     card.appendChild(optsWrap);
     root.appendChild(card);
@@ -626,8 +653,7 @@
       root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Review missed' }));
       missed.forEach(function (a) {
         var p = el('div', { className: 'panel mb-1' });
-        p.appendChild(el('div', { style: { fontWeight: '600' }, text: a.question.q }));
-        p.appendChild(el('div', { className: 'explain-panel mt-1', text: a.question.explain || '' }));
+        appendQuestionReview(p, a.question);
         root.appendChild(p);
       });
     }
@@ -755,6 +781,21 @@
           }
         }, [el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }), el('span', { text: opt.text })]));
       });
+    } else if (q.type === 'command_match') {
+      if (q._invalid) {
+        optsWrap.appendChild(emptyState('Question unavailable', 'This command-matching question is missing required data (command or pairs).'));
+      } else {
+        var curMatch = sess.answers[sess.index];
+        if (!Array.isArray(curMatch)) curMatch = null;
+        App.quiz.renderCommandMatchUI(optsWrap, q, {
+          initial: curMatch,
+          onChange: function (arr) {
+            App.quiz.examAnswer(sess.index, arr);
+            var cell = palette.querySelectorAll('.palette-cell')[sess.index];
+            if (cell) cell.classList.add('answered');
+          }
+        });
+      }
     }
     card.appendChild(optsWrap);
     var nav = el('div', { className: 'flex-between mt-2' });
@@ -819,8 +860,7 @@
         el('span', { className: 'label-upper', text: 'Q' + (i + 1) }),
         el('span', { className: 'chip ' + (r.correct ? 'chip-green' : 'chip-red'), text: r.correct ? 'Correct' : 'Wrong' })
       ]));
-      p.appendChild(el('div', { style: { fontWeight: '600', margin: '0.4rem 0' }, text: r.question.q }));
-      p.appendChild(el('div', { className: 'explain-panel', text: r.question.explain || '' }));
+      appendQuestionReview(p, r.question);
       root.appendChild(p);
     });
     root.appendChild(el('button', { className: 'btn btn-primary mt-3', text: 'Back to Dashboard', onClick: function () { App.core.navigate('#/dashboard'); } }));

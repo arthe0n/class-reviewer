@@ -10,10 +10,44 @@
   var el = utils.el;
 
   /* ── Helpers ────────────────────────────────────────────── */
+  // Validate/normalize a command_match question's pairs.
+  // Returns an array of { option, description } or null when malformed.
+  function sanitizeCommandMatch(q) {
+    var command = String(q.command == null ? '' : q.command).trim();
+    if (!command) return null;
+    var pairs = Array.isArray(q.pairs) ? q.pairs : [];
+    var seenOpt = {};
+    var seenDesc = {};
+    var clean = [];
+    pairs.forEach(function (p) {
+      if (!p || typeof p !== 'object') return;
+      var option = String(p.option == null ? '' : p.option).trim();
+      var description = String(p.description == null ? '' : p.description).trim();
+      if (!option || !description) return;      // drop pairs missing a side
+      if (seenOpt[option] || seenDesc[description]) return; // drop duplicates
+      seenOpt[option] = true;
+      seenDesc[description] = true;
+      clean.push({ option: option, description: description });
+    });
+    if (clean.length < 2) return null; // nothing meaningful to match
+    return clean;
+  }
+
   function prepareQuestion(raw) {
     var q = Object.assign({}, raw);
     q._origAnswer = q.answer;
-    if (q.type === 'mcq' || q.type === 'multi') {
+    if (q.type === 'command_match') {
+      var pairs = sanitizeCommandMatch(q);
+      if (!pairs) {
+        q._invalid = true;
+      } else {
+        q._pairs = pairs;
+        q._shuffledPairs = utils.shuffle(pairs);
+        var descs = utils.shuffle(pairs.map(function (p) { return p.description; }));
+        q._shuffledDescs = descs;
+        q._correctDescIdx = q._shuffledPairs.map(function (p) { return descs.indexOf(p.description); });
+      }
+    } else if (q.type === 'mcq' || q.type === 'multi') {
       var opts = (q.options || []).map(function (o, i) { return { text: o, origIdx: i }; });
       opts = utils.shuffle(opts);
       q._shuffledOptions = opts;
@@ -47,6 +81,15 @@
       var a = String(q.answer || '').trim().toLowerCase();
       var u = String(userAnswer || '').trim().toLowerCase();
       return a === u;
+    }
+    if (q.type === 'command_match') {
+      if (q._invalid || !Array.isArray(userAnswer)) return false;
+      var correct = q._correctDescIdx || [];
+      if (userAnswer.length !== correct.length) return false;
+      // One wrong match makes the whole question wrong (consistent with multi)
+      return correct.every(function (c, i) {
+        return Number(userAnswer[i]) === c;
+      });
     }
     return false;
   }
@@ -203,6 +246,90 @@
     return all;
   }
 
+  /* ── Command-match UI builder ───────────────────────────── */
+  // Shared by the quiz player, exam player and single-question modal.
+  // Renders the command banner + one row per option with a <select> of
+  // shuffled descriptions. Returns { lock } — lock() disables the rows and
+  // paints correct/wrong feedback, revealing the right answer on wrong rows.
+  function renderCommandMatchUI(container, q, opts) {
+    opts = opts || {};
+    var banner = el('div', { className: 'cmd-match-command' }, [
+      el('span', { className: 'cmd-match-command-label', text: 'COMMAND' }),
+      el('code', { className: 'cmd-match-command-name', text: q.command || '' })
+    ]);
+    container.appendChild(banner);
+
+    var rows = el('div', { className: 'cmd-match-rows' });
+    var selects = [];
+    var initial = Array.isArray(opts.initial) ? opts.initial : [];
+    q._shuffledPairs.forEach(function (pair, i) {
+      var row = el('div', { className: 'cmd-match-row' });
+      row.appendChild(el('code', { className: 'cmd-match-option', text: pair.option }));
+      var sel = el('select', {
+        className: 'form-control cmd-match-select',
+        'aria-label': 'Match ' + pair.option + ' with its description'
+      });
+      sel.appendChild(el('option', { value: '', text: '— choose description —' }));
+      q._shuffledDescs.forEach(function (desc, j) {
+        sel.appendChild(el('option', { value: String(j), text: desc }));
+      });
+      if (initial[i] != null) sel.value = String(initial[i]);
+      sel.addEventListener('change', function () {
+        if (opts.onChange) opts.onChange(read());
+      });
+      selects.push(sel);
+      row.appendChild(sel);
+      rows.appendChild(row);
+    });
+    container.appendChild(rows);
+
+    function read() {
+      return selects.map(function (s) {
+        return s.value === '' ? null : Number(s.value);
+      });
+    }
+
+    var submitBtn = null;
+
+    function lock() {
+      selects.forEach(function (s) { s.disabled = true; });
+      if (submitBtn) submitBtn.disabled = true;
+      q._shuffledPairs.forEach(function (pair, i) {
+        var row = rows.children[i];
+        var chosen = selects[i].value;
+        var correctIdx = q._correctDescIdx[i];
+        if (String(correctIdx) === chosen) {
+          row.classList.add('correct');
+        } else {
+          row.classList.add('wrong');
+          row.appendChild(el('span', {
+            className: 'cmd-match-correct',
+            text: '→ ' + q._shuffledDescs[correctIdx]
+          }));
+        }
+      });
+    }
+
+    if (opts.submitLabel) {
+      submitBtn = el('button', {
+        className: 'btn btn-primary mt-1',
+        text: opts.submitLabel,
+        onClick: function () {
+          if (opts.locked) return;
+          var arr = read();
+          if (arr.some(function (v) { return v == null; })) {
+            App.toast('Match every option before submitting', 'error');
+            return;
+          }
+          opts.onSubmit(arr);
+        }
+      });
+      container.appendChild(submitBtn);
+    }
+
+    return { lock: lock, read: read, selects: selects };
+  }
+
   /* ── Render single question (for search modal) ──────────── */
   function renderSingle(container, rawQ) {
     var q = prepareQuestion(rawQ);
@@ -297,6 +424,22 @@
           finish(correct, q.explain);
         }
       }));
+    } else if (q.type === 'command_match') {
+      if (q._invalid) {
+        optsWrap.appendChild(el('div', { className: 'empty-state', style: { padding: '1rem' } }, [
+          el('h3', { text: 'Question unavailable' }),
+          el('p', { text: 'This command-matching question is missing required data (command or pairs).' })
+        ]));
+      } else {
+        var ui = renderCommandMatchUI(optsWrap, q, {
+          submitLabel: 'Check',
+          onSubmit: function (arr) {
+            if (answered) return;
+            ui.lock();
+            finish(checkAnswer(q, arr), q.explain);
+          }
+        });
+      }
     }
     container.appendChild(optsWrap);
   }
@@ -415,6 +558,8 @@
     buildPool: buildPool,
     prepareQuestion: prepareQuestion,
     checkAnswer: checkAnswer,
+    sanitizeCommandMatch: sanitizeCommandMatch,
+    renderCommandMatchUI: renderCommandMatchUI,
     renderSingle: renderSingle,
     startExam: startExam,
     examAnswer: examAnswer,

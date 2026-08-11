@@ -102,6 +102,11 @@ window.ReviewApp.content.register({
       front: "Which cloud providers are mentioned as options for running Linux VMs?",
       back: "Amazon Web Services (AWS), Microsoft Azure, and DigitalOcean.",
       tags: ["cloud", "virtualization"]
+    },
+    {
+      front: "ls — Important options",
+      back: "-a → show all entries, including hidden files\n-l → use long listing format\n-h → show human-readable sizes\n-R → list subdirectories recursively\n-t → sort by modification time (newest first)",
+      tags: ["ls", "options"]
     }
   ]
 });

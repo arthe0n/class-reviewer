@@ -286,7 +286,12 @@
     var results = [];
 
     registry.questions.forEach(function (item) {
-      var text = (item.q || '') + ' ' + (item.explain || '') + ' ' + (item.tags || []).join(' ');
+      var pairText = '';
+      if (item.type === 'command_match' && Array.isArray(item.pairs)) {
+        pairText = item.pairs.map(function (p) { return (p.option || '') + ' ' + (p.description || ''); }).join(' ');
+      }
+      var text = (item.q || '') + ' ' + (item.command || '') + ' ' + pairText + ' ' +
+        (item.explain || '') + ' ' + (item.tags || []).join(' ');
       if (text.toLowerCase().indexOf(q) >= 0) {
         results.push({
           group: 'Questions',
