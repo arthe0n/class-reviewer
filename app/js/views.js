@@ -59,7 +59,7 @@
       counts.flashcards + ' cards · ' + counts.labs + ' labs — SYSTEM READY';
     var strip = el('div', { className: 'terminal-strip', 'aria-label': 'System status' });
     root.appendChild(strip);
-    if (utils.prefersReducedMotion()) {
+    if (!App.core.motionEnabled()) {
       strip.textContent = termText;
     } else {
       var i = 0;
@@ -1756,6 +1756,29 @@
     });
     accessPanel.appendChild(sizeRow);
     root.appendChild(accessPanel);
+
+    var motionPanel = el('div', { className: 'panel mb-3' });
+    motionPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Animations' }));
+    motionPanel.appendChild(el('p', { className: 'text-muted mb-2', text: 'Smooth transitions and micro-interactions across the app. Turn off for an instantly static interface.' }));
+    var motionRow = el('div', { className: 'flex gap-sm', role: 'group', 'aria-label': 'Animations' });
+    var motionOn = settings.animations !== false;
+    [['On', true], ['Off', false]].forEach(function (opt) {
+      var isCurrent = motionOn === opt[1];
+      motionRow.appendChild(el('button', {
+        className: 'btn ' + (isCurrent ? 'btn-primary' : 'btn-secondary') + ' btn-sm',
+        text: opt[0],
+        'aria-pressed': isCurrent ? 'true' : 'false',
+        onClick: function () {
+          settings.animations = opt[1];
+          App.store.saveSettings(settings);
+          App.core.applyMotion();
+          root.innerHTML = '';
+          viewSettings(root);
+        }
+      }));
+    });
+    motionPanel.appendChild(motionRow);
+    root.appendChild(motionPanel);
 
     var threshPanel = el('div', { className: 'panel mb-3' });
     threshPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Exam pass threshold' }));

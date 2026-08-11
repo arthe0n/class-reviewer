@@ -257,6 +257,7 @@
     return get('settings', {
       theme: 'dark',
       textSize: 'medium',
+      animations: true,
       passThreshold: { 'linux-plus': 70, 'network-plus': 70 },
       lastStudy: null
     });

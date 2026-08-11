@@ -115,7 +115,7 @@
     },
 
     countUp: function (el, target, duration) {
-      if (utils.prefersReducedMotion()) {
+      if (!motionEnabled()) {
         el.textContent = String(target);
         return;
       }
@@ -243,6 +243,28 @@
           utils.el('p', { text: String(err.message || err) })
         ]));
       }
+    }
+    // Animate progress indicators into their final values (visual only)
+    if (motionEnabled()) {
+      utils.$$('.progress-fill', root).forEach(function (fill) {
+        var w = fill.style.width;
+        if (w) {
+          fill.style.width = '0%';
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { fill.style.width = w; });
+          });
+        }
+      });
+      utils.$$('.progress-ring-fg', root).forEach(function (ring) {
+        var dash = ring.getAttribute('stroke-dasharray');
+        var off = ring.getAttribute('stroke-dashoffset');
+        if (dash && off) {
+          ring.setAttribute('stroke-dashoffset', dash);
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () { ring.setAttribute('stroke-dashoffset', off); });
+          });
+        }
+      });
     }
   }
 
@@ -395,11 +417,29 @@
     document.documentElement.setAttribute('data-text-size', allowed[size] ? size : 'medium');
   }
 
+  /* ── Motion ─────────────────────────────────────────────── */
+  // Animations are on unless the user explicitly disables them in Settings,
+  // or the OS/browser asks for reduced motion.
+  function motionEnabled() {
+    if (utils.prefersReducedMotion()) return false;
+    return document.documentElement.getAttribute('data-motion') !== 'off';
+  }
+
+  function applyMotion() {
+    var on = true;
+    try {
+      var s = App.store && App.store.getSettings ? App.store.getSettings() : {};
+      on = s.animations !== false;
+    } catch (e) { on = true; }
+    document.documentElement.setAttribute('data-motion', on ? 'on' : 'off');
+  }
+
   /* ── Boot ───────────────────────────────────────────────── */
   function init() {
     initTheme();
     var settings = App.store && App.store.getSettings ? App.store.getSettings() : {};
     applyTextSize(settings.textSize || 'medium');
+    applyMotion();
     initSidebar();
     initSearch();
 
@@ -436,6 +476,8 @@
     getParams: function () { return currentParams; },
     applyTheme: applyTheme,
     applyTextSize: applyTextSize,
+    applyMotion: applyMotion,
+    motionEnabled: motionEnabled,
     init: init
   };
 

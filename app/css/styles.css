@@ -50,7 +50,17 @@
 
   /* Motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.3, 0.48, 1);
   --dur: 0.22s;
+  --motion-fast: 130ms;
+  --motion-normal: 220ms;
+  --motion-slow: 320ms;
+  --motion-slower: 480ms;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.18);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 22px 60px rgba(0, 0, 0, 0.5);
 }
 
 /* Light theme overrides */
@@ -132,6 +142,43 @@ body::after {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Animations off (Settings → Animations): render instantly, no motion */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation: none !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
+
+/* ── Motion system ─────────────────────────────────────────
+   Small shared motion language:
+   · rise-in / fade-in — content appearing
+   · pop-in — dropdowns & overlays
+   · bar-grow — charts & progress
+   · ease-spring — pressed/pop micro-interactions */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+/* Every view fades/slides in once per render */
+.view-root > * { animation: rise-in var(--motion-slow) var(--ease); }
 
 /* ── App shell ────────────────────────────────────────────── */
 .app-shell {
