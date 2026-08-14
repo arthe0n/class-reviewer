@@ -309,6 +309,3 @@ Add that path to certifications/_manifest.js → files array.
 Open ReviewApp and hit Reload.
 
 For your sample notes, good chapter labels would be along the lines of:
-
-Ch 02 · Working with Files
-or Ch 03 · Files, Paths & Text Tools
