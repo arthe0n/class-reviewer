@@ -1,7 +1,7 @@
 window.ReviewApp.content.register({
   type: "labs",
   cert: "linux-plus",
-  chapter: "Ch 2.4 · Linux Server Services",
+  chapter: "Ch 2 · Linux Server Services",
   items: [
     {
       title: "Inspecting Daemons, Ports, and Systemd Services",
