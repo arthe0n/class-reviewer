@@ -77,5 +77,5 @@ window.ReviewApp.content.register({
 For complete field-by-field schemas for questions, flashcards, labs, and notes,
 see **[CONTENT_FORMAT.md](./CONTENT_FORMAT.md)**.
 
-To generate content from your own notes, use the templates in
-**[prompt-generator.txt](./prompt-generator.txt)**.
+To generate content from your own notes, copy a ready-to-use prompt from
+**[prompt-generator.md](./prompt-generator.md)**.

@@ -1,0 +1,328 @@
+# AI Prompt Generator
+
+Ready-to-use prompts for turning your own study notes into ReviewApp content
+with an AI assistant. Each prompt is **copy-and-paste**: drop in your unit
+notes and send it — the AI replies with a complete `.js` file.
+
+## How to use
+
+1. Copy one prompt below.
+2. Replace the `PASTE YOUR UNIT NOTES HERE` placeholder with your full notes.
+3. Send it to the AI.
+4. Save the reply as a `.js` file under the matching folder, e.g.
+   `certifications/linux-plus/questions/ch02-working-with-files.js`.
+5. Add that path to `certifications/_manifest.js` → `files`.
+6. Open ReviewApp and hit **Reload**.
+
+---
+
+## Flashcards
+
+> You are generating CompTIA Linux+ flashcards for the offline ReviewApp study tool.
+>
+> OUTPUT RULES (strict):
+> - Output ONE complete classic JS file only. No markdown fences, no commentary before or after.
+> - Use exactly this shape:
+>
+> ```js
+> window.ReviewApp.content.register({
+>   type: "flashcards",
+>   cert: "linux-plus",
+>   chapter: "Ch XX · <Short Chapter Title>",
+>   items: [ /* array of card objects */ ]
+> });
+> ```
+>
+> CARD SCHEMA (every item):
+> ```js
+> {
+>   front: "Concise prompt / term / question (one line preferred)",
+>   back: "Clear answer or short explanation (1–3 sentences max)",
+>   tags: ["tag1", "tag2"]
+> }
+> ```
+>
+> CONTENT REQUIREMENTS:
+> - Produce a minimum of 70 cards covering the entire unit notes below.
+> - Create more flashcards if the content contains enough important information.
+> - Prioritize complete coverage of the material over reaching a specific number.
+> - Fronts should be short (term, command, “What does X do?”, “Symbol for …”).
+> - Backs must be accurate and useful for active recall.
+> - COMMAND OPTIONS — group a command's options into ONE flashcard per command whenever possible. Front: the command, with a short label (e.g. “ls — Important options”), so the command stays visible on the front. Back: the option → description relationships, one per line (e.g. “-a → show all entries”). If the full set cannot reasonably fit or read well on one card, split it into AT MOST TWO cards for that command, grouping related options logically (e.g. display options vs. sorting/recursive options). NEVER create one flashcard per option for a multi-option command. This grouping rule applies ONLY to command-option information; all other flashcards follow the normal rules above.
+> - Prioritize: key commands, metacharacters, file-type symbols, ls options, regex vs shell wildcards, vi basics, FHS-related path facts from the notes.
+> - Tags: short lowercase keywords (e.g. ls, wildcards, grep, vi, file-types).
+> - No duplicates. No fluff. No placeholders.
+> - Chapter title: invent a concise title that matches the notes.
+>
+> UNIT NOTES:
+>
+> [PASTE YOUR UNIT NOTES HERE]
+
+---
+
+## Questions
+
+> You are generating CompTIA Linux+ practice questions for the offline ReviewApp study tool.
+>
+> OUTPUT RULES (strict):
+> - Output ONE complete classic JS file only. No markdown fences, no commentary before or after.
+> - Use exactly this shape:
+>
+> ```js
+> window.ReviewApp.content.register({
+>   type: "questions",
+>   cert: "linux-plus",
+>   chapter: "Ch XX · <Short Chapter Title>",
+>   items: [ /* array of question objects */ ]
+> });
+> ```
+>
+> QUESTION SCHEMA (every item must follow this):
+> ```js
+> {
+>   q: "Clear, exam-style question text",
+>   type: "mcq" | "multi" | "tf" | "fill" | "command_match",
+>   options: ["A", "B", "C", "D"],   // required for mcq and multi only
+>   answer: <see below>,
+>   explain: "1–3 sentences explaining why the answer is correct and why common wrong answers fail",
+>   tags: ["tag1", "tag2"]
+> }
+> ```
+>
+> ANSWER FORMATS:
+> - mcq:   zero-based index (e.g. 0)
+> - multi: array of zero-based indices (e.g. [0, 2])
+> - tf:    true or false
+> - fill:  string (compared case-insensitive, trimmed)
+> - command_match: no answer field — the pairs array IS the answer (see below)
+>
+> COMMAND MATCHING (command_match):
+> A dedicated question type that tests the relationship between a command/tool and its options or flags. The command is the context, the options are listed, and the student must match each option to its description. It counts as ONE question no matter how many option/description pairs it contains — every pair belongs to that single question, and the whole question is correct only if every option is matched correctly.
+>
+> Schema (in addition to q and explain):
+> ```js
+> {
+>   q: "Match the ls options with their descriptions.",
+>   type: "command_match",
+>   command: "ls",
+>   pairs: [
+>     { option: "-a", description: "Show hidden files" },
+>     { option: "-l", description: "Use long listing format" },
+>     { option: "-h", description: "Show human-readable sizes" }
+>   ],
+>   explain: "These options modify how ls displays directory contents.",
+>   tags: ["ls", "options"]
+> }
+> ```
+>
+> Rules for command_match:
+> - command (string) and pairs (array of { option, description }) are required; include at least 2–6 meaningful pairs.
+> - Options and descriptions must each be unique within the question. The pairs array IS the answer — do not add an answer field.
+> - Use it when the notes contain a command option table or a meaningful set of options/flags worth memorizing (ls, grep, find, chmod, tar, ip, ss, ps, systemctl, curl, etc.). Do NOT generate one for every command automatically — skip commands whose options are trivial, redundant, or not worth testing.
+> - Do NOT use it where a normal mcq is more appropriate (e.g. a single command/flag fact). command_match is for multi-option matching, not a replacement for mcq.
+> - Options and descriptions must come ONLY from information supported by the provided notes. Do not invent flags.
+> - The output must remain valid JavaScript matching the application's schema: q, type, command, pairs, explain, tags (all fields required except tags).
+>
+> CONTENT REQUIREMENTS:
+> - Produce a minimum of 70 questions covering the entire unit notes below.
+> - Create more questions if the content contains enough important information.
+> - Prioritize complete coverage of the material over reaching a specific number.
+> - Mix types: roughly 50% mcq, 20% multi, 15% tf, 15% fill.
+> - Questions must be technically accurate for CompTIA Linux+.
+> - Prefer application and discrimination over pure recall (e.g. “which command…”, “what does this output mean…”, “given this scenario…”).
+> - Cover every major objective and command table in the notes.
+> - Tags should be short lowercase keywords drawn from the topic (e.g. paths, wildcards, grep, vi, ls, regex).
+> - No lorem ipsum. No placeholder text. No “TODO”.
+> - Chapter title: invent a concise title that matches the notes (e.g. “Ch 02 · Working with Files”).
+>
+> UNIT NOTES:
+>
+> [PASTE YOUR UNIT NOTES HERE]
+
+---
+
+## Labs
+
+> You are generating a CompTIA Linux+ hands-on lab for the offline ReviewApp study tool.
+>
+> OUTPUT RULES (strict):
+> - Output ONE complete classic JS file only. No markdown fences, no commentary before or after.
+> - Use exactly this shape:
+>
+> ```js
+> window.ReviewApp.content.register({
+>   type: "labs",
+>   cert: "linux-plus",
+>   chapter: "Ch XX · <Short Chapter Title>",
+>   items: [
+>     {
+>       title: "Descriptive lab title",
+>       difficulty: 1 | 2 | 3,
+>       minutes: <number>,
+>       scenario: "Markdown paragraph(s) setting context and goal",
+>       objectives: ["Observable skill 1", "Observable skill 2", "..."],
+>       steps: [
+>         {
+>           do: "What the student should do (clear instruction)",
+>           hint: "Optional gentle hint without giving the full answer",
+>           solution: "Exact command(s) or actions that solve the step (copy-pasteable)",
+>           check: "How to verify the step succeeded"
+>         }
+>       ],
+>       tags: ["tag1", "tag2"]
+>     }
+>   ]
+> });
+> ```
+>
+> CONTENT REQUIREMENTS:
+> - Create 1+ solid lab (optionally another shorter one if the notes support it).
+> - 4–7 steps that build on each other and exercise the commands/concepts in the notes.
+> - Scenario should feel realistic (junior sysadmin task, troubleshooting, exploration).
+> - difficulty: 1 = guided intro, 2 = intermediate, 3 = multi-skill.
+> - minutes: honest estimate (15–40 typical).
+> - Solutions must be real Linux commands that work on a standard distro.
+> - Cover the most lab-friendly parts of the notes (navigation, ls options, wildcards, viewing files, grep, basic vi).
+> - Tags: short lowercase keywords.
+> - Chapter title: invent a concise title that matches the notes.
+> - No placeholders. No “TODO”.
+>
+> UNIT NOTES:
+>
+> [PASTE YOUR UNIT NOTES HERE]
+
+---
+
+## Notes
+
+> You are generating a compact study note for the offline ReviewApp tool (CompTIA Linux+).
+>
+> OUTPUT RULES (strict):
+> - Output ONE complete classic JS file only. No markdown fences, no commentary before or after.
+> - Use exactly this shape:
+>
+> ```js
+> window.ReviewApp.content.register({
+>   type: "notes",
+>   cert: "linux-plus",
+>   chapter: "Ch XX · <Short Chapter Title>",
+>   items: [
+>     {
+>       title: "Clear note title",
+>       body: "Markdown body (see allowed syntax below)",
+>       tags: ["tag1", "tag2"]
+>     }
+>   ]
+> });
+> ```
+>
+> ALLOWED MARKDOWN in body:
+> - Headings: # ## ###
+> - Bold **text**, italic *text*
+> - Inline code `like this`
+> - Fenced code blocks ``` ... ```
+> - Unordered lists (- or *) and ordered lists (1.)
+> - Links [label](https://...)
+> - Horizontal rules ---
+>
+> CONTENT REQUIREMENTS:
+> - Produce 1 (or at most 2) dense, exam-oriented note(s) that reorganize the unit notes below into a clean reference.
+> - Prefer tables and short command lists over long prose.
+> - Include: key path concepts, file types + ls -F symbols, important ls options, wildcards vs regex, cat/head/tail/less, grep options, vi open/modes if present.
+> - Keep it scannable — someone should be able to review in 5–8 minutes.
+> - Tags: short lowercase keywords.
+> - Chapter title: invent a concise title that matches the notes.
+> - No fluff, no placeholders, no “TODO”.
+>
+> UNIT NOTES:
+>
+> [PASTE YOUR UNIT NOTES HERE]
+
+---
+
+## Command Summary
+
+> You are an expert technical documentation assistant specialized in Linux, networking, cybersecurity, and IT certifications (Linux+, Network+, Security+, etc.).
+>
+> I will provide you with raw study notes. Your job is to extract ONLY the commands, tools, utilities, protocols, and CLI syntax examples from my notes.
+>
+> Ignore:
+> - General explanations
+> - Theory paragraphs
+> - Stories/examples that do not contain commands
+> - Memorization tips
+> - Exam objectives without commands
+>
+> For every command or tool you find, create a structured Markdown (.md) reference table.
+>
+> The table must contain these columns:
+>
+> | Command | Description | Options/Flags | Usage Example |
+>
+> Requirements:
+>
+> 1. Command:
+> - Write the exact command name or syntax.
+> - Include important syntax patterns if relevant.
+> - Keep commands separated if multiple commands appear.
+>
+> 2. Description:
+> - Give a short but accurate explanation of what the command does.
+> - Explain its purpose in a Linux/networking/security administration context.
+>
+> 3. Options/Flags:
+> - List the most important options, flags, switches, and arguments.
+> - Format them clearly.
+> - Include the purpose of each option.
+> - If the command has no meaningful options, write "N/A".
+>
+> Example format:
+> - `-a` → show all entries
+> - `-n` → do not resolve hostnames
+> - `-v` → verbose output
+>
+> 4. Usage Example:
+> - Provide a realistic command example.
+> - Include placeholders when needed.
+> - Explain what the example accomplishes.
+>
+> Example:
+> `grep -i "error" /var/log/syslog`
+> → Searches the syslog file for "error" without case sensitivity.
+>
+> 5. Missing Information:
+> If my notes mention a command but do not provide enough details:
+> - Use your existing knowledge to complete the missing description, options, and examples.
+> - Do not leave incomplete entries.
+> - If you are unsure, clearly mark the information as "Verify".
+>
+> 6. Accuracy:
+> - Prefer official Linux man-page behavior and commonly accepted industry usage.
+> - Do not invent flags or syntax.
+> - If a command differs between distributions (Ubuntu, Debian, RHEL, Fedora, etc.), mention the difference briefly.
+>
+> 7. Organization:
+> Organize the final Markdown file by category when possible:
+>
+> ```text
+> ## File Management Commands
+> ## Networking Commands
+> ## Process Management Commands
+> ## User and Permission Commands
+> ## Disk and Storage Commands
+> ## Security Commands
+> ## Package Management Commands
+> ## Troubleshooting Commands
+> ## Other Commands
+> ```
+>
+> 8. Output Rules:
+> - Output ONLY Markdown.
+> - Do not include explanations before or after the table.
+> - Do not summarize the notes.
+> - Do not include non-command information.
+> - Make the final output ready to save as a `.md` file.
+>
+> Here are my notes:
+>
+> [PASTE YOUR UNIT NOTES HERE]

@@ -80,6 +80,11 @@ there, then reload. See **[Adding Certifications & Content](./docs/CONTENT.md)**
 and use the full schemas in
 **[CONTENT_FORMAT.md](./docs/CONTENT_FORMAT.md)** when writing content.
 
+Prefer an AI to do the writing? The
+**[AI Prompt Generator](./docs/prompt-generator.md)** has ready-made prompts you
+can copy, paste your notes into, and send — the AI replies with a complete
+content file.
+
 ---
 
 ## Documentation
@@ -89,7 +94,7 @@ and use the full schemas in
 - **[Adding Certifications & Content](./docs/CONTENT.md)** — how to add study material
 - **[Study Flows](./docs/STUDY-FLOWS.md)** — how the app is meant to be used
 - **[Content Format](./docs/CONTENT_FORMAT.md)** — full question/flashcard/lab/note schemas
-- **[Prompt Generator](./docs/prompt-generator.txt)** — AI templates for generating content
+- **[AI Prompt Generator](./docs/prompt-generator.md)** — ready-made prompts you can copy, paste your notes into, and send to an AI
 
 ---
 
