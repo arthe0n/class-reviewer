@@ -27,8 +27,10 @@ persisted locally in `localStorage`.
 
 ## Screenshots
 
-The repository includes screenshots of the main study views in
-[`docs/screenshots/`](./docs/screenshots/).
+The repository includes current screenshots of the main study views in
+[`docs/screenshots/`](./docs/screenshots/). They reflect the current dark
+terminal-inspired UI, populated study analytics, and certification-scoped
+layout.
 
 | Dashboard | Quiz |
 |---|---|
