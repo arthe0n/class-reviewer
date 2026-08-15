@@ -35,6 +35,15 @@
     localStorage.removeItem(key(k));
   }
 
+  /* ── Current certification ──────────────────────────────── */
+  function getCurrentCert() {
+    return get('currentCert', null);
+  }
+
+  function setCurrentCert(id) {
+    return set('currentCert', id);
+  }
+
   /* ── Answer log ─────────────────────────────────────────── */
   // { id, qId, cert, chapter, tags, correct, type, ts, mode }
   function logAnswer(entry) {
@@ -79,10 +88,10 @@
     };
   }
 
-  function weakQuestions(threshold) {
+  function weakQuestions(threshold, cert) {
     threshold = threshold == null ? 60 : threshold;
     var byQ = {};
-    getAnswers().forEach(function (a) {
+    (cert ? getAnswers({ cert: cert }) : getAnswers()).forEach(function (a) {
       if (!byQ[a.qId]) byQ[a.qId] = { correct: 0, total: 0, tags: a.tags, cert: a.cert, chapter: a.chapter };
       byQ[a.qId].total++;
       if (a.correct) byQ[a.qId].correct++;
@@ -121,9 +130,9 @@
   }
 
   /* ── Activity (14-day) ──────────────────────────────────── */
-  function getActivity(days) {
+  function getActivity(days, cert) {
     days = days || 14;
-    var ans = getAnswers();
+    var ans = cert ? getAnswers({ cert: cert }) : getAnswers();
     var map = {};
     var now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -156,8 +165,10 @@
     return attempt;
   }
 
-  function getExams() {
-    return get('exams', []);
+  function getExams(cert) {
+    var hist = get('exams', []);
+    if (!cert) return hist;
+    return hist.filter(function (e) { return e.cert === cert; });
   }
 
   /* ── Labs completed ─────────────────────────────────────── */
@@ -172,8 +183,10 @@
     return !!done[labId];
   }
 
-  function labsCompletedCount() {
-    return Object.keys(get('labsDone', {})).length;
+  function labsCompletedCount(cert) {
+    var keys = Object.keys(get('labsDone', {}));
+    if (!cert) return keys.length;
+    return keys.filter(function (k) { return k.indexOf(cert + ':') === 0; }).length;
   }
 
   /* ── Flashcard Leitner state ────────────────────────────── */
@@ -219,11 +232,142 @@
     });
   }
 
-  function cardsDueCount() {
+  function cardsDueCount(cert) {
     if (!App.content) return 0;
-    var cards = App.content.getAll('flashcards');
+    var cards = cert ? App.content.getByCert('flashcards', cert) : App.content.getAll('flashcards');
     var keys = cards.map(function (c) { return c._key; });
     return cardsDue(keys).length;
+  }
+
+  /* ── Flashcard review log ───────────────────────────────── */
+  // Per-attempt record: { cardId, cert, chapter, tags, outcome, sessionId, sessionTs, attempt, ts }
+  function logCardReview(entry) {
+    var log = get('cardReviews', []);
+    entry.id = entry.id || App.core.utils.uid();
+    entry.ts = entry.ts || Date.now();
+    log.push(entry);
+    if (log.length > 20000) log = log.slice(-20000);
+    set('cardReviews', log);
+    return entry;
+  }
+
+  function getCardReviews(filter) {
+    var log = get('cardReviews', []);
+    if (!filter) return log;
+    return log.filter(function (r) {
+      if (filter.cert && r.cert !== filter.cert) return false;
+      if (filter.chapter && r.chapter !== filter.chapter) return false;
+      if (filter.since && r.ts < filter.since) return false;
+      if (filter.until && r.ts > filter.until) return false;
+      if (filter.sessionId && r.sessionId !== filter.sessionId) return false;
+      return true;
+    });
+  }
+
+  /* ── Flashcard session state (resume across refresh) ────── */
+  function saveFlashSession(state) {
+    if (state) set('flashSession', state);
+    else remove('flashSession');
+  }
+
+  function getFlashSession() {
+    return get('flashSession', null);
+  }
+
+  function clearFlashSession() {
+    remove('flashSession');
+  }
+
+  /* ── Flashcard session history ──────────────────────────── */
+  function saveFlashSessionSummary(summary) {
+    var hist = get('flashSessions', []);
+    hist.unshift(summary);
+    if (hist.length > 200) hist = hist.slice(0, 200);
+    set('flashSessions', hist);
+    return summary;
+  }
+
+  function getFlashSessions() {
+    return get('flashSessions', []);
+  }
+
+  /* ── Flashcard weak-area analytics ──────────────────────── */
+  function aggregateCardReviews(reviews) {
+    var topics = {};
+    reviews.forEach(function (r) {
+      var tags = (r.tags && r.tags.length) ? r.tags : ['(untagged)'];
+      tags.forEach(function (tag) {
+        var key = (r.cert || '') + '\u0000' + (r.chapter || '') + '\u0000' + tag;
+        var g = topics[key] || (topics[key] = {
+          cert: r.cert || null,
+          chapter: r.chapter || null,
+          tag: tag,
+          attempts: 0, agains: 0,
+          cards: {}, sessions: {},
+          firstTs: Infinity, lastTs: 0
+        });
+        g.attempts++;
+        if (r.outcome === 'again') g.agains++;
+        if (r.cardId) g.cards[r.cardId] = true;
+        if (r.sessionId) g.sessions[r.sessionId] = true;
+        if (r.ts < g.firstTs) g.firstTs = r.ts;
+        if (r.ts > g.lastTs) g.lastTs = r.ts;
+      });
+    });
+    return topics;
+  }
+
+  function flashcardWeakAreas(opts) {
+    opts = opts || {};
+    var days = opts.days || 7;
+    var now = Date.now();
+    var recentSince = now - days * 86400000;
+    var olderSince = recentSince - days * 86400000;
+
+    var recent = aggregateCardReviews(getCardReviews({ since: recentSince }));
+    var older = aggregateCardReviews(getCardReviews({ since: olderSince, until: recentSince }));
+
+    var list = [];
+    Object.keys(recent).forEach(function (key) {
+      var g = recent[key];
+      if (opts.cert && g.cert !== opts.cert) return; // scope to the active certification
+      if (!g.agains) return; // only topics with actual difficulty are weak areas
+      var ratio = g.attempts ? g.agains / g.attempts : 0;
+      var cards = Object.keys(g.cards).length;
+      var sessions = Object.keys(g.sessions).length;
+      var daysSince = Math.max(0, (now - g.lastTs) / 86400000);
+      var recency = 1 / (1 + daysSince * 0.35);
+
+      // Recent improvement: fewer Again per attempt now than previously.
+      var old = older[key];
+      var improving = false;
+      if (old && old.attempts) {
+        improving = ratio < (old.agains / old.attempts);
+      }
+
+      var difficulty = g.agains * 2 + cards * 3 + sessions * 2;
+      var score = difficulty * (1 + ratio) * recency * (improving ? 0.6 : 1);
+
+      list.push({
+        cert: g.cert,
+        chapter: g.chapter,
+        tag: g.tag,
+        agains: g.agains,
+        attempts: g.attempts,
+        ratio: Math.round(ratio * 100),
+        cards: cards,
+        sessions: sessions,
+        daysSince: Math.round(daysSince),
+        improving: improving,
+        score: score
+      });
+    });
+
+    return list.sort(function (a, b) { return b.score - a.score; });
+  }
+
+  function weeklyReviewRecommendations(limit, cert) {
+    return flashcardWeakAreas({ days: 7, cert: cert || undefined }).slice(0, limit || 5);
   }
 
   /* ── Personal notes ─────────────────────────────────────── */
@@ -255,7 +399,7 @@
   /* ── Settings ───────────────────────────────────────────── */
   function getSettings() {
     return get('settings', {
-      theme: 'purple-night',
+      theme: 'monokai',
       textSize: 'medium',
       animations: true,
       passThreshold: { 'linux-plus': 70, 'network-plus': 70 },
@@ -297,11 +441,14 @@
     var data = {
       version: 1,
       exported: Date.now(),
+      currentCert: get('currentCert', null),
       answers: get('answers', []),
       streak: get('streak', {}),
       exams: get('exams', []),
       labsDone: get('labsDone', {}),
       leitner: get('leitner', {}),
+      cardReviews: get('cardReviews', []),
+      flashSessions: get('flashSessions', []),
       personalNotes: get('personalNotes', []),
       settings: get('settings', {}),
       timeOnTask: get('timeOnTask', 0)
@@ -311,22 +458,25 @@
 
   function importFullBackup(data) {
     if (!data || data.version !== 1) throw new Error('Invalid backup format');
+    if (data.currentCert) set('currentCert', data.currentCert);
     if (data.answers) set('answers', data.answers);
     if (data.streak) set('streak', data.streak);
     if (data.exams) set('exams', data.exams);
     if (data.labsDone) set('labsDone', data.labsDone);
     if (data.leitner) set('leitner', data.leitner);
+    if (data.cardReviews) set('cardReviews', data.cardReviews);
+    if (data.flashSessions) set('flashSessions', data.flashSessions);
     if (data.personalNotes) set('personalNotes', data.personalNotes);
     if (data.settings) set('settings', data.settings);
     if (data.timeOnTask != null) set('timeOnTask', data.timeOnTask);
   }
 
   function wipeProgress() {
-    ['answers', 'streak', 'exams', 'labsDone', 'leitner', 'timeOnTask'].forEach(remove);
+    ['answers', 'streak', 'exams', 'labsDone', 'leitner', 'cardReviews', 'flashSessions', 'flashSession', 'timeOnTask'].forEach(remove);
   }
 
-  function exportAnswersCSV() {
-    var ans = getAnswers();
+  function exportAnswersCSV(cert) {
+    var ans = cert ? getAnswers({ cert: cert }) : getAnswers();
     var header = 'id,qId,cert,chapter,tags,correct,type,ts,mode\n';
     var rows = ans.map(function (a) {
       return [
@@ -345,8 +495,8 @@
   }
 
   /* ── Aggregate stats for dashboard ──────────────────────── */
-  function getDashboardStats() {
-    var ans = getAnswers();
+  function getDashboardStats(cert) {
+    var ans = cert ? getAnswers({ cert: cert }) : getAnswers();
     var total = ans.length;
     var correct = ans.filter(function (a) { return a.correct; }).length;
     var accuracy = total ? Math.round((correct / total) * 100) : 0;
@@ -355,8 +505,8 @@
       totalAnswered: total,
       accuracy: accuracy,
       streakDays: streak.count || 0,
-      cardsDue: cardsDueCount(),
-      labsDone: labsCompletedCount(),
+      cardsDue: cardsDueCount(cert),
+      labsDone: labsCompletedCount(cert),
       timeOnTask: getTimeOnTask()
     };
   }
@@ -365,6 +515,8 @@
     get: get,
     set: set,
     remove: remove,
+    getCurrentCert: getCurrentCert,
+    setCurrentCert: setCurrentCert,
     logAnswer: logAnswer,
     getAnswers: getAnswers,
     accuracyFor: accuracyFor,
@@ -383,6 +535,15 @@
     gradeCard: gradeCard,
     cardsDue: cardsDue,
     cardsDueCount: cardsDueCount,
+    logCardReview: logCardReview,
+    getCardReviews: getCardReviews,
+    saveFlashSession: saveFlashSession,
+    getFlashSession: getFlashSession,
+    clearFlashSession: clearFlashSession,
+    saveFlashSessionSummary: saveFlashSessionSummary,
+    getFlashSessions: getFlashSessions,
+    flashcardWeakAreas: flashcardWeakAreas,
+    weeklyReviewRecommendations: weeklyReviewRecommendations,
     getPersonalNotes: getPersonalNotes,
     savePersonalNote: savePersonalNote,
     deletePersonalNote: deletePersonalNote,

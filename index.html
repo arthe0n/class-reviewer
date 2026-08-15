@@ -6,25 +6,22 @@
   <meta name="description" content="Offline study and review app for CompTIA Linux+ and Network+ certifications" />
   <title>ReviewApp · CompTIA Study Hub</title>
   <link rel="icon" type="image/svg+xml" href="app/favicon.svg" />
-  <link rel="stylesheet" href="app/css/styles.css" />
+  <link rel="stylesheet" href="app/css/styles.css?v=9" />
 </head>
 <body>
   <div id="app" class="app-shell" role="application" aria-label="ReviewApp study interface">
     <!-- Sidebar -->
     <aside id="sidebar" class="sidebar" aria-label="Main navigation">
       <div class="sidebar-header">
-        <div class="logo" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+        <button id="sidebar-toggle" class="logo logo-btn" aria-label="Collapse sidebar" title="Toggle sidebar">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true" focusable="false">
             <path d="M14 5.5l9 4.5-9 4.5-9-4.5 9-4.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
             <path d="M8.5 15v2.5c0 2 2.4 3.7 5.5 3.7s5.5-1.7 5.5-3.7V15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M23 10v7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
             <path d="M23 19.3l-1.4 1.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
-        </div>
-        <span class="logo-text">ReviewApp</span>
-        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Collapse sidebar" title="Toggle sidebar">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9h10M7 5l-3 4 3 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </button>
+        <span class="logo-text">ReviewApp</span>
       </div>
       <nav class="sidebar-nav" role="navigation">
         <div class="nav-group">
@@ -33,28 +30,24 @@
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/><rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.4"/></svg>
             <span>Dashboard</span>
           </a>
-          <a href="#/certifications" class="nav-item" data-route="certifications">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2l2.2 4.4 4.8.7-3.5 3.4.8 4.8L9 13.2l-4.3 2.3.8-4.8L2 7.1l4.8-.7L9 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
-            <span>Certifications</span>
-          </a>
         </div>
         <div class="nav-group">
           <span class="nav-group-label" aria-hidden="true">PRACTICE</span>
-          <a href="#/quiz" class="nav-item" data-route="quiz">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M9 5v4l3 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-            <span>Quiz</span>
-          </a>
-          <a href="#/exam" class="nav-item" data-route="exam">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M6 6h6M6 9h6M6 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
-            <span>Exam Sim</span>
-          </a>
           <a href="#/flashcards" class="nav-item" data-route="flashcards">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="3" width="10" height="12" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M13 5h2a1 1 0 011 1v9a1 1 0 01-1 1H6" stroke="currentColor" stroke-width="1.3"/></svg>
             <span>Flashcards</span>
           </a>
+          <a href="#/quiz" class="nav-item" data-route="quiz">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.4"/><path d="M9 5v4l3 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            <span>Quiz</span>
+          </a>
           <a href="#/labs" class="nav-item" data-route="labs">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M6 2h6v4l3 6v2H3v-2l3-6V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M7 2v2M11 2v2" stroke="currentColor" stroke-width="1.3"/></svg>
             <span>Labs</span>
+          </a>
+          <a href="#/exam" class="nav-item" data-route="exam">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="3" y="2" width="12" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M6 6h6M6 9h6M6 12h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span>Exam Sim</span>
           </a>
         </div>
         <div class="nav-group">
@@ -68,8 +61,9 @@
             <span>Notes</span>
           </a>
         </div>
-        <div class="nav-group">
-          <span class="nav-group-label" aria-hidden="true">SYSTEM</span>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="nav-group sidebar-footer-nav">
           <a href="#/tools" class="nav-item" data-route="tools">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11.5 3.5l3 3-7 7H4.5v-3l7-7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M9.5 5.5l3 3" stroke="currentColor" stroke-width="1.3"/></svg>
             <span>Tools</span>
@@ -79,8 +73,6 @@
             <span>Settings</span>
           </a>
         </div>
-      </nav>
-      <div class="sidebar-footer">
         <div class="version-badge">v1.0 · offline</div>
       </div>
     </aside>
@@ -100,6 +92,7 @@
           <button id="reload-content" class="icon-btn" aria-label="Reload content" title="Reload content">
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M15 9a6 6 0 11-1.5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M15 3v4h-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
+          <div class="cert-picker" id="cert-picker" title="Current certification"></div>
         </div>
       </header>
       <main id="view-root" class="view-root" role="main" aria-live="polite"></main>
@@ -112,15 +105,16 @@
   <!-- Modal root -->
   <div id="modal-root" class="modal-root" hidden></div>
 
-  <!-- Scripts: classic, ordered, no modules -->
-  <script src="app/js/core.js"></script>
-  <script src="app/js/store.js"></script>
-  <script src="app/js/markdown.js"></script>
-  <script src="app/js/content.js"></script>
-  <script src="app/js/quiz.js"></script>
-  <script src="app/js/flashcards.js"></script>
-  <script src="app/js/tools.js"></script>
-  <script src="app/js/views.js"></script>
+  <!-- Scripts: classic, ordered, no modules. ?v= busts the browser cache so
+       updated app files are never served stale (content files already do this). -->
+  <script src="app/js/core.js?v=6"></script>
+  <script src="app/js/store.js?v=6"></script>
+  <script src="app/js/markdown.js?v=6"></script>
+  <script src="app/js/content.js?v=6"></script>
+  <script src="app/js/quiz.js?v=8"></script>
+  <script src="app/js/flashcards.js?v=9"></script>
+  <script src="app/js/tools.js?v=6"></script>
+  <script src="app/js/views.js?v=14"></script>
   <script>
     // Boot
     (function () {

@@ -17,19 +17,83 @@
     ]);
   }
 
+  // Compact contextual header showing what the user is currently studying.
+  // certId/chapter come from live data (never hardcoded); activity/meta are
+  // optional labels such as the activity type or a progress indicator.
+  function makeContextHeader(certId, chapter, activity, meta) {
+    var wrap = el('div', { className: 'activity-context' });
+    var cert = certId ? App.content.getCert(certId) : null;
+    if (activity) wrap.appendChild(el('div', { className: 'ctx-activity', text: activity }));
+    if (cert) wrap.appendChild(el('div', { className: 'ctx-cert', text: cert.name }));
+    if (chapter) wrap.appendChild(el('div', { className: 'ctx-chapter', text: chapter }));
+    if (meta) wrap.appendChild(el('div', { className: 'ctx-meta', text: meta }));
+    return wrap;
+  }
+
+  function practiceBack(root, route, label, before) {
+    root.appendChild(el('button', {
+      className: 'btn btn-ghost btn-sm practice-back',
+      type: 'button',
+      text: label || '← Back',
+      onClick: function () {
+        if (before) before();
+        App.core.navigate(route);
+      }
+    }));
+  }
+
+  // Number input wrapped with themed − / + buttons (replaces native spinners).
+  // Returns { el, input }; attrs are forwarded to the inner input element.
+  function stepperField(attrs) {
+    attrs = attrs || {};
+    var input = el('input', Object.assign({ className: 'form-control', type: 'number' }, attrs));
+    function stepBtn(dir, label, glyph) {
+      return el('button', {
+        className: 'stepper-btn', type: 'button', 'aria-label': label, text: glyph,
+        onClick: function () {
+          var min = input.getAttribute('min');
+          var max = input.getAttribute('max');
+          var cur = parseInt(input.value, 10);
+          if (isNaN(cur)) cur = dir > 0 ? -1 : 1;
+          var next = cur + dir;
+          if (min != null && min !== '' && next < Number(min)) next = Number(min);
+          if (max != null && max !== '' && next > Number(max)) next = Number(max);
+          input.value = String(next);
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+    var wrap = el('div', { className: 'stepper' });
+    wrap.appendChild(stepBtn(-1, 'Decrease', '−'));
+    wrap.appendChild(input);
+    wrap.appendChild(stepBtn(1, 'Increase', '+'));
+    return { el: wrap, input: input };
+  }
+
   function progressRing(pct, size, color) {
     size = size || 72;
-    var r = (size - 8) / 2;
+    var viewSize = 100;
+    // Stroke thickness in viewBox units. The previous ring used a 6px stroke;
+    // 9.3/100 ≈ 6.3px at the 68px dashboard size (≈5% thicker) and it scales
+    // proportionally whenever the ring is resized via CSS.
+    var sw = 9.3;
+    var center = viewSize / 2;
+    var r = (viewSize - sw) / 2 - 0.5; // small margin keeps the stroke inside the viewBox
     var c = 2 * Math.PI * r;
-    var offset = c - (pct / 100) * c;
+    var p = Math.max(0, Math.min(100, Number(pct) || 0));
+    var offset = c - (p / 100) * c;
+    var strokeColor = color || 'var(--accent-primary)';
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + viewSize + ' ' + viewSize);
     svg.setAttribute('width', size);
     svg.setAttribute('height', size);
     svg.setAttribute('class', 'progress-ring');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', Math.round(p) + '% complete');
     svg.innerHTML =
-      '<circle class="progress-ring-bg" cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" fill="none" stroke-width="6"/>' +
-      '<circle class="progress-ring-fg" cx="' + (size/2) + '" cy="' + (size/2) + '" r="' + r + '" fill="none" stroke-width="6" ' +
-      'stroke="' + (color || 'var(--accent-primary)') + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>';
+      '<circle class="progress-ring-bg" cx="' + center + '" cy="' + center + '" r="' + r + '" fill="none" stroke-width="' + sw + '"/>' +
+      '<circle class="progress-ring-fg" cx="' + center + '" cy="' + center + '" r="' + r + '" fill="none" stroke-width="' + sw + '" ' +
+      'style="stroke: ' + strokeColor + '" stroke-dasharray="' + c + '" stroke-dashoffset="' + offset + '"/>';
     return svg;
   }
 
@@ -51,11 +115,21 @@
   ];
 
   function viewDashboard(root) {
-    var counts = App.content.counts();
-    var stats = App.store.getDashboardStats();
+    var certId = App.core.getCurrentCertId();
     var certs = App.content.getCerts();
+    if (!certs.length) {
+      root.appendChild(emptyState('No certifications available', 'Add certifications to the certifications/ directory or use Settings → Deep-scan, then reload.'));
+      return;
+    }
+    var cert = App.content.getCert(certId);
+    var counts = cert ? {
+      questions: App.content.getByCert('questions', certId).length,
+      flashcards: App.content.getByCert('flashcards', certId).length,
+      labs: App.content.getByCert('labs', certId).length
+    } : App.content.counts();
+    var stats = App.store.getDashboardStats(certId);
 
-    var termText = 'reviewapp v1.0 — bank: ' + counts.questions + ' questions · ' +
+    var termText = 'reviewapp v1.0 — ' + (cert ? cert.name + ' · ' : '') + counts.questions + ' questions · ' +
       counts.flashcards + ' cards · ' + counts.labs + ' labs — SYSTEM READY';
     var strip = el('div', { className: 'terminal-strip', 'aria-label': 'System status' });
     root.appendChild(strip);
@@ -96,12 +170,24 @@
 
     var nextStep = el('div', { className: 'panel mt-3 dashboard-next-step' });
     nextStep.appendChild(el('div', { className: 'label-upper mb-1', text: 'Recommended next step' }));
-    if (stats.cardsDue) {
+    var weekly = App.store.weeklyReviewRecommendations(1, certId);
+    if (weekly.length) {
+      var top = weekly[0];
+      nextStep.appendChild(el('h3', { text: 'Review: ' + (top.chapter || top.cert || 'flashcards') + ' — ' + top.tag }));
+      nextStep.appendChild(el('p', { className: 'text-muted mb-2', text: 'You struggled with ' + top.cards + ' card' + (top.cards === 1 ? '' : 's') + ' (' + top.agains + ' again-mark' + (top.agains === 1 ? '' : 's') + ') this week.' }));
+      nextStep.appendChild(el('button', {
+        className: 'btn btn-primary btn-sm', text: 'Review flashcards',
+        onClick: function () {
+          sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: top.cert, chapter: top.chapter }));
+          App.core.navigate('#/flashcards');
+        }
+      }));
+    } else if (stats.cardsDue) {
       nextStep.appendChild(el('h3', { text: stats.cardsDue + ' flashcard' + (stats.cardsDue === 1 ? '' : 's') + ' due for review' }));
       nextStep.appendChild(el('p', { className: 'text-muted mb-2', text: 'A short review now keeps older material fresh.' }));
       nextStep.appendChild(el('button', { className: 'btn btn-primary btn-sm', text: 'Review flashcards', onClick: function () { App.core.navigate('#/flashcards'); } }));
     } else {
-      var weak = App.store.weakQuestions(60);
+      var weak = App.store.weakQuestions(60, certId);
       if (weak.length) {
         nextStep.appendChild(el('h3', { text: 'Practice your weak spots' }));
         nextStep.appendChild(el('p', { className: 'text-muted mb-2', text: weak.length + ' question' + (weak.length === 1 ? '' : 's') + ' need more practice.' }));
@@ -114,35 +200,88 @@
     }
     root.appendChild(nextStep);
 
-    if (certs.length) {
-      root.appendChild(el('h2', { className: 'mb-2', text: 'Certification Progress' }));
-      var certRow = el('div', { className: 'card-grid' });
-      certs.forEach(function (c) {
-        var qs = App.content.getByCert('questions', c.id);
-        var ans = App.store.getAnswers({ cert: c.id });
-        var seen = {};
-        ans.forEach(function (a) { seen[a.qId] = true; });
-        var pct = qs.length ? Math.round((Object.keys(seen).length / qs.length) * 100) : 0;
-        var acc = App.store.accuracyFor({ cert: c.id });
-        var card = el('div', { className: 'card', style: { display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer' } });
-        card.appendChild(progressRing(pct, 68, c.color || 'var(--accent-green)'));
-        var info = el('div');
-        info.appendChild(el('div', { className: 'mono', style: { fontWeight: '700', color: c.color }, text: c.name }));
-        info.appendChild(el('div', { className: 'text-muted', style: { fontSize: '0.85rem' },
-          text: pct + '% explored · ' + (acc != null ? acc + '% accuracy' : 'no attempts') }));
-        info.appendChild(el('div', { className: 'text-muted', style: { fontSize: '0.8rem' },
-          text: qs.length + ' Q · ' + App.content.getByCert('flashcards', c.id).length + ' cards' }));
-        card.appendChild(info);
-        card.addEventListener('click', function () { App.core.navigate('#/certifications/' + c.id); });
-        certRow.appendChild(card);
+    if (cert) {
+      root.appendChild(el('h2', { className: 'mb-2', text: 'Chapter Progress' }));
+      var chapters = App.content.getChapters(certId, 'questions');
+      var chapterKeys = Object.keys(chapters);
+      var allAns = App.store.getAnswers({ cert: certId });
+      var seenAll = {};
+      allAns.forEach(function (a) { seenAll[a.qId] = true; });
+      var completedChapters = 0;
+      var rows = [];
+
+      chapterKeys.forEach(function (ch) {
+        var items = chapters[ch];
+        var chapterSeen = 0;
+        items.forEach(function (q) { if (seenAll[q.qId]) chapterSeen++; });
+        var pct = items.length ? Math.round((chapterSeen / items.length) * 100) : 0;
+        if (items.length && chapterSeen >= items.length) completedChapters++;
+
+        var acc = App.store.accuracyFor({ cert: certId, chapter: ch });
+        var cardCh = App.content.findChapter ? App.content.findChapter(certId, 'flashcards', ch) : null;
+        var labCh = App.content.findChapter ? App.content.findChapter(certId, 'labs', ch) : null;
+        var cards = cardCh ? (App.content.getChapters(certId, 'flashcards')[cardCh] || []).length : 0;
+        var labs = labCh ? (App.content.getChapters(certId, 'labs')[labCh] || []).length : 0;
+
+        var row = el('div', { className: 'panel mb-2 chapter-row' });
+        var head = el('div', { className: 'flex-between mb-1', style: { flexWrap: 'wrap', gap: '0.4rem', alignItems: 'baseline' } });
+        head.appendChild(el('h3', { className: 'chapter-row-title', text: ch }));
+        head.appendChild(el('span', { className: 'chip chip-muted', text: pct + '% seen' }));
+        row.appendChild(head);
+
+        var bar = el('div', { className: 'progress-bar mb-1' });
+        bar.appendChild(el('div', { className: 'progress-fill', style: { width: pct + '%', background: cert.color } }));
+        row.appendChild(bar);
+
+        row.appendChild(el('div', { className: 'text-muted mb-2', style: { fontSize: '0.82rem' },
+          text: items.length + ' Q · ' + cards + ' cards · ' + labs + ' labs · ' + (acc != null ? acc + '% accuracy' : 'no quiz data yet') }));
+
+        var btns = el('div', { className: 'flex gap-sm', style: { flexWrap: 'wrap' } });
+        btns.appendChild(el('button', {
+          className: 'btn btn-primary btn-sm', text: 'Quiz',
+          onClick: function () {
+            sessionStorage.setItem('reviewapp.quizSetup', JSON.stringify({ mode: 'chapter', cert: certId, chapter: ch }));
+            App.core.navigate('#/quiz');
+          }
+        }));
+        if (cardCh) {
+          btns.appendChild(el('button', {
+            className: 'btn btn-secondary btn-sm', text: 'Flashcards',
+            onClick: function () {
+              sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: cardCh }));
+              App.core.navigate('#/flashcards');
+            }
+          }));
+        }
+        if (labCh) {
+          btns.appendChild(el('button', {
+            className: 'btn btn-secondary btn-sm', text: 'Labs',
+            onClick: function () {
+              sessionStorage.setItem('reviewapp.labsSetup', JSON.stringify({ cert: certId, chapter: labCh }));
+              App.core.navigate('#/labs');
+            }
+          }));
+        }
+        row.appendChild(btns);
+        rows.push(row);
       });
-      root.appendChild(certRow);
+
+      var headRow = el('div', { className: 'flex-between mb-2', style: { flexWrap: 'wrap', gap: '0.4rem', alignItems: 'baseline' } });
+      headRow.appendChild(el('p', { className: 'text-muted mb-0', style: { fontSize: '0.88rem' }, text: 'Chapter-by-chapter coverage for ' + cert.name }));
+      headRow.appendChild(el('span', { className: 'chip chip-green', text: completedChapters + ' / ' + chapterKeys.length + ' chapters complete' }));
+      root.appendChild(headRow);
+
+      if (!rows.length) {
+        root.appendChild(el('p', { className: 'text-muted', text: 'No chapters available yet — add question content and reload.' }));
+      } else {
+        rows.forEach(function (r) { root.appendChild(r); });
+      }
     }
 
     var last = App.store.getSettings().lastStudy;
     var cont = el('div', { className: 'panel mt-3' });
     cont.appendChild(el('div', { className: 'label-upper mb-1', text: 'Continue studying' }));
-    if (last) {
+    if (last && (!last.cert || last.cert === certId)) {
       cont.appendChild(el('p', { className: 'mb-1', text: 'Last session: ' + last.type + (last.mode ? ' · ' + last.mode : '') + ' — ' + utils.formatDate(last.ts) }));
       var btnRow = el('div', { className: 'flex gap-sm' });
       btnRow.appendChild(el('button', { className: 'btn btn-primary btn-sm', text: 'Resume Quiz', onClick: function () { App.core.navigate('#/quiz'); } }));
@@ -153,7 +292,7 @@
     }
     root.appendChild(cont);
 
-    var activity = App.store.getActivity(14);
+    var activity = App.store.getActivity(14, certId);
     var totals = activity.reduce(function (acc, d) {
       acc.count += d.count;
       acc.correct += d.correct || 0;
@@ -243,109 +382,498 @@
     root.appendChild(daily);
   }
 
-  function viewCertifications(root, parsed) {
-    var certId = parsed.params[0];
-    if (certId) return viewCertDetail(root, certId);
+  /* ── Dashboard command center ───────────────────────────── */
+  // The Dashboard intentionally consumes the existing store/content selectors;
+  // it does not maintain a second progress or analytics model.
+  function viewDashboardCommand(root) {
+    var certId = App.core.getCurrentCertId();
     var certs = App.content.getCerts();
-    root.appendChild(el('h1', { text: 'Certifications' }));
-    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Choose a track to explore chapters and launch practice.' }));
     if (!certs.length) {
-      root.appendChild(emptyState('No certifications loaded', 'Drop content into certifications/ and hit the reload button.'));
+      root.appendChild(emptyState('No certifications available', 'Add certifications to the certifications/ directory or use Settings → Deep-scan, then reload.'));
       return;
     }
-    var grid = el('div', { className: 'card-grid' });
-    certs.forEach(function (c) {
-      var qs = App.content.getByCert('questions', c.id);
-      var cards = App.content.getByCert('flashcards', c.id);
-      var labs = App.content.getByCert('labs', c.id);
-      var acc = App.store.accuracyFor({ cert: c.id });
-      var ans = App.store.getAnswers({ cert: c.id });
-      var seen = {};
-      ans.forEach(function (a) { seen[a.qId] = true; });
-      var pct = qs.length ? Math.round((Object.keys(seen).length / qs.length) * 100) : 0;
-      var card = el('div', { className: 'card', style: { cursor: 'pointer', borderTop: '3px solid ' + (c.color || 'var(--accent-green)') } });
-      card.appendChild(el('h3', { style: { color: c.color }, text: c.name }));
-      card.appendChild(el('div', { className: 'flex gap-sm mt-1 mb-2', style: { flexWrap: 'wrap' } }, [
-        el('span', { className: 'chip chip-muted', text: qs.length + ' questions' }),
-        el('span', { className: 'chip chip-muted', text: cards.length + ' cards' }),
-        el('span', { className: 'chip chip-muted', text: labs.length + ' labs' })
-      ]));
-      var bar = el('div', { className: 'progress-bar mb-1' });
-      bar.appendChild(el('div', { className: 'progress-fill', style: { width: pct + '%', background: c.color } }));
-      card.appendChild(bar);
-      card.appendChild(el('div', { className: 'text-muted', style: { fontSize: '0.82rem' },
-        text: pct + '% explored · ' + (acc != null ? acc + '% accuracy' : 'no data') }));
-      card.addEventListener('click', function () { App.core.navigate('#/certifications/' + c.id); });
-      grid.appendChild(card);
-    });
-    root.appendChild(grid);
-  }
-
-  function viewCertDetail(root, certId) {
     var cert = App.content.getCert(certId);
-    if (!cert) { root.appendChild(emptyState('Cert not found', certId)); return; }
-    root.appendChild(el('button', { className: 'btn btn-ghost btn-sm mb-2', text: '← All certifications', onClick: function () { App.core.navigate('#/certifications'); } }));
-    root.appendChild(el('h1', { style: { color: cert.color }, text: cert.name }));
-    var chapters = App.content.getChapters(certId, 'questions');
-    var chKeys = Object.keys(chapters).sort();
-    if (!chKeys.length) { root.appendChild(emptyState('No chapters yet', 'Add question files for this cert.')); return; }
-    chKeys.forEach(function (ch) {
-      var items = chapters[ch];
-      var ans = App.store.getAnswers({ cert: certId, chapter: ch });
-      var seen = {};
-      ans.forEach(function (a) { seen[a.qId] = true; });
-      var pct = items.length ? Math.round((Object.keys(seen).length / items.length) * 100) : 0;
-      var acc = App.store.accuracyFor({ cert: certId, chapter: ch });
-      var panel = el('div', { className: 'panel mb-2' });
-      panel.appendChild(el('div', { className: 'flex-between mb-1' }, [
-        el('h3', { text: ch }),
-        el('span', { className: 'chip chip-muted', text: items.length + ' Q' })
-      ]));
-      var bar = el('div', { className: 'progress-bar mb-1' });
-      bar.appendChild(el('div', { className: 'progress-fill', style: { width: pct + '%' } }));
-      panel.appendChild(bar);
-      panel.appendChild(el('div', { className: 'text-muted mb-2', style: { fontSize: '0.82rem' },
-        text: pct + '% seen · ' + (acc != null ? acc + '% accuracy' : '—') }));
-      var btns = el('div', { className: 'flex gap-sm' });
-      btns.appendChild(el('button', {
-        className: 'btn btn-primary btn-sm', text: 'Quiz chapter',
-        onClick: function () {
-          sessionStorage.setItem('reviewapp.quizSetup', JSON.stringify({ mode: 'chapter', cert: certId, chapter: ch }));
-          App.core.navigate('#/quiz');
-        }
-      }));
-      btns.appendChild(el('button', {
-        className: 'btn btn-secondary btn-sm', text: 'Cards',
-        onClick: function () {
-          sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: ch }));
-          App.core.navigate('#/flashcards');
-        }
-      }));
-      panel.appendChild(btns);
-      root.appendChild(panel);
+    if (!cert) {
+      root.appendChild(emptyState('No certification selected', 'Choose a certification from the Current certification picker.'));
+      return;
+    }
+
+    var questions = App.content.getByCert('questions', certId);
+    var cards = App.content.getByCert('flashcards', certId);
+    var labs = App.content.getByCert('labs', certId);
+    var questionChapters = App.content.getChapters(certId, 'questions');
+    var flashChapters = App.content.getChapters(certId, 'flashcards');
+    var labChapters = App.content.getChapters(certId, 'labs');
+    var answers = App.store.getAnswers({ cert: certId });
+    var reviews = App.store.getCardReviews({ cert: certId });
+    var stats = App.store.getDashboardStats(certId);
+    var certColor = cert.color || 'var(--accent-cyan)';
+    var seenQuestions = {};
+    answers.forEach(function (a) { if (a.qId) seenQuestions[a.qId] = true; });
+
+    var reviewedCards = {};
+    reviews.forEach(function (r) { if (r.cardId) reviewedCards[r.cardId] = true; });
+    var reviewedCardCount = Object.keys(reviewedCards).length;
+    var completedLabs = Math.min(labs.length, stats.labsDone || 0);
+    var overallProgress = questions.length
+      ? Math.round((Object.keys(seenQuestions).length / questions.length) * 100)
+      : (cards.length ? Math.round((reviewedCardCount / cards.length) * 100) : 0);
+
+    function chapterNumber(name, fallback) {
+      var n = App.content.chapterNumber ? App.content.chapterNumber(name) : null;
+      return n == null ? String(fallback + 1).padStart(2, '0') : String(n).padStart(2, '0');
+    }
+
+    function chapterTitle(name) {
+      var value = String(name || 'General');
+      return value.replace(/^Ch\s*\d+\s*[·:-]?\s*/i, '') || value;
+    }
+
+    function resolveChapter(type, chapter) {
+      if (!chapter) return null;
+      return App.content.findChapter ? App.content.findChapter(certId, type, chapter) : chapter;
+    }
+
+    function launchChapter(type, chapter) {
+      if (type === 'quiz') {
+        sessionStorage.setItem('reviewapp.quizSetup', JSON.stringify({ mode: 'chapter', cert: certId, chapter: chapter }));
+        App.core.navigate('#/quiz');
+      } else if (type === 'flashcards') {
+        var flashChapter = resolveChapter('flashcards', chapter);
+        if (!flashChapter) { App.toast('No flashcards in this chapter', 'error'); return; }
+        sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: flashChapter }));
+        App.core.navigate('#/flashcards');
+      } else if (type === 'labs') {
+        var labChapter = resolveChapter('labs', chapter);
+        if (!labChapter) { App.toast('No labs in this chapter', 'error'); return; }
+        sessionStorage.setItem('reviewapp.labsSetup', JSON.stringify({ cert: certId, chapter: labChapter }));
+        App.core.navigate('#/labs');
+      }
+    }
+
+    function activityLabel(type) {
+      return type === 'flashcards' ? 'Flashcards' : type === 'labs' ? 'Lab' : 'Quiz';
+    }
+
+    function relativeDate(ts) {
+      if (!ts) return 'Earlier';
+      var diff = Math.max(0, Date.now() - ts);
+      if (diff < 86400000) return 'Today';
+      if (diff < 172800000) return 'Yesterday';
+      return utils.formatDate(ts);
+    }
+
+    // Build a compact, real activity feed from the existing answer/review/lab logs.
+    var activityEvents = [];
+    answers.forEach(function (a) {
+      activityEvents.push({
+        ts: a.ts || 0,
+        type: 'quiz',
+        chapter: a.chapter,
+        detail: a.correct ? 'Correct answer' : 'Needs another look'
+      });
     });
+    reviews.forEach(function (r) {
+      activityEvents.push({
+        ts: r.ts || r.sessionTs || 0,
+        type: 'flashcards',
+        chapter: r.chapter,
+        detail: r.outcome === 'again' ? 'Marked Again' : 'Marked Next'
+      });
+    });
+    var doneLabs = App.store.get('labsDone', {});
+    labs.forEach(function (lab) {
+      if (doneLabs[lab._id]) {
+        activityEvents.push({ ts: doneLabs[lab._id], type: 'labs', chapter: lab._chapter, detail: lab.title });
+      }
+    });
+    activityEvents.sort(function (a, b) { return b.ts - a.ts; });
+
+    // The legacy streak record is global. For the certification workspace,
+    // derive a small cert-scoped streak from the actual activity events.
+    var activeDays = {};
+    activityEvents.forEach(function (event) {
+      if (!event.ts) return;
+      var day = new Date(event.ts);
+      day.setHours(0, 0, 0, 0);
+      activeDays[day.getTime()] = true;
+    });
+    var streakCursor = new Date();
+    streakCursor.setHours(0, 0, 0, 0);
+    if (!activeDays[streakCursor.getTime()]) streakCursor.setTime(streakCursor.getTime() - 86400000);
+    var activeStreak = 0;
+    while (activeDays[streakCursor.getTime()]) {
+      activeStreak++;
+      streakCursor.setTime(streakCursor.getTime() - 86400000);
+    }
+
+    function mostRecentChapter() {
+      for (var i = 0; i < activityEvents.length; i++) {
+        if (activityEvents[i].chapter) {
+          var resolved = resolveChapter('questions', activityEvents[i].chapter);
+          if (resolved && questionChapters[resolved]) return resolved;
+        }
+      }
+      return null;
+    }
+
+    var chapterKeys = Object.keys(questionChapters);
+    if (!chapterKeys.length) chapterKeys = Object.keys(flashChapters);
+    var chapterRows = chapterKeys.map(function (chapter, index) {
+      var qItems = questionChapters[chapter] || [];
+      var flashChapter = resolveChapter('flashcards', chapter);
+      var labChapter = resolveChapter('labs', chapter);
+      var cardItems = flashChapter ? (flashChapters[flashChapter] || []) : [];
+      var labItems = labChapter ? (labChapters[labChapter] || []) : [];
+      var seen = qItems.filter(function (q) { return !!seenQuestions[q.qId]; }).length;
+      var chapterReviews = reviews.filter(function (r) {
+        var resolved = resolveChapter('questions', r.chapter);
+        return resolved === chapter;
+      });
+      var cardSeen = {};
+      chapterReviews.forEach(function (r) { if (r.cardId) cardSeen[r.cardId] = true; });
+      var denominator = qItems.length || cardItems.length;
+      var completed = qItems.length ? seen : Object.keys(cardSeen).length;
+      var pct = denominator ? Math.round((completed / denominator) * 100) : 0;
+      return {
+        chapter: chapter,
+        number: chapterNumber(chapter, index),
+        title: chapterTitle(chapter),
+        questions: qItems.length,
+        cards: cardItems.length,
+        labs: labItems.length,
+        pct: Math.min(100, pct),
+        accuracy: App.store.accuracyFor({ cert: certId, chapter: chapter }),
+        flashChapter: flashChapter,
+        labChapter: labChapter
+      };
+    });
+
+    var recentChapter = mostRecentChapter();
+    var activeFlash = App.store.getFlashSession();
+    if (activeFlash && (activeFlash.cert || certId) !== certId) activeFlash = null;
+    var activeQuiz = App.quiz && App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
+    if (activeQuiz && activeQuiz.cert !== certId) activeQuiz = null;
+    var continueType = 'quiz';
+    var continueChapter = null;
+    var continueMode = 'Start a chapter quiz';
+    var continueMeta = 'Begin with the first available chapter.';
+
+    if (activeFlash && !activeFlash.finished) {
+      continueType = 'flashcards';
+      continueChapter = resolveChapter('questions', activeFlash.chapter) || activeFlash.chapter;
+      continueMode = 'Resume Flashcards';
+      continueMeta = activeFlash.totalCards ? (Math.max(0, activeFlash.totalCards - activeFlash.completed) + ' cards remaining in this session') : 'Pick up your saved review session.';
+    } else if (activeQuiz && activeQuiz.questions && activeQuiz.questions[activeQuiz.index]) {
+      continueType = 'quiz';
+      continueChapter = resolveChapter('questions', activeQuiz.questions[activeQuiz.index]._chapter);
+      continueMode = 'Resume Quiz';
+      continueMeta = 'Question ' + (activeQuiz.index + 1) + ' of ' + activeQuiz.questions.length;
+    } else {
+      var incomplete = chapterRows.filter(function (row) { return row.pct < 100; });
+      continueChapter = recentChapter || (incomplete[0] && incomplete[0].chapter) || (chapterRows[0] && chapterRows[0].chapter);
+      var latest = activityEvents[0];
+      if (latest && latest.type === 'flashcards' && continueChapter) continueType = 'flashcards';
+      continueMode = activityEvents.length ? 'Continue studying' : 'Start your first chapter';
+      if (continueChapter) {
+        var target = chapterRows.find(function (row) { return row.chapter === continueChapter; });
+        continueMeta = target ? (target.pct + '% complete · ' + target.questions + ' questions') : 'Build your first progress in this chapter.';
+      }
+    }
+
+    var continueRow = chapterRows.find(function (row) { return row.chapter === continueChapter; }) || null;
+    var firstChapter = chapterRows[0] || null;
+    var actionChapter = continueChapter || (firstChapter && firstChapter.chapter);
+
+    function continueAction() {
+      if ((activeFlash && continueType === 'flashcards') || (activeQuiz && continueType === 'quiz')) {
+        App.core.navigate('#/' + continueType);
+      } else if (actionChapter) {
+        launchChapter(continueType, actionChapter);
+      } else {
+        App.core.navigate('#/quiz');
+      }
+    }
+
+    var page = el('div', { className: 'dashboard-page' });
+    page.style.setProperty('--cert-accent', certColor);
+
+    // Hero: identity, real content counts, and one meaningful progress measure.
+    var hero = el('section', { className: 'dashboard-hero' });
+    var heroCopy = el('div', { className: 'dashboard-hero-copy' });
+    heroCopy.appendChild(el('div', { className: 'dashboard-kicker', text: 'Current certification · Study workspace' }));
+    heroCopy.appendChild(el('h1', { className: 'dashboard-hero-title', style: { color: certColor }, text: cert.name }));
+    heroCopy.appendChild(el('p', { className: 'dashboard-hero-subtitle', text: answers.length ? 'Keep building your certification readiness.' : 'Ready to start your certification journey?' }));
+    heroCopy.appendChild(el('p', { className: 'dashboard-hero-counts', text: chapterRows.length + ' chapters · ' + questions.length + ' questions · ' + cards.length + ' flashcards · ' + labs.length + ' labs' }));
+    var heroActions = el('div', { className: 'dashboard-hero-actions' });
+    heroActions.appendChild(el('button', { className: 'btn btn-primary', text: continueMode, onClick: continueAction }));
+    heroActions.appendChild(el('button', { className: 'btn btn-ghost', text: 'View stats', onClick: function () { App.core.navigate('#/stats'); } }));
+    heroCopy.appendChild(heroActions);
+    hero.appendChild(heroCopy);
+
+    var progressVisual = el('div', { className: 'dashboard-progress-visual' });
+    var ring = el('div', { className: 'dashboard-progress-ring' });
+    ring.appendChild(progressRing(overallProgress, 140, certColor));
+    ring.appendChild(el('div', { className: 'dashboard-progress-value' }, [
+      el('strong', { text: overallProgress + '%' }),
+      el('span', { text: 'Certification progress' })
+    ]));
+    progressVisual.appendChild(ring);
+    progressVisual.appendChild(el('div', { className: 'dashboard-progress-detail', text: questions.length ? Object.keys(seenQuestions).length + ' of ' + questions.length + ' questions explored' : 'Start studying to track progress' }));
+    hero.appendChild(progressVisual);
+    page.appendChild(hero);
+
+    // High-value snapshot metrics. Empty values stay meaningful instead of showing a wall of zeroes.
+    var metrics = el('section', { className: 'dashboard-metrics', 'aria-label': 'Study overview' });
+    function metric(label, value, detail, route) {
+      var node = el(route ? 'button' : 'div', {
+        className: 'dashboard-metric' + (route ? ' dashboard-metric-action' : ''),
+        type: route ? 'button' : undefined,
+        onClick: route ? function () { App.core.navigate(route); } : undefined
+      });
+      node.appendChild(el('strong', { text: value }));
+      node.appendChild(el('span', { className: 'dashboard-metric-label', text: label }));
+      node.appendChild(el('small', { text: detail }));
+      return node;
+    }
+    metrics.appendChild(metric('Quiz accuracy', answers.length ? stats.accuracy + '%' : '—', answers.length ? answers.length + ' answers' : 'Not started', '#/stats'));
+    metrics.appendChild(metric('Questions practiced', answers.length ? String(answers.length) : '—', answers.length ? Object.keys(seenQuestions).length + ' unique explored' : 'Start a quiz', '#/quiz'));
+    metrics.appendChild(metric('Flashcards reviewed', reviewedCardCount ? String(reviewedCardCount) : '—', reviews.length ? reviews.length + ' review events' : 'No reviews yet', '#/flashcards'));
+    metrics.appendChild(metric('Labs completed', labs.length ? completedLabs + ' / ' + labs.length : '—', labs.length ? 'Hands-on progress' : 'No labs loaded', '#/labs'));
+    metrics.appendChild(metric('Study streak', activeStreak ? activeStreak + 'd' : '—', activeStreak ? 'Keep it going' : 'No streak yet', '#/stats'));
+    page.appendChild(metrics);
+
+    // Continue studying: the primary action remains visible as a dedicated command panel.
+    var continuePanel = el('section', { className: 'dashboard-continue' });
+    var continueHeader = el('div', { className: 'dashboard-section-header' });
+    continueHeader.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Next action' }), el('h2', { text: 'Continue studying' })]));
+    continueHeader.appendChild(el('span', { className: 'dashboard-section-hint', text: continueRow ? continueRow.pct + '% chapter progress' : 'Your next useful step' }));
+    continuePanel.appendChild(continueHeader);
+    var continueBody = el('div', { className: 'dashboard-continue-body' });
+    var continueText = el('div', { className: 'dashboard-continue-copy' });
+    if (continueRow) {
+      continueText.appendChild(el('div', { className: 'dashboard-chapter-number', style: { color: certColor }, text: continueRow.number }));
+      continueText.appendChild(el('div', { className: 'dashboard-continue-title', text: continueRow.title }));
+      continueText.appendChild(el('p', { className: 'text-muted', text: continueMeta }));
+    } else {
+      continueText.appendChild(el('div', { className: 'dashboard-continue-title', text: continueMode }));
+      continueText.appendChild(el('p', { className: 'text-muted', text: continueMeta }));
+    }
+    continueBody.appendChild(continueText);
+    var continueButtons = el('div', { className: 'dashboard-action-group' });
+    continueButtons.appendChild(el('button', { className: 'btn btn-primary', text: continueMode, onClick: continueAction }));
+    if (continueRow && continueRow.cards) continueButtons.appendChild(el('button', { className: 'btn btn-secondary', text: 'Flashcards', onClick: function () { launchChapter('flashcards', continueRow.chapter); } }));
+    if (continueRow && continueRow.labs) continueButtons.appendChild(el('button', { className: 'btn btn-secondary', text: 'Labs', onClick: function () { launchChapter('labs', continueRow.chapter); } }));
+    continueBody.appendChild(continueButtons);
+    continuePanel.appendChild(continueBody);
+    page.appendChild(continuePanel);
+
+    // Chapter progress and weak areas form the main planning workspace. The
+    // Dashboard intentionally keeps this to the last/current chapter so it
+    // stays action-oriented; the full chapter list remains available in Stats.
+    var visibleChapterRows = continueRow ? [continueRow] : chapterRows.slice(0, 1);
+    var planning = el('div', { className: 'dashboard-planning-grid' });
+    var chapterSection = el('section', { className: 'dashboard-section dashboard-chapters' });
+    var chapterHead = el('div', { className: 'dashboard-section-header' });
+    chapterHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Coverage' }), el('h2', { text: 'Chapter progress' })]));
+    chapterHead.appendChild(el('span', { className: 'dashboard-section-hint', text: visibleChapterRows.length ? 'Current chapter' : 'No chapter selected' }));
+    chapterSection.appendChild(chapterHead);
+    var chapterList = el('div', { className: 'dashboard-chapter-list' });
+    visibleChapterRows.forEach(function (row) {
+      var rowEl = el('article', { className: 'dashboard-chapter-row' });
+      var titleWrap = el('div', { className: 'dashboard-chapter-heading' });
+      titleWrap.appendChild(el('span', { className: 'dashboard-chapter-number', style: { color: certColor }, text: row.number }));
+      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { text: row.title }), el('small', { text: row.questions + ' questions · ' + row.cards + ' cards · ' + row.labs + ' labs' })]));
+      titleWrap.appendChild(el('span', { className: 'dashboard-chapter-percent', text: row.pct + '%' }));
+      rowEl.appendChild(titleWrap);
+      var track = el('div', { className: 'dashboard-chapter-track', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(row.pct), 'aria-label': row.title + ' progress' });
+      track.appendChild(el('span', { style: { width: row.pct + '%', background: certColor } }));
+      rowEl.appendChild(track);
+      var rowActions = el('div', { className: 'dashboard-chapter-actions' });
+      if (row.questions) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Quiz', onClick: function () { launchChapter('quiz', row.chapter); } }));
+      if (row.cards) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Flashcards', onClick: function () { launchChapter('flashcards', row.chapter); } }));
+      if (row.labs) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Labs', onClick: function () { launchChapter('labs', row.chapter); } }));
+      rowEl.appendChild(rowActions);
+      chapterList.appendChild(rowEl);
+    });
+    if (!visibleChapterRows.length) chapterList.appendChild(el('p', { className: 'text-muted', text: 'No chapters available yet. Add content and reload.' }));
+    chapterSection.appendChild(chapterList);
+    planning.appendChild(chapterSection);
+
+    var focusSection = el('section', { className: 'dashboard-section dashboard-focus' });
+    var focusHead = el('div', { className: 'dashboard-section-header' });
+    focusHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Personalized' }), el('h2', { text: 'Focus areas' })]));
+    focusHead.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Open stats', onClick: function () { App.core.navigate('#/stats'); } }));
+    focusSection.appendChild(focusHead);
+    var weakAreas = App.store.flashcardWeakAreas({ days: 7, cert: certId }).slice(0, 4);
+    if (weakAreas.length) {
+      weakAreas.forEach(function (area) {
+        var item = el('div', { className: 'dashboard-focus-item' });
+        item.appendChild(el('span', { className: 'dashboard-focus-dot', style: { background: certColor } }));
+        var copy = el('div', { className: 'dashboard-focus-copy' });
+        copy.appendChild(el('strong', { text: area.tag }));
+        copy.appendChild(el('small', { text: (area.chapter || 'Certification-wide') + ' · ' + area.cards + ' card' + (area.cards === 1 ? '' : 's') + ' · ' + area.agains + ' Again' + (area.agains === 1 ? '' : 's') }));
+        item.appendChild(copy);
+        item.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Review', onClick: function () {
+          sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: resolveChapter('flashcards', area.chapter) || null }));
+          App.core.navigate('#/flashcards');
+        } }));
+        focusSection.appendChild(item);
+      });
+    } else {
+      focusSection.appendChild(el('div', { className: 'dashboard-empty-note' }, [
+        el('strong', { text: answers.length ? 'No urgent weak areas' : 'Your focus areas will appear here' }),
+        el('p', { className: 'text-muted', text: answers.length ? 'Keep practicing and ReviewApp will surface recent, repeated difficulties.' : 'Complete a quiz or review some cards to personalize your recommendations.' })
+      ]));
+    }
+    planning.appendChild(focusSection);
+    page.appendChild(planning);
+
+    // Weekly recommendation and recent activity are deliberately compact: Dashboard is action-first, Stats is detail-first.
+    var lower = el('div', { className: 'dashboard-lower-grid' });
+    var recommendation = el('section', { className: 'dashboard-section dashboard-recommendation' });
+    var recommendationHead = el('div', { className: 'dashboard-section-header' });
+    recommendationHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'This week' }), el('h2', { text: 'Recommended for you' })]));
+    recommendation.appendChild(recommendationHead);
+    var weekly = App.store.weeklyReviewRecommendations(1, certId);
+    if (weekly.length) {
+      var top = weekly[0];
+      recommendation.appendChild(el('h3', { text: 'Review ' + (top.chapter || 'your weak areas') }));
+      recommendation.appendChild(el('p', { className: 'text-muted', text: 'You struggled with ' + top.tag + ' recently: ' + top.cards + ' card' + (top.cards === 1 ? '' : 's') + ', ' + top.agains + ' Again mark' + (top.agains === 1 ? '' : 's') + '.' }));
+      recommendation.appendChild(el('button', { className: 'btn btn-primary btn-sm', text: 'Review now', onClick: function () {
+        sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: resolveChapter('flashcards', top.chapter) || null }));
+        App.core.navigate('#/flashcards');
+      } }));
+    } else {
+      recommendation.appendChild(el('h3', { text: answers.length ? 'Keep building momentum' : 'Start your certification journey' }));
+      recommendation.appendChild(el('p', { className: 'text-muted', text: answers.length ? 'Recent and repeated difficulties will become recommendations as you study.' : 'Begin with the first available chapter and your dashboard will learn what to recommend next.' }));
+      recommendation.appendChild(el('button', { className: 'btn btn-primary btn-sm', text: continueMode, onClick: continueAction }));
+    }
+    lower.appendChild(recommendation);
+
+    var recentSection = el('section', { className: 'dashboard-section dashboard-recent' });
+    var recentHead = el('div', { className: 'dashboard-section-header' });
+    recentHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'History' }), el('h2', { text: 'Recent activity' })]));
+    recentHead.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'View stats', onClick: function () { App.core.navigate('#/stats'); } }));
+    recentSection.appendChild(recentHead);
+    if (activityEvents.length) {
+      activityEvents.slice(0, 6).forEach(function (event) {
+        var eventRow = el('div', { className: 'dashboard-activity-item' });
+        eventRow.appendChild(el('span', { className: 'dashboard-activity-type', text: activityLabel(event.type) }));
+        eventRow.appendChild(el('span', { className: 'dashboard-activity-chapter', text: event.chapter || 'Certification activity' }));
+        eventRow.appendChild(el('span', { className: 'dashboard-activity-detail', text: event.detail + ' · ' + relativeDate(event.ts) }));
+        recentSection.appendChild(eventRow);
+      });
+    } else {
+      recentSection.appendChild(el('div', { className: 'dashboard-empty-note' }, [el('strong', { text: 'No activity yet' }), el('p', { className: 'text-muted', text: 'Your quizzes, card reviews, and completed labs will appear here.' })]));
+    }
+    lower.appendChild(recentSection);
+    page.appendChild(lower);
+
+    // Activity remains a compact consistency check, using quiz + card + lab events for this certification.
+    var activitySection = el('section', { className: 'dashboard-section dashboard-activity-section' });
+    var activityHead = el('div', { className: 'dashboard-section-header' });
+    activityHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Consistency' }), el('h2', { text: 'Study activity' })]));
+    activityHead.appendChild(el('span', { className: 'dashboard-section-hint', text: 'Last 14 days · ' + (activityEvents.length ? activityEvents.length + ' logged events' : 'No activity yet') }));
+    activitySection.appendChild(activityHead);
+    var activity = App.store.getActivity(14, certId);
+    activity.forEach(function (day) { day.study = day.count; day.cards = 0; day.labs = 0; });
+    function dayEntry(ts) {
+      var day = new Date(ts); day.setHours(0, 0, 0, 0);
+      return activity.find(function (d) { return d.date === day.getTime(); });
+    }
+    reviews.forEach(function (r) { var d = dayEntry(r.ts || r.sessionTs); if (d) { d.cards++; d.study++; } });
+    labs.forEach(function (lab) { if (doneLabs[lab._id]) { var d = dayEntry(doneLabs[lab._id]); if (d) { d.labs++; d.study++; } } });
+    var maxStudy = Math.max.apply(null, activity.map(function (d) { return d.study; }).concat([1]));
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var activitySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    activitySvg.setAttribute('class', 'activity-chart dashboard-activity');
+    activitySvg.setAttribute('viewBox', '0 0 560 74');
+    activitySvg.setAttribute('preserveAspectRatio', 'none');
+    activitySvg.setAttribute('role', 'img');
+    activitySvg.setAttribute('aria-label', 'Study activity over the last 14 days');
+    var barWidth = 560 / Math.max(1, activity.length);
+    activity.forEach(function (day, i) {
+      var height = day.study ? Math.max(4, (day.study / maxStudy) * 58) : 3;
+      var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', i * barWidth + 4);
+      rect.setAttribute('y', 66 - height);
+      rect.setAttribute('width', Math.max(5, barWidth - 7));
+      rect.setAttribute('height', height);
+      rect.setAttribute('rx', '3');
+      rect.setAttribute('fill', day.study ? (day.date === today.getTime() ? 'var(--accent-green)' : 'var(--accent-cyan)') : 'var(--border)');
+      var title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+      title.textContent = utils.formatDate(day.date) + ' — ' + day.study + ' activities (' + day.count + ' quiz, ' + day.cards + ' cards, ' + day.labs + ' labs)';
+      rect.appendChild(title);
+      activitySvg.appendChild(rect);
+    });
+    activitySection.appendChild(activitySvg);
+    var activityLabels = el('div', { className: 'activity-labels' });
+    activity.forEach(function (day) { activityLabels.appendChild(el('span', { className: 'activity-label' + (day.date === today.getTime() ? ' today' : ''), text: weekdayOf(day.date).slice(0, 2), title: utils.formatDate(day.date) })); });
+    activitySection.appendChild(activityLabels);
+    page.appendChild(activitySection);
+
+    var references = el('section', { className: 'dashboard-reference-grid' });
+    var dayIdx = Math.floor(Date.now() / 86400000) % COMMANDS_OF_DAY.length;
+    var command = COMMANDS_OF_DAY[dayIdx];
+    references.appendChild(el('div', { className: 'dashboard-reference' }, [
+      el('div', { className: 'dashboard-kicker', text: 'Global reference' }),
+      el('strong', { text: 'Command of the day' }),
+      el('code', { text: command.cmd }),
+      el('small', { className: 'text-muted', text: command.tip })
+    ]));
+    var ports = App.tools && App.tools.getPorts ? App.tools.getPorts() : [];
+    if (ports.length) {
+      var port = ports[Math.floor(Date.now() / 86400000) % ports.length];
+      references.appendChild(el('div', { className: 'dashboard-reference' }, [
+        el('div', { className: 'dashboard-kicker', text: 'Global reference' }),
+        el('strong', { text: 'Port of the day' }),
+        el('code', { text: port.port + ' · ' + port.name }),
+        el('small', { className: 'text-muted', text: port.desc })
+      ]));
+    }
+    page.appendChild(references);
+    root.appendChild(page);
   }
 
   function viewQuiz(root) {
+    var cur = App.core.getCurrentCertId();
     var sess = App.quiz.getQuizSession();
-    if (sess) { renderQuizPlayer(root); return; }
+    // Resume only sessions that belong to the active certification.
+    if (sess && (!sess.cert || sess.cert === cur)) { renderQuizPlayer(root); return; }
+
+    // Direct launch from a certification chapter (Certifications → Chapter → Quiz).
+    var pre = null;
+    try { pre = JSON.parse(sessionStorage.getItem('reviewapp.quizSetup') || 'null'); } catch (e) {}
+    if (pre && pre.mode === 'chapter' && pre.cert && pre.chapter) {
+      sessionStorage.removeItem('reviewapp.quizSetup');
+      if (pre.cert !== cur && !App.core.setCurrentCert(pre.cert, { silent: true })) { renderQuizSetup(root); return; }
+      cur = App.core.getCurrentCertId();
+      var pool = App.quiz.buildPool('chapter', { cert: pre.cert, chapter: pre.chapter });
+      if (pool.length) {
+        App.quiz.startQuiz({ mode: 'chapter', cert: pre.cert, questions: pool });
+        renderQuizPlayer(root);
+        return;
+      }
+      App.toast('No questions in this chapter', 'error');
+    }
     renderQuizSetup(root);
   }
 
   function renderQuizSetup(root) {
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
+    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to start practicing.')); return; }
     root.appendChild(el('h1', { text: 'Quiz' }));
-    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Five focused practice modes. Pick one and start.' }));
-    var pre = null;
-    try { pre = JSON.parse(sessionStorage.getItem('reviewapp.quizSetup') || 'null'); } catch (e) {}
-    sessionStorage.removeItem('reviewapp.quizSetup');
+    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Five focused practice modes inside ' + cert.name + '. Pick one and start.' }));
     var modes = [
       { id: 'chapter', name: 'Chapter focus', desc: 'All questions from one chapter' },
-      { id: 'random', name: 'Random mix', desc: 'N random questions across certs' },
+      { id: 'random', name: 'Random mix', desc: 'N random questions from this certification' },
       { id: 'theme', name: 'Theme attack', desc: 'Filter by one or more tags' },
       { id: 'weak', name: 'Weak spots', desc: 'Accuracy < 60% or never seen' },
       { id: 'speed', name: 'Speed run', desc: '10 questions · 20s each' }
     ];
-    var selectedMode = (pre && pre.mode) || 'random';
+    var selectedMode = 'chapter';
     var modeRow = el('div', { className: 'tools-tabs mb-3' });
     modes.forEach(function (m) {
       var tab = el('button', {
@@ -368,40 +896,20 @@
       var mode = modes.find(function (m) { return m.id === selectedMode; });
       optsPanel.appendChild(el('p', { className: 'text-muted mb-2', text: mode.desc }));
       if (selectedMode === 'chapter') {
-        var certs = App.content.getCerts();
-        var certSel = el('select', { className: 'form-control', id: 'qz-cert' });
-        certs.forEach(function (c) { certSel.appendChild(el('option', { value: c.id, text: c.name })); });
-        if (pre && pre.cert) certSel.value = pre.cert;
-        optsPanel.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Certification' }), certSel]));
         var chSel = el('select', { className: 'form-control', id: 'qz-chapter' });
-        function fillChapters() {
-          chSel.innerHTML = '';
-          var chs = App.content.getChapters(certSel.value, 'questions');
-          Object.keys(chs).sort().forEach(function (ch) {
-            chSel.appendChild(el('option', { value: ch, text: ch + ' (' + chs[ch].length + ')' }));
-          });
-          if (pre && pre.chapter) chSel.value = pre.chapter;
-        }
-        fillChapters();
-        certSel.addEventListener('change', fillChapters);
+        var chs = App.content.getChapters(certId, 'questions');
+        Object.keys(chs).sort().forEach(function (ch) {
+          chSel.appendChild(el('option', { value: ch, text: ch + ' (' + chs[ch].length + ')' }));
+        });
         optsPanel.appendChild(el('div', { className: 'form-group' }, [el('label', { text: 'Chapter' }), chSel]));
       } else if (selectedMode === 'random') {
-        var certs2 = App.content.getCerts();
-        var certChecks = el('div', { className: 'flex gap-sm', style: { flexWrap: 'wrap' } });
-        certs2.forEach(function (c) {
-          var lab = el('label', { className: 'chip chip-muted', style: { cursor: 'pointer' } });
-          var cb = el('input', { type: 'checkbox', value: c.id, checked: 'checked', style: { marginRight: '4px' } });
-          lab.appendChild(cb);
-          lab.appendChild(document.createTextNode(c.name));
-          certChecks.appendChild(lab);
-        });
-        optsPanel.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Certifications' }), certChecks]));
+        var available = App.content.getByCert('questions', certId).length;
         optsPanel.appendChild(el('div', { className: 'form-group' }, [
-          el('label', { text: 'Question count' }),
-          el('input', { className: 'form-control', type: 'number', id: 'qz-count', value: '10', min: '1', max: '100' })
+          el('label', { text: 'Question count (max ' + available + ')' }),
+          stepperField({ id: 'qz-count', value: String(Math.min(10, available || 10)), min: '1', max: String(available || 10) }).el
         ]));
       } else if (selectedMode === 'theme') {
-        var tags = App.content.getTags('questions');
+        var tags = App.content.getTags('questions', certId);
         var tagWrap = el('div', { className: 'flex gap-sm', style: { flexWrap: 'wrap' } });
         tags.forEach(function (t) {
           var lab = el('label', { className: 'chip chip-muted', style: { cursor: 'pointer' } });
@@ -414,30 +922,27 @@
           el('label', { text: 'Tags' }), tagWrap.childNodes.length ? tagWrap : el('span', { className: 'text-muted', text: 'No tags found' })
         ]));
       } else if (selectedMode === 'speed') {
-        optsPanel.appendChild(el('p', { text: '10 random questions. 20 seconds each. Streak counter on correct answers.' }));
+        optsPanel.appendChild(el('p', { text: '10 random questions from ' + cert.name + '. 20 seconds each. Streak counter on correct answers.' }));
       } else if (selectedMode === 'weak') {
-        var weak = App.store.weakQuestions(60);
-        optsPanel.appendChild(el('p', { text: weak.length + ' weak or unseen questions available.' }));
+        var weak = App.store.weakQuestions(60, certId);
+        optsPanel.appendChild(el('p', { text: weak.length + ' weak or unseen questions available in ' + cert.name + '.' }));
       }
     }
     renderOptions();
     root.appendChild(el('button', {
       className: 'btn btn-primary btn-lg', text: 'Start Quiz',
       onClick: function () {
-        var opts = {};
+        var opts = { cert: certId };
         if (selectedMode === 'chapter') {
-          opts.cert = ($('#qz-cert') || {}).value;
           opts.chapter = ($('#qz-chapter') || {}).value;
         } else if (selectedMode === 'random') {
-          opts.certs = [];
-          optsPanel.querySelectorAll('input[type=checkbox]:checked').forEach(function (cb) { opts.certs.push(cb.value); });
           opts.count = parseInt(($('#qz-count') || {}).value, 10) || 10;
         } else if (selectedMode === 'theme') {
           opts.tags = [];
           optsPanel.querySelectorAll('input[type=checkbox]:checked').forEach(function (cb) { opts.tags.push(cb.value); });
         }
         var pool = App.quiz.buildPool(selectedMode, opts);
-        var cfg = { mode: selectedMode, questions: pool, count: opts.count };
+        var cfg = { mode: selectedMode, cert: certId, questions: pool, count: opts.count };
         if (selectedMode === 'speed') { cfg.count = 10; cfg.speedLimit = 20; }
         if (!App.quiz.startQuiz(cfg)) return;
         root.innerHTML = '';
@@ -464,8 +969,15 @@
   function renderQuizPlayer(root) {
     var sess = App.quiz.getQuizSession();
     if (!sess) { renderQuizSetup(root); return; }
+    practiceBack(root, '#/quiz', 'Back', function () {
+      if (App.quiz.discardQuiz) App.quiz.discardQuiz();
+    });
     var q = App.quiz.currentQ();
     var answered = false;
+    var modeLabel = { chapter: 'Chapter Focus', random: 'Random Mix', theme: 'Theme Attack', weak: 'Weak Spots', speed: 'Speed Run' }[sess.mode] || sess.mode;
+    if (q._cert || q._chapter) {
+      root.appendChild(makeContextHeader(q._cert, q._chapter, 'Quiz · ' + modeLabel));
+    }
     var header = el('div', { className: 'quiz-progress' });
     header.appendChild(el('span', { className: 'mono text-muted', text: (sess.index + 1) + ' / ' + sess.questions.length }));
     var bar = el('div', { className: 'progress-bar' });
@@ -629,6 +1141,7 @@
 
   function renderQuizResults(root, result) {
     if (!result) { renderQuizSetup(root); return; }
+    practiceBack(root, '#/quiz', 'Back');
     root.appendChild(el('h1', { text: 'Quiz Results' }));
     var scoreColor = result.score >= 70 ? 'text-green' : result.score >= 50 ? 'text-amber' : 'text-red';
     root.appendChild(el('div', { className: 'stat-grid' }, [
@@ -659,32 +1172,43 @@
     }
     root.appendChild(el('div', { className: 'flex gap-sm mt-3' }, [
       el('button', { className: 'btn btn-primary', text: 'New Quiz', onClick: function () { App.core.navigate('#/quiz'); } }),
-      el('button', { className: 'btn btn-secondary', text: 'Dashboard', onClick: function () { App.core.navigate('#/dashboard'); } })
+      el('button', { className: 'btn btn-secondary', text: 'Quiz menu', onClick: function () { App.core.navigate('#/quiz'); } })
     ]));
   }
 
   function viewExam(root) {
+    var cur = App.core.getCurrentCertId();
     var sess = App.quiz.getExamSession();
-    if (sess && !sess.submitted) { renderExamPlayer(root); return; }
+    // Resume only exams that belong to the active certification.
+    if (sess && !sess.submitted && (!sess.cert || sess.cert === cur)) { renderExamPlayer(root); return; }
     renderExamSetup(root);
   }
 
   function renderExamSetup(root) {
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
+    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to start an exam.')); return; }
     root.appendChild(el('h1', { text: 'Exam Simulation' }));
-    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'CompTIA-style timed exam. No feedback until you submit.' }));
-    var certs = App.content.getCerts();
-    if (!certs.length) { root.appendChild(emptyState('No content', 'Load certifications first.')); return; }
+    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'CompTIA-style timed exam for ' + cert.name + '. No feedback until you submit.' }));
+    var available = App.content.getByCert('questions', certId).length;
+    if (!available) { root.appendChild(emptyState('No questions', 'This certification has no exam questions yet.')); return; }
     var panel = el('div', { className: 'panel' });
-    var certSel = el('select', { className: 'form-control', id: 'ex-cert' });
-    certs.forEach(function (c) {
-      var n = App.content.getByCert('questions', c.id).length;
-      certSel.appendChild(el('option', { value: c.id, text: c.name + ' (' + n + ' available)' }));
-    });
-    panel.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Certification' }), certSel]));
+    panel.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { flexWrap: 'wrap', alignItems: 'center' } }, [
+      el('span', { className: 'chip chip-muted', style: { color: cert.color, borderColor: 'currentColor' }, text: cert.name }),
+      el('span', { className: 'text-muted', text: available + ' questions available' })
+    ]));
+    var countField = stepperField({ id: 'ex-count', min: '1' });
+    var countInput = countField.input;
     panel.appendChild(el('div', { className: 'form-group mb-2' }, [
       el('label', { text: 'Question count' }),
-      el('input', { className: 'form-control', type: 'number', id: 'ex-count', value: '20', min: '5', max: '90' })
+      countField.el
     ]));
+    function applyExamMax() {
+      countInput.setAttribute('max', String(available));
+      countInput.setAttribute('min', String(Math.min(5, available)));
+      countInput.value = String(available); // default to the cert's maximum
+    }
+    applyExamMax();
     panel.appendChild(el('div', { className: 'form-group mb-2' }, [
       el('label', { text: 'Time limit (minutes, blank = auto)' }),
       el('input', { className: 'form-control', type: 'number', id: 'ex-time', value: '', min: '5', placeholder: 'Auto (75s × count)' })
@@ -693,10 +1217,10 @@
     root.appendChild(el('button', {
       className: 'btn btn-primary btn-lg mt-2', text: 'Begin Exam',
       onClick: function () {
-        var count = parseInt(($('#ex-count') || {}).value, 10) || 20;
+        var count = Math.min(parseInt(($('#ex-count') || {}).value, 10) || available, available);
         var timeMin = parseInt(($('#ex-time') || {}).value, 10);
         var timeLimit = timeMin ? timeMin * 60 : count * 75;
-        if (!App.quiz.startExam({ cert: certSel.value, count: count, timeLimit: timeLimit })) return;
+        if (!App.quiz.startExam({ cert: certId, count: count, timeLimit: timeLimit })) return;
         root.innerHTML = '';
         renderExamPlayer(root);
       }
@@ -706,6 +1230,9 @@
   function renderExamPlayer(root) {
     var sess = App.quiz.getExamSession();
     if (!sess) { renderExamSetup(root); return; }
+    practiceBack(root, '#/exam', 'Back', function () {
+      if (App.quiz.discardExam) App.quiz.discardExam();
+    });
     var layout = el('div', { className: 'exam-layout' });
     var main = el('div');
     var side = el('div', { className: 'panel' });
@@ -833,6 +1360,7 @@
 
   function renderExamResults(root, full) {
     if (!full) { renderExamSetup(root); return; }
+    practiceBack(root, '#/exam', 'Back');
     var a = full.attempt;
     root.appendChild(el('h1', { text: 'Exam Results' }));
     root.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { alignItems: 'center' } }, [
@@ -863,59 +1391,89 @@
       appendQuestionReview(p, r.question);
       root.appendChild(p);
     });
-    root.appendChild(el('button', { className: 'btn btn-primary mt-3', text: 'Back to Dashboard', onClick: function () { App.core.navigate('#/dashboard'); } }));
   }
 
   function viewFlashcards(root) {
-    var sess = App.flashcards.getSession();
-    if (sess) { renderFlashPlayer(root); return; }
+    var cur = App.core.getCurrentCertId();
+    var pre = null;
+    try { pre = JSON.parse(sessionStorage.getItem('reviewapp.fcSetup') || 'null'); } catch (e) {}
+
+    // Direct chapter launches take priority over any saved session. This is
+    // what prevents an old Chapter 2 session from swallowing a new chapter
+    // launch from the Dashboard.
+    if (pre && (pre.cert || pre.chapter)) {
+      sessionStorage.removeItem('reviewapp.fcSetup');
+      if (pre.cert && pre.cert !== cur && !App.core.setCurrentCert(pre.cert, { silent: true })) { renderFlashSetup(root); return; }
+      cur = App.core.getCurrentCertId();
+      var ch = pre.chapter
+        ? (App.content.findChapter ? App.content.findChapter(cur, 'flashcards', pre.chapter) : pre.chapter)
+        : null;
+      var deck = App.flashcards.buildDeck({ cert: cur, chapter: ch });
+      if (deck.length) {
+        App.flashcards.startSession(deck, {});
+        renderFlashPlayer(root);
+        return;
+      }
+      App.toast('No cards in this chapter', 'error');
+    }
+
+    // Generic navigation always opens the menu. The saved session remains
+    // available there through the explicit Resume saved session button.
     renderFlashSetup(root);
   }
 
   function renderFlashSetup(root) {
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
     root.appendChild(el('h1', { text: 'Flashcards' }));
-    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Leitner spaced repetition · boxes 1–5' }));
-    var pre = null;
-    try { pre = JSON.parse(sessionStorage.getItem('reviewapp.fcSetup') || 'null'); } catch (e) {}
-    sessionStorage.removeItem('reviewapp.fcSetup');
-    var pending = App.flashcards.consumePendingCard();
-    var certs = App.content.getCerts();
-    var panel = el('div', { className: 'panel mb-3' });
-    var certSel = el('select', { className: 'form-control', id: 'fc-cert' });
-    certSel.appendChild(el('option', { value: '', text: 'All certifications' }));
-    certs.forEach(function (c) { certSel.appendChild(el('option', { value: c.id, text: c.name })); });
-    if (pre && pre.cert) certSel.value = pre.cert;
-    panel.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Certification' }), certSel]));
-    var chSel = el('select', { className: 'form-control', id: 'fc-chapter' });
-    function fillCh() {
-      chSel.innerHTML = '';
-      chSel.appendChild(el('option', { value: '', text: 'All chapters' }));
-      if (certSel.value) {
-        var chs = App.content.getChapters(certSel.value, 'flashcards');
-        Object.keys(chs).sort().forEach(function (ch) {
-          chSel.appendChild(el('option', { value: ch, text: ch + ' (' + chs[ch].length + ')' }));
-        });
-      }
-      if (pre && pre.chapter) chSel.value = pre.chapter;
+    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to review cards.')); return; }
+    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Choose a chapter, then mark Again to retry a card later or Next to move on · spaced repetition' }));
+    var savedSession = App.flashcards.getSession();
+    if (savedSession && (!savedSession.cert || savedSession.cert === certId) && !savedSession.finished) {
+      var resumePanel = el('div', { className: 'flash-resume-panel mb-3' });
+      resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
+      resumePanel.appendChild(el('p', { className: 'text-muted', text: (savedSession.chapter || 'All chapters') + ' · ' + Math.max(0, savedSession.totalCards - savedSession.completed) + ' cards remaining' }));
+      resumePanel.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Resume saved session', onClick: function () { root.innerHTML = ''; renderFlashPlayer(root); } }));
+      root.appendChild(resumePanel);
     }
-    fillCh();
-    certSel.addEventListener('change', fillCh);
-    panel.appendChild(el('div', { className: 'form-group' }, [el('label', { text: 'Chapter' }), chSel]));
+    var pending = App.flashcards.consumePendingCard();
+    var chs = App.content.getChapters(certId, 'flashcards');
+    var chKeys = Object.keys(chs);
+    var totalCards = App.content.getByCert('flashcards', certId).length;
+
+    var panel = el('div', { className: 'panel mb-3' });
+    panel.appendChild(el('div', { className: 'label-upper mb-2', text: 'Select chapter' }));
+
+    var picker = el('div', { className: 'fc-chapter-picker' });
+    function startChapter(value) {
+      var deck = App.flashcards.buildDeck({ cert: certId, chapter: value || null });
+      if (!App.flashcards.startSession(deck, { startCard: pending })) return;
+      root.innerHTML = '';
+      renderFlashPlayer(root);
+    }
+    function addOption(value, label, count) {
+      var btn = el('button', {
+        className: 'fc-chapter-option',
+        type: 'button',
+        'aria-label': 'Start ' + label + ' flashcards'
+      }, [
+        el('span', { className: 'fc-chapter-option-name', text: label }),
+        el('span', { className: 'chip chip-muted', text: count + ' card' + (count === 1 ? '' : 's') })
+      ]);
+      btn.addEventListener('click', function () { startChapter(value); });
+      picker.appendChild(btn);
+    }
+    addOption('', 'All chapters', totalCards);
+    chKeys.forEach(function (ch) { addOption(ch, ch, chs[ch].length); });
+    panel.appendChild(picker);
     root.appendChild(panel);
-    root.appendChild(el('p', { className: 'mb-2', html: '<span class="chip chip-amber">' + App.store.cardsDueCount() + ' cards due</span>' }));
-    root.appendChild(el('button', {
-      className: 'btn btn-primary btn-lg', text: 'Start Session',
-      onClick: function () {
-        var deck = App.flashcards.buildDeck({ cert: certSel.value || null, chapter: chSel.value || null });
-        if (!App.flashcards.startSession(deck, { startCard: pending })) return;
-        root.innerHTML = '';
-        renderFlashPlayer(root);
-      }
-    }));
+
+    root.appendChild(el('p', { className: 'mb-2', html: '<span class="chip chip-amber">' + App.store.cardsDueCount(certId) + ' cards due</span><span class="text-muted fc-start-hint"> Select a chapter to start immediately.</span>' }));
     if (pending) {
       setTimeout(function () {
-        var deck = App.flashcards.buildDeck({});
-        App.flashcards.startSession(deck, { startCard: pending });
+        var card = pending;
+        var deck = App.flashcards.buildDeck({ cert: card._cert || certId, chapter: card._chapter || null });
+        App.flashcards.startSession(deck, { startCard: card });
         root.innerHTML = '';
         renderFlashPlayer(root);
       }, 50);
@@ -926,19 +1484,33 @@
     var sess = App.flashcards.getSession();
     if (!sess) { renderFlashSetup(root); return; }
     var card = App.flashcards.currentCard();
-    if (!card) {
-      var result = App.flashcards.endSession();
-      root.appendChild(el('h1', { text: 'Session complete' }));
-      root.appendChild(el('p', { text: 'Graded ' + result.graded + ' cards (Again: ' + result.again + ', Good: ' + result.good + ', Easy: ' + result.easy + ')' }));
-      root.appendChild(el('button', { className: 'btn btn-primary mt-2', text: 'New session', onClick: function () { App.core.navigate('#/flashcards'); } }));
-      return;
-    }
+    if (!card) { renderFlashSummary(root); return; }
+    practiceBack(root, '#/flashcards', 'Back');
     var st = App.store.getCardState(App.flashcards.cardKey(card));
-    root.appendChild(el('div', { className: 'quiz-progress' }, [
-      el('span', { className: 'mono text-muted', text: (sess.index + 1) + ' / ' + sess.deck.length }),
-      el('div', { className: 'progress-bar' }, [el('div', { className: 'progress-fill', style: { width: (sess.index / sess.deck.length * 100) + '%' } })]),
+    var donePct = sess.totalCards ? Math.round((sess.completed / sess.totalCards) * 100) : 0;
+    var retryCount = sess.retry.length;
+
+    if (sess.cert || sess.chapter) {
+      root.appendChild(makeContextHeader(sess.cert, sess.chapter, 'Flashcards'));
+    }
+
+    // Progress + Shuffle toolbar
+    var bar = el('div', { className: 'flash-toolbar' });
+    bar.appendChild(el('div', { className: 'quiz-progress' }, [
+      el('span', { className: 'mono text-muted', text: sess.completed + ' / ' + sess.totalCards + ' done' }),
+      el('div', { className: 'progress-bar' }, [el('div', { className: 'progress-fill', style: { width: donePct + '%' } })]),
       el('span', { className: 'chip chip-muted', text: 'Box ' + (st.box || 1) })
     ]));
+    bar.appendChild(el('button', {
+      className: 'btn btn-ghost btn-sm flash-shuffle', text: 'Shuffle',
+      title: 'Shuffle the remaining cards',
+      onClick: function () { shuffleAndRefresh(); }
+    }));
+    if (retryCount) {
+      bar.appendChild(el('span', { className: 'chip chip-amber', text: retryCount + ' to retry' }));
+    }
+    root.appendChild(bar);
+
     var stage = el('div', { className: 'flashcard-stage' });
     var fc = el('div', {
       className: 'flashcard' + (sess.flipped ? ' flipped' : ''),
@@ -955,22 +1527,38 @@
     ]));
     stage.appendChild(fc);
     root.appendChild(stage);
+
     var footer = el('div', { className: 'flashcard-footer' });
     var hint = el('p', { className: 'text-muted flash-hint', style: { textAlign: 'center' }, text: 'Click card or press Space to flip' });
     var grades = el('div', { className: 'grade-btns' });
-    grades.appendChild(el('button', { className: 'btn btn-danger', text: '1 · Again', onClick: function () { gradeAndRefresh('again'); } }));
-    grades.appendChild(el('button', { className: 'btn btn-secondary', text: '2 · Good', onClick: function () { gradeAndRefresh('good'); } }));
-    grades.appendChild(el('button', { className: 'btn btn-primary', text: '3 · Easy', onClick: function () { gradeAndRefresh('easy'); } }));
+    grades.appendChild(el('button', {
+      className: 'btn btn-danger', text: '1 · Again',
+      title: 'Review this card again later',
+      onClick: function () { gradeAndRefresh('again'); }
+    }));
+    grades.appendChild(el('button', {
+      className: 'btn btn-primary', text: '2 · Next',
+      title: 'I know this card',
+      onClick: function () { gradeAndRefresh('next'); }
+    }));
     footer.appendChild(hint);
     footer.appendChild(grades);
     root.appendChild(footer);
+
     function syncFlip() {
       fc.classList.toggle('flipped', sess.flipped);
       footer.classList.toggle('flipped', sess.flipped);
     }
     syncFlip();
+
     function gradeAndRefresh(g) {
       App.flashcards.grade(g);
+      root.innerHTML = '';
+      renderFlashPlayer(root);
+    }
+    function shuffleAndRefresh() {
+      App.flashcards.shuffle();
+      App.toast('Deck shuffled', 'info');
       root.innerHTML = '';
       renderFlashPlayer(root);
     }
@@ -979,12 +1567,12 @@
         e.preventDefault();
         App.flashcards.flip();
         syncFlip();
+      } else if (e.key === 's' || e.key === 'S') {
+        shuffleAndRefresh();
       } else if (sess.flipped) {
         if (e.key === '1') gradeAndRefresh('again');
-        else if (e.key === '2') gradeAndRefresh('good');
-        else if (e.key === '3') gradeAndRefresh('easy');
-      } else if (e.key === 'ArrowRight') { App.flashcards.next(); root.innerHTML = ''; renderFlashPlayer(root); }
-      else if (e.key === 'ArrowLeft') { App.flashcards.prev(); root.innerHTML = ''; renderFlashPlayer(root); }
+        else if (e.key === '2' || e.key === 'Enter') gradeAndRefresh('next');
+      }
     }
     document.addEventListener('keydown', onKey);
     setTimeout(function () {
@@ -995,80 +1583,166 @@
     }, 50);
   }
 
+  function renderFlashSummary(root) {
+    var result = App.flashcards.endSession();
+    if (!result) { renderFlashSetup(root); return; }
+    practiceBack(root, '#/flashcards', 'Back');
+    root.appendChild(el('h1', { text: 'Session Complete' }));
+    var panel = el('div', { className: 'panel mb-3' });
+    var grid = el('div', { className: 'stat-grid' });
+    [
+      { label: 'Cards Reviewed', value: result.totalCards },
+      { label: 'Completed Without Retry', value: result.withoutRetry },
+      { label: 'Needed Review', value: result.neededReview },
+      { label: 'Repeat Attempts', value: result.repeatAttempts }
+    ].forEach(function (t) {
+      grid.appendChild(el('div', { className: 'stat-tile' }, [
+        el('div', { className: 'stat-value', text: String(t.value) }),
+        el('div', { className: 'stat-label', text: t.label })
+      ]));
+    });
+    panel.appendChild(grid);
+    if (result.focusAreas && result.focusAreas.length) {
+      var chips = result.focusAreas.map(function (t) { return el('span', { className: 'chip chip-amber', text: t }); });
+      panel.appendChild(el('div', { className: 'mt-2 flex gap-sm', style: { flexWrap: 'wrap', alignItems: 'center' } },
+        [el('span', { className: 'label-upper', text: 'Focus areas:' })].concat(chips)));
+    }
+    root.appendChild(panel);
+    root.appendChild(el('button', {
+      className: 'btn btn-primary mt-2', text: 'New session',
+      onClick: function () { App.core.navigate('#/flashcards'); }
+    }));
+  }
+
+  function labRow(lab, num) {
+    var done = App.store.isLabDone(lab._id);
+    var row = el('div', {
+      className: 'lab-row',
+      onClick: function () { App.core.navigate('#/labs/' + encodeURIComponent(lab._id)); }
+    });
+    row.appendChild(el('div', { className: 'lab-row-index', text: String(num) }));
+    var body = el('div', { className: 'lab-row-body' });
+    body.appendChild(el('div', { className: 'lab-row-title', text: lab.title }));
+    var meta = el('div', { className: 'lab-row-meta' });
+    meta.appendChild(el('span', { className: 'chip chip-amber', text: '★'.repeat(lab.difficulty || 1) }));
+    meta.appendChild(el('span', { className: 'chip chip-muted', text: (lab.minutes || '?') + ' min' }));
+    body.appendChild(meta);
+    if (lab.scenario) {
+      var desc = lab.scenario.length > 110 ? lab.scenario.slice(0, 110) + '…' : lab.scenario;
+      body.appendChild(el('div', { className: 'lab-row-desc', text: desc }));
+    }
+    row.appendChild(body);
+    if (done) row.appendChild(el('span', { className: 'chip chip-green', text: 'Completed' }));
+    return row;
+  }
+
+  function labChapterSection(chapterName, chapterLabs, visibleLabs, open) {
+    var doneCount = chapterLabs.filter(function (l) { return App.store.isLabDone(l._id); }).length;
+    var section = el('div', { className: 'lab-chapter' + (open ? ' open' : '') });
+    var header = el('button', {
+      className: 'lab-chapter-header',
+      'aria-expanded': open ? 'true' : 'false',
+      onClick: function () {
+        var isOpen = section.classList.toggle('open');
+        header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      }
+    });
+    header.appendChild(el('span', { className: 'lab-chapter-chevron', 'aria-hidden': 'true', html:
+      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    }));
+    var titleWrap = el('div', { className: 'lab-chapter-title-wrap' });
+    titleWrap.appendChild(el('div', { className: 'lab-chapter-title', text: chapterName }));
+    titleWrap.appendChild(el('div', { className: 'lab-chapter-meta', text: doneCount + ' / ' + chapterLabs.length + ' labs completed' }));
+    header.appendChild(titleWrap);
+    header.appendChild(el('span', { className: 'chip chip-muted lab-chapter-count', text: chapterLabs.length + ' Labs' }));
+    section.appendChild(header);
+    var body = el('div', { className: 'lab-chapter-body' });
+    var inner = el('div', { className: 'lab-chapter-body-inner' });
+    var rows = el('div', { className: 'lab-rows' });
+    visibleLabs.forEach(function (lab, i) { rows.appendChild(labRow(lab, i + 1)); });
+    inner.appendChild(rows);
+    body.appendChild(inner);
+    section.appendChild(body);
+    return section;
+  }
+
   function viewLabs(root, parsed) {
     var labId = parsed.params[0] ? decodeURIComponent(parsed.params[0]) : null;
     if (labId) return viewLabDetail(root, labId);
     root.appendChild(el('h1', { text: 'Labs' }));
-    var labs = App.content.getAll('labs');
-    if (!labs.length) { root.appendChild(emptyState('No labs yet', 'Add lab content files and reload.')); return; }
-    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Choose a certification and chapter to focus your lab practice.' }));
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
+    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to view its labs.')); return; }
+    var allLabs = App.content.getByCert('labs', certId);
+    if (!allLabs.length) { root.appendChild(emptyState('No labs yet', 'Add lab content files for ' + cert.name + ' and reload.')); return; }
+
     var controls = el('div', { className: 'panel mb-3' });
-    var certSel = el('select', { className: 'form-control', id: 'lab-cert' });
-    certSel.appendChild(el('option', { value: '', text: 'All certifications' }));
-    App.content.getCerts().forEach(function (cert) {
-      var count = App.content.getByCert('labs', cert.id).length;
-      if (count) certSel.appendChild(el('option', { value: cert.id, text: cert.name + ' (' + count + ')' }));
-    });
-    controls.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Certification' }), certSel]));
-    var chapterSel = el('select', { className: 'form-control', id: 'lab-chapter' });
-    controls.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Chapter' }), chapterSel]));
-    var filter = el('input', { className: 'form-control', type: 'search', placeholder: 'Search selected labs…' });
+    controls.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { flexWrap: 'wrap', alignItems: 'center' } }, [
+      el('span', { className: 'chip chip-muted', style: { color: cert.color, borderColor: 'currentColor' }, text: cert.name }),
+      el('span', { className: 'text-muted', text: allLabs.length + ' labs' })
+    ]));
+    var filter = el('input', { className: 'form-control', type: 'search', placeholder: 'Search labs…' });
     controls.appendChild(el('div', { className: 'form-group' }, [el('label', { text: 'Find a lab' }), filter]));
     root.appendChild(controls);
-    var list = el('div');
-    root.appendChild(list);
 
-    function fillChapters() {
-      chapterSel.innerHTML = '';
-      chapterSel.appendChild(el('option', { value: '', text: 'All chapters' }));
-      var chapters = App.content.getChapters(certSel.value || null, 'labs');
-      Object.keys(chapters).sort().forEach(function (chapter) {
-        chapterSel.appendChild(el('option', { value: chapter, text: chapter + ' (' + chapters[chapter].length + ')' }));
-      });
-    }
+    var content = el('div', { id: 'labs-content' });
+    root.appendChild(content);
 
-    function renderList() {
-      list.innerHTML = '';
-      var query = filter.value.trim().toLowerCase();
-      var visible = labs.filter(function (l) {
-        if (certSel.value && l._cert !== certSel.value) return false;
-        if (chapterSel.value && l._chapter !== chapterSel.value) return false;
-        return !query || (l.title + ' ' + (l.tags || []).join(' ') + ' ' + (l.scenario || '')).toLowerCase().indexOf(query) >= 0;
-      });
-      if (!visible.length) {
-        list.appendChild(emptyState('No labs found', 'Try a different certification, chapter, or search term.'));
-        return;
-      }
-      visible.forEach(function (lab) {
-        var done = App.store.isLabDone(lab._id);
-        var card = el('div', {
-          className: 'card mb-2', style: { cursor: 'pointer' },
-          onClick: function () { App.core.navigate('#/labs/' + encodeURIComponent(lab._id)); }
+    // Direct context from a certification chapter (Certifications → Chapter → Labs).
+    var pre = null;
+    try { pre = JSON.parse(sessionStorage.getItem('reviewapp.labsSetup') || 'null'); } catch (e) {}
+    var autoExpandChapter = null;
+    if (pre && pre.cert) {
+      sessionStorage.removeItem('reviewapp.labsSetup');
+      if (pre.cert !== certId && !App.core.setCurrentCert(pre.cert, { silent: true })) { /* stay on the current cert */ }
+      certId = App.core.getCurrentCertId();
+      cert = App.content.getCert(certId);
+      if (pre.chapter) {
+        var chNum = (String(pre.chapter).match(/Ch\s*(\d+)/i) || [])[1];
+        Object.keys(App.content.getChapters(certId, 'labs')).forEach(function (name) {
+          if (autoExpandChapter) return;
+          if (name === pre.chapter) { autoExpandChapter = name; return; }
+          var n = (String(name).match(/Ch\s*(\d+)/i) || [])[1];
+          if (chNum && n && parseInt(n, 10) === parseInt(chNum, 10)) autoExpandChapter = name;
         });
-        card.appendChild(el('div', { className: 'flex-between' }, [
-          el('h3', { text: lab.title }),
-          done ? el('span', { className: 'chip chip-green', text: 'Completed' }) : null
-        ]));
-        var meta = el('div', { className: 'flex gap-sm mt-1' });
-        meta.appendChild(el('span', { className: 'chip chip-amber', text: '★'.repeat(lab.difficulty || 1) }));
-        meta.appendChild(el('span', { className: 'chip chip-muted', text: (lab.minutes || '?') + ' min' }));
-        meta.appendChild(el('span', { className: 'chip chip-muted', text: lab._chapter || 'General' }));
-        card.appendChild(meta);
-        list.appendChild(card);
-      });
+      }
     }
-    fillChapters();
-    renderList();
-    certSel.addEventListener('change', function () { fillChapters(); renderList(); });
-    chapterSel.addEventListener('change', renderList);
-    filter.addEventListener('input', renderList);
+
+    function renderContent() {
+      content.innerHTML = '';
+      var chapters = App.content.getChapters(certId, 'labs');
+      var chapterNames = Object.keys(chapters); // preserve defined (manifest) order
+      if (!chapterNames.length) { content.appendChild(emptyState('No labs', cert.name + ' has no labs yet.')); return; }
+      var query = filter.value.trim().toLowerCase();
+      var shown = 0;
+      chapterNames.forEach(function (ch) {
+        var chapterLabs = chapters[ch];
+        var visibleLabs = query
+          ? chapterLabs.filter(function (l) {
+            return (l.title + ' ' + (l.tags || []).join(' ') + ' ' + (l.scenario || '')).toLowerCase().indexOf(query) >= 0;
+          })
+          : chapterLabs;
+        if (query && !visibleLabs.length) return; // hide chapters with no matches while filtering
+        var open = (autoExpandChapter && autoExpandChapter === ch) || (!autoExpandChapter && shown === 0);
+        content.appendChild(labChapterSection(ch, chapterLabs, visibleLabs, open));
+        shown++;
+      });
+      if (!shown) content.appendChild(emptyState('No labs found', 'Try a different search.'));
+    }
+
+    renderContent();
+    filter.addEventListener('input', renderContent);
   }
 
   function viewLabDetail(root, labId) {
     var labs = App.content.getAll('labs');
     var lab = labs.find(function (l) { return l._id === labId; });
     if (!lab) { root.appendChild(emptyState('Lab not found', labId)); return; }
-    root.appendChild(el('button', { className: 'btn btn-ghost btn-sm mb-2', text: '← All labs', onClick: function () { App.core.navigate('#/labs'); } }));
+    practiceBack(root, '#/labs', 'Back');
+    var chapterLabs = labs.filter(function (l) { return l._cert === lab._cert && l._chapter === lab._chapter; });
+    var labIdx = chapterLabs.findIndex(function (l) { return l._id === lab._id; });
+    var labMeta = labIdx >= 0 ? 'Lab ' + (labIdx + 1) + ' of ' + chapterLabs.length : null;
+    root.appendChild(makeContextHeader(lab._cert, lab._chapter, 'Lab', labMeta));
     root.appendChild(el('h1', { text: lab.title }));
     root.appendChild(el('div', { className: 'flex gap-sm mb-2' }, [
       el('span', { className: 'chip chip-amber', text: 'Difficulty ' + (lab.difficulty || 1) }),
@@ -1147,12 +1821,19 @@
     }));
   }
 
-  function viewStats(root) {
+  function viewStatsLegacy(root) {
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
     root.appendChild(el('h1', { text: 'Stats' }));
-    var stats = App.store.getDashboardStats();
-    var questionTotal = App.content.getAll('questions').length;
+    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to see stats.')); return; }
+    root.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { flexWrap: 'wrap', alignItems: 'center' } }, [
+      el('span', { className: 'chip chip-muted', style: { color: cert.color, borderColor: 'currentColor' }, text: cert.name }),
+      el('span', { className: 'text-muted', style: { fontSize: '0.85rem' }, text: 'Stats are scoped to the active certification' })
+    ]));
+    var stats = App.store.getDashboardStats(certId);
+    var questionTotal = App.content.getByCert('questions', certId).length;
     var seenQuestions = {};
-    App.store.getAnswers().forEach(function (answer) { seenQuestions[answer.qId] = true; });
+    App.store.getAnswers({ cert: certId }).forEach(function (answer) { seenQuestions[answer.qId] = true; });
     var coverage = questionTotal ? Math.round((Object.keys(seenQuestions).length / questionTotal) * 100) : 0;
     root.appendChild(el('div', { className: 'stat-grid' }, [
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.totalAnswered) }), el('div', { className: 'stat-label', text: 'Answered' })]),
@@ -1163,13 +1844,16 @@
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.labsDone) }), el('div', { className: 'stat-label', text: 'Labs done' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.cardsDue) }), el('div', { className: 'stat-label', text: 'Cards due' })])
     ]));
-    root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Accuracy by certification' }));
-    App.content.getCerts().forEach(function (c) {
-      var acc = App.store.accuracyFor({ cert: c.id });
+    root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Accuracy by chapter' }));
+    var chMap = App.content.getChapters(certId, 'questions');
+    var chKeys = Object.keys(chMap);
+    if (!chKeys.length) root.appendChild(el('p', { className: 'text-muted', text: 'No question chapters loaded for this certification.' }));
+    else chKeys.sort().forEach(function (ch) {
+      var acc = App.store.accuracyFor({ cert: certId, chapter: ch });
       var row = el('div', { className: 'bar-row' });
-      row.appendChild(el('div', { className: 'bar-label', text: c.name }));
+      row.appendChild(el('div', { className: 'bar-label', text: ch }));
       var track = el('div', { className: 'bar-track' });
-      track.appendChild(el('div', { className: 'bar-fill', style: { width: (acc || 0) + '%', background: c.color } }));
+      track.appendChild(el('div', { className: 'bar-fill', style: { width: (acc || 0) + '%', background: cert.color } }));
       row.appendChild(track);
       row.appendChild(el('div', { className: 'bar-value', text: acc != null ? acc + '%' : '—' }));
       root.appendChild(row);
@@ -1177,31 +1861,29 @@
     root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Progress by chapter' }));
     var chapterTable = el('table', { className: 'ref-table' });
     chapterTable.appendChild(el('thead', {}, [el('tr', {}, [
-      el('th', { text: 'Certification' }), el('th', { text: 'Chapter' }), el('th', { text: 'Seen' }), el('th', { text: 'Accuracy' })
+      el('th', { text: 'Chapter' }), el('th', { text: 'Seen' }), el('th', { text: 'Accuracy' })
     ])]));
     var chapterBody = el('tbody');
     var hasChapters = false;
-    App.content.getCerts().forEach(function (cert) {
-      var chapters = App.content.getChapters(cert.id, 'questions');
-      Object.keys(chapters).sort().forEach(function (chapter) {
-        hasChapters = true;
-        var questions = chapters[chapter];
-        var seen = {};
-        App.store.getAnswers({ cert: cert.id, chapter: chapter }).forEach(function (answer) { seen[answer.qId] = true; });
-        var acc = App.store.accuracyFor({ cert: cert.id, chapter: chapter });
-        chapterBody.appendChild(el('tr', {}, [
-          el('td', { text: cert.name }), el('td', { text: chapter }),
-          el('td', { text: Object.keys(seen).length + ' / ' + questions.length }),
-          el('td', { text: acc != null ? acc + '%' : '—' })
-        ]));
-      });
+    var chaptersMap = App.content.getChapters(certId, 'questions');
+    Object.keys(chaptersMap).sort().forEach(function (chapter) {
+      hasChapters = true;
+      var questions = chaptersMap[chapter];
+      var seen = {};
+      App.store.getAnswers({ cert: certId, chapter: chapter }).forEach(function (answer) { seen[answer.qId] = true; });
+      var acc = App.store.accuracyFor({ cert: certId, chapter: chapter });
+      chapterBody.appendChild(el('tr', {}, [
+        el('td', { text: chapter }),
+        el('td', { text: Object.keys(seen).length + ' / ' + questions.length }),
+        el('td', { text: acc != null ? acc + '%' : '—' })
+      ]));
     });
     if (hasChapters) {
       chapterTable.appendChild(chapterBody);
       root.appendChild(chapterTable);
     } else root.appendChild(el('p', { className: 'text-muted', text: 'No question chapters are loaded yet.' }));
     root.appendChild(el('h3', { className: 'mt-3 mb-1', text: '14-day activity' }));
-    var activity = App.store.getActivity(14);
+    var activity = App.store.getActivity(14, certId);
     var maxC = Math.max.apply(null, activity.map(function (d) { return d.count; }).concat([1]));
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'activity-chart');
@@ -1219,7 +1901,7 @@
       svg.appendChild(rect);
     });
     root.appendChild(svg);
-    var weak = App.store.weakQuestions(60);
+    var weak = App.store.weakQuestions(60, certId);
     if (weak.length) {
       root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Weakest areas' }));
       var tagWeak = {};
@@ -1237,7 +1919,23 @@
         ]));
       });
     }
-    var exams = App.store.getExams();
+    var weeklyFc = App.store.weeklyReviewRecommendations(8, certId);
+    root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Flashcard review — this week' }));
+    if (!weeklyFc.length) {
+      root.appendChild(el('p', { className: 'text-muted', text: 'No flashcard difficulties recorded this week.' }));
+    } else {
+      weeklyFc.forEach(function (w) {
+        var row = el('div', { className: 'flex-between mb-1' });
+        var label = el('div', { className: 'flex gap-sm', style: { alignItems: 'center', flexWrap: 'wrap' } });
+        label.appendChild(el('span', { className: 'chip chip-red', text: w.tag }));
+        label.appendChild(el('span', { className: 'text-muted', style: { fontSize: '0.82rem' },
+          text: (w.cert || '') + (w.chapter ? ' → ' + w.chapter : '') }));
+        row.appendChild(label);
+        row.appendChild(el('span', { className: 'text-muted mono', text: w.agains + ' again · ' + w.cards + ' cards' }));
+        root.appendChild(row);
+      });
+    }
+    var exams = App.store.getExams(certId);
     root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Exam history' }));
     if (!exams.length) root.appendChild(el('p', { className: 'text-muted', text: 'No exam attempts yet.' }));
     else {
@@ -1260,7 +1958,7 @@
     expRow.appendChild(el('button', {
       className: 'btn btn-secondary btn-sm', text: 'CSV answer log',
       onClick: function () {
-        utils.downloadBlob(new Blob([App.store.exportAnswersCSV()], { type: 'text/csv' }), 'reviewapp-answers.csv');
+        utils.downloadBlob(new Blob([App.store.exportAnswersCSV(certId)], { type: 'text/csv' }), 'reviewapp-answers.csv');
       }
     }));
     expRow.appendChild(el('button', {
@@ -1272,30 +1970,667 @@
     expRow.appendChild(el('button', {
       className: 'btn btn-secondary btn-sm', text: 'Markdown report',
       onClick: function () {
-        var s = App.store.getDashboardStats();
-        var md = '# ReviewApp Progress Report\n\n- Total answered: ' + s.totalAnswered + '\n- Accuracy: ' + s.accuracy + '%\n- Streak: ' + s.streakDays + ' days\n- Labs completed: ' + s.labsDone + '\n- Cards due: ' + s.cardsDue + '\n\nGenerated ' + new Date().toISOString() + '\n';
+        var s = App.store.getDashboardStats(certId);
+        var md = '# ReviewApp Progress Report — ' + cert.name + '\n\n- Total answered: ' + s.totalAnswered + '\n- Accuracy: ' + s.accuracy + '%\n- Streak: ' + s.streakDays + ' days\n- Labs completed: ' + s.labsDone + '\n- Cards due: ' + s.cardsDue + '\n\nGenerated ' + new Date().toISOString() + '\n';
         utils.downloadBlob(new Blob([md], { type: 'text/markdown' }), 'reviewapp-report.md');
       }
     }));
     root.appendChild(expRow);
   }
 
+  function viewStats(root) {
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
+    if (!cert) {
+      root.appendChild(el('h1', { text: 'Statistics' }));
+      root.appendChild(emptyState('No certification selected', 'Pick a certification from the Current certification picker to see analytics.'));
+      return;
+    }
+
+    var questions = App.content.getByCert('questions', certId);
+    var cards = App.content.getByCert('flashcards', certId);
+    var labs = App.content.getByCert('labs', certId);
+    var allAnswers = App.store.getAnswers({ cert: certId });
+    var allReviews = App.store.getCardReviews({ cert: certId });
+    var exams = App.store.getExams(certId);
+    var labsDone = App.store.get('labsDone', {});
+    var certColor = cert.color || 'var(--accent-cyan)';
+    var selectedDays = 14;
+
+    function chapterNumber(name, fallback) {
+      var n = App.content.chapterNumber ? App.content.chapterNumber(name) : null;
+      return n == null ? String(fallback + 1).padStart(2, '0') : String(n).padStart(2, '0');
+    }
+
+    function chapterTitle(name) {
+      var value = String(name || 'General');
+      return value.replace(/^Ch\s*\d+\s*[·:-]?\s*/i, '') || value;
+    }
+
+    function chapterKeyFor(type, chapter) {
+      if (!chapter) return null;
+      return App.content.findChapter ? App.content.findChapter(certId, type, chapter) : chapter;
+    }
+
+    function dayStart(ts) {
+      var d = new Date(ts || Date.now());
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    }
+
+    function sinceFor(days) {
+      if (days == null) return 0;
+      return dayStart(Date.now()) - (days - 1) * 86400000;
+    }
+
+    function inRange(ts, days) {
+      return !!ts && ts >= sinceFor(days);
+    }
+
+    function uniqueCount(items, key) {
+      var seen = {};
+      items.forEach(function (item) { if (item && item[key]) seen[item[key]] = true; });
+      return Object.keys(seen).length;
+    }
+
+    function percent(correct, total) {
+      return total ? Math.round((correct / total) * 100) : null;
+    }
+
+    function accuracy(items) {
+      return percent(items.filter(function (a) { return !!a.correct; }).length, items.length);
+    }
+
+    function relativeChange(current, previous) {
+      if (current == null || previous == null || !previous || current < 0) return null;
+      return Math.round(current - previous);
+    }
+
+    function svgNode(tag, attrs) {
+      var node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.keys(attrs || {}).forEach(function (key) { node.setAttribute(key, attrs[key]); });
+      return node;
+    }
+
+    function animateMetric(node, value, suffix) {
+      if (value == null) { node.textContent = '—'; return; }
+      suffix = suffix || '';
+      if (!App.core.motionEnabled()) { node.textContent = String(value) + suffix; return; }
+      var start = null;
+      function frame(ts) {
+        if (!start) start = ts;
+        var p = Math.min(1, (ts - start) / 700);
+        var eased = 1 - Math.pow(1 - p, 3);
+        node.textContent = String(Math.round(value * eased)) + suffix;
+        if (p < 1) requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function animatedRing(pct, label) {
+      var wrap = el('div', { className: 'stats-ring-wrap' });
+      var svg = progressRing(0, 154, certColor);
+      svg.classList.add('stats-ring-svg');
+      svg.setAttribute('aria-label', (pct == null ? 'No coverage data' : pct + '%') + ' ' + label);
+      var fg = svg.querySelector('.progress-ring-fg');
+      var circumference = Number(fg.getAttribute('stroke-dasharray')) || 1;
+      var target = pct == null ? circumference : circumference - (Math.max(0, Math.min(100, pct)) / 100) * circumference;
+      fg.style.strokeDashoffset = String(circumference);
+      wrap.appendChild(svg);
+      wrap.appendChild(el('div', { className: 'stats-ring-center' }, [
+        el('strong', { text: pct == null ? '—' : pct + '%' }),
+        el('span', { text: label })
+      ]));
+      function finish() { fg.style.strokeDashoffset = String(target); }
+      if (App.core.motionEnabled()) requestAnimationFrame(function () { requestAnimationFrame(finish); });
+      else finish();
+      return wrap;
+    }
+
+    function section(kicker, title, hint, className) {
+      var panel = el('section', { className: 'stats-section' + (className ? ' ' + className : '') });
+      var head = el('div', { className: 'stats-section-head' });
+      head.appendChild(el('div', {}, [el('div', { className: 'stats-kicker', text: kicker || 'Analytics' }), el('h2', { text: title })]));
+      if (hint) head.appendChild(el('span', { className: 'stats-section-hint', text: hint }));
+      panel.appendChild(head);
+      return panel;
+    }
+
+    function metricTile(label, value, detail, tone) {
+      var tile = el('article', { className: 'stats-metric' + (tone ? ' ' + tone : '') });
+      var valueEl = el('strong', { className: 'stats-metric-value' });
+      tile.appendChild(valueEl);
+      tile.appendChild(el('span', { className: 'stats-metric-label', text: label }));
+      if (detail) tile.appendChild(el('small', { className: 'stats-metric-detail', text: detail }));
+      if (typeof value === 'number') animateMetric(valueEl, value, '');
+      else valueEl.textContent = value == null ? '—' : String(value);
+      return tile;
+    }
+
+    function emptyPanel(title, message) {
+      return el('div', { className: 'stats-empty' }, [el('strong', { text: title }), el('p', { text: message })]);
+    }
+
+    function filtered(items, days) {
+      return items.filter(function (item) { return !days || inRange(item.ts, days); });
+    }
+
+    function activityEvents() {
+      var events = [];
+      allAnswers.forEach(function (a) { events.push({ ts: a.ts, kind: 'quiz', chapter: a.chapter, value: a.correct ? 1 : 0 }); });
+      allReviews.forEach(function (r) { events.push({ ts: r.ts || r.sessionTs, kind: 'flashcards', chapter: r.chapter, value: r.outcome === 'next' ? 1 : 0 }); });
+      labs.forEach(function (lab) { if (labsDone[lab._id]) events.push({ ts: labsDone[lab._id], kind: 'labs', chapter: lab._chapter, value: 1 }); });
+      return events.filter(function (e) { return e.ts; }).sort(function (a, b) { return a.ts - b.ts; });
+    }
+
+    function streaks(events) {
+      var days = {};
+      events.forEach(function (event) { days[dayStart(event.ts)] = true; });
+      var keys = Object.keys(days).map(Number).sort(function (a, b) { return a - b; });
+      var longest = 0, run = 0, previous = null;
+      keys.forEach(function (key) {
+        if (previous != null && key === previous + 86400000) run++;
+        else run = 1;
+        if (run > longest) longest = run;
+        previous = key;
+      });
+      var cursor = dayStart(Date.now());
+      if (!days[cursor]) cursor -= 86400000;
+      var current = 0;
+      while (days[cursor]) { current++; cursor -= 86400000; }
+      return { current: current, longest: longest, activeDays: keys.length };
+    }
+
+    function buildChapterRows() {
+      var qMap = App.content.getChapters(certId, 'questions');
+      var fMap = App.content.getChapters(certId, 'flashcards');
+      var lMap = App.content.getChapters(certId, 'labs');
+      var keys = [];
+      function addKeys(map) {
+        Object.keys(map).forEach(function (key) {
+          var number = App.content.chapterNumber ? App.content.chapterNumber(key) : null;
+          var existing = keys.find(function (item) {
+            return (number != null && item.number === number) || item.key === key;
+          });
+          if (!existing) keys.push({ key: key, number: number });
+        });
+      }
+      addKeys(qMap); addKeys(fMap); addKeys(lMap);
+      keys.sort(function (a, b) {
+        if (a.number != null && b.number != null) return a.number - b.number;
+        if (a.number != null) return -1;
+        if (b.number != null) return 1;
+        return a.key.localeCompare(b.key);
+      });
+
+      return keys.map(function (entry, index) {
+        var chapter = entry.key;
+        var qKey = chapterKeyFor('questions', chapter) || chapter;
+        var fKey = chapterKeyFor('flashcards', chapter);
+        var lKey = chapterKeyFor('labs', chapter);
+        var qItems = qMap[qKey] || [];
+        var fItems = fKey ? (fMap[fKey] || []) : [];
+        var lItems = lKey ? (lMap[lKey] || []) : [];
+        var qAnswers = allAnswers.filter(function (a) { return chapterKeyFor('questions', a.chapter) === qKey; });
+        var qSeen = {}; qAnswers.forEach(function (a) { if (a.qId) qSeen[a.qId] = true; });
+        var fReviews = allReviews.filter(function (r) {
+          return chapterKeyFor('flashcards', r.chapter) === fKey || (!fKey && chapterKeyFor('questions', r.chapter) === qKey);
+        });
+        var fSeen = {}; fReviews.forEach(function (r) { if (r.cardId) fSeen[r.cardId] = true; });
+        var labsDoneCount = lItems.filter(function (lab) { return !!labsDone[lab._id]; }).length;
+        var components = [];
+        if (qItems.length) components.push(qItems.length ? Object.keys(qSeen).length / qItems.length : 0);
+        if (fItems.length) components.push(fItems.length ? Object.keys(fSeen).length / fItems.length : 0);
+        if (lItems.length) components.push(labsDoneCount / lItems.length);
+        var coverage = components.length ? Math.round((components.reduce(function (a, b) { return a + b; }, 0) / components.length) * 100) : 0;
+        var qAccuracy = accuracy(qAnswers);
+        var status = coverage >= 90 && (qAccuracy == null || qAccuracy >= 80) ? 'Strong' : coverage > 0 ? 'In progress' : 'Not started';
+        if (qAccuracy != null && qAccuracy < 60 && qAnswers.length >= 3) status = 'Needs review';
+        return {
+          key: chapter,
+          number: chapterNumber(chapter, index),
+          title: chapterTitle(chapter),
+          qKey: qKey,
+          fKey: fKey,
+          lKey: lKey,
+          questions: qItems,
+          cards: fItems,
+          labs: lItems,
+          qAnswers: qAnswers,
+          fReviews: fReviews,
+          seenQuestions: Object.keys(qSeen).length,
+          reviewedCards: Object.keys(fSeen).length,
+          labsDone: labsDoneCount,
+          coverage: Math.min(100, coverage),
+          accuracy: qAccuracy,
+          status: status,
+          lastTs: Math.max.apply(null, qAnswers.concat(fReviews).map(function (x) { return x.ts || x.sessionTs || 0; }).concat(lItems.map(function (x) { return labsDone[x._id] || 0; })).concat([0]))
+        };
+      });
+    }
+
+    function renderLineChart(points, color, label) {
+      var usable = points.filter(function (p) { return p.value != null; });
+      if (!usable.length) return emptyPanel('Performance trends will appear here', 'Complete a few study sessions to build a meaningful trend.');
+      var svg = svgNode('svg', { class: 'stats-line-chart', viewBox: '0 0 760 240', role: 'img', 'aria-label': label });
+      var left = 42, top = 18, width = 690, height = 172;
+      [0, 25, 50, 75, 100].forEach(function (tick) {
+        var y = top + height - (tick / 100) * height;
+        svg.appendChild(svgNode('line', { x1: left, x2: left + width, y1: y, y2: y, class: 'stats-gridline' }));
+        var text = svgNode('text', { x: 4, y: y + 4, class: 'stats-axis-label' });
+        text.textContent = tick + '%'; svg.appendChild(text);
+      });
+      var pathPoints = [];
+      points.forEach(function (p, i) {
+        if (p.value == null) return;
+        var x = left + (points.length === 1 ? width / 2 : (i / (points.length - 1)) * width);
+        var y = top + height - (p.value / 100) * height;
+        pathPoints.push({ x: x, y: y, p: p });
+      });
+      if (pathPoints.length > 1) {
+        var path = svgNode('path', { d: pathPoints.map(function (point, i) { return (i ? 'L' : 'M') + point.x + ' ' + point.y; }).join(' '), class: 'stats-line', stroke: color });
+        svg.appendChild(path);
+        var length = 1000;
+        try { length = path.getTotalLength(); } catch (e) {}
+        path.style.strokeDasharray = length;
+        path.style.strokeDashoffset = App.core.motionEnabled() ? length : 0;
+        if (App.core.motionEnabled()) requestAnimationFrame(function () { path.style.strokeDashoffset = '0'; });
+      }
+      pathPoints.forEach(function (point) {
+        var circle = svgNode('circle', { cx: point.x, cy: point.y, r: 4, class: 'stats-point', fill: color, tabindex: '0' });
+        circle.setAttribute('aria-label', point.p.label + ': ' + point.p.value + '%');
+        var title = svgNode('title', {});
+        title.textContent = point.p.label + ' · ' + point.p.value + '% · ' + point.p.total + ' responses';
+        circle.appendChild(title); svg.appendChild(circle);
+      });
+      points.forEach(function (p, i) {
+        if (i % Math.max(1, Math.ceil(points.length / 7)) !== 0 && i !== points.length - 1) return;
+        var x = left + (points.length === 1 ? width / 2 : (i / (points.length - 1)) * width);
+        var text = svgNode('text', { x: x, y: 220, class: 'stats-axis-label stats-axis-date', 'text-anchor': 'middle' });
+        text.textContent = p.label; svg.appendChild(text);
+      });
+      return svg;
+    }
+
+    function renderHorizontalBars(items, color) {
+      var wrap = el('div', { className: 'stats-bars' });
+      if (!items.length) { wrap.appendChild(emptyPanel('No comparison data yet', 'Use more than one quiz mode to compare performance.')); return wrap; }
+      items.forEach(function (item) {
+        var row = el('div', { className: 'stats-bar-item' });
+        row.appendChild(el('div', { className: 'stats-bar-meta' }, [el('span', { text: item.label }), el('strong', { text: item.value == null ? '—' : item.value + '%' })]));
+        var track = el('div', { className: 'stats-bar-track' });
+        var fill = el('span', { className: 'stats-bar-fill', style: { width: '0%', background: item.color || color } });
+        track.appendChild(fill); row.appendChild(track); wrap.appendChild(row);
+        if (item.value != null) {
+          if (App.core.motionEnabled()) requestAnimationFrame(function () { fill.style.width = item.value + '%'; });
+          else fill.style.width = item.value + '%';
+        }
+      });
+      return wrap;
+    }
+
+    function renderDonut(correct, total, color, title) {
+      if (!total) return emptyPanel('No answer history yet', 'Complete a quiz or exam to see the answer distribution.');
+      var pct = Math.round((correct / total) * 100);
+      var svg = svgNode('svg', { class: 'stats-donut', viewBox: '0 0 100 100', role: 'img', 'aria-label': title + ': ' + correct + ' correct of ' + total });
+      var r = 37, c = 2 * Math.PI * r;
+      svg.appendChild(svgNode('circle', { cx: 50, cy: 50, r: r, class: 'stats-donut-bg', fill: 'none', 'stroke-width': 10 }));
+      var fg = svgNode('circle', { cx: 50, cy: 50, r: r, class: 'stats-donut-fg', fill: 'none', 'stroke-width': 10, stroke: color, 'stroke-dasharray': c, 'stroke-dashoffset': c, transform: 'rotate(-90 50 50)' });
+      svg.appendChild(fg);
+      var text = svgNode('text', { x: 50, y: 48, class: 'stats-donut-value', 'text-anchor': 'middle' }); text.textContent = pct + '%'; svg.appendChild(text);
+      var sub = svgNode('text', { x: 50, y: 60, class: 'stats-donut-label', 'text-anchor': 'middle' }); sub.textContent = title; svg.appendChild(sub);
+      var target = c - (correct / total) * c;
+      if (App.core.motionEnabled()) requestAnimationFrame(function () { fg.style.strokeDashoffset = target; }); else fg.style.strokeDashoffset = target;
+      return svg;
+    }
+
+    function renderOutcomeTrend(reviews, days) {
+      var points = makeBuckets(days, reviews, function (r) { return r.outcome === 'next' ? 1 : 0; });
+      points.forEach(function (p) { p.value = p.total ? Math.round((p.success / p.total) * 100) : null; });
+      return renderLineChart(points, certColor, 'Flashcard Next rate over time');
+    }
+
+    function makeBuckets(days, items, successFn) {
+      var events = items.filter(function (x) { return x.ts || x.sessionTs; });
+      var today = dayStart(Date.now());
+      var count = days == null ? 12 : Math.min(Math.max(days, 7), 30);
+      var oldest = events.length ? Math.min.apply(null, events.map(function (x) { return dayStart(x.ts || x.sessionTs); })) : today - (count - 1) * 86400000;
+      var span = days == null ? Math.max(1, Math.ceil((today - oldest) / 86400000) + 1) : days;
+      var bucketDays = days == null ? Math.max(1, Math.ceil(span / count)) : 1;
+      var start = days == null ? today - (count * bucketDays - 1) * 86400000 : today - (count - 1) * 86400000;
+      var points = [];
+      for (var i = 0; i < count; i++) {
+        var begin = start + i * bucketDays * 86400000;
+        points.push({ begin: begin, end: begin + bucketDays * 86400000, total: 0, success: 0, value: null, label: bucketDays > 1 ? utils.formatDate(begin).slice(0, 6) : new Date(begin).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) });
+      }
+      events.forEach(function (event) {
+        var ts = dayStart(event.ts || event.sessionTs);
+        var idx = Math.floor((ts - start) / (bucketDays * 86400000));
+        if (idx < 0 || idx >= points.length) return;
+        points[idx].total++;
+        if (successFn(event)) points[idx].success++;
+      });
+      points.forEach(function (p) { p.value = p.total ? Math.round((p.success / p.total) * 100) : null; });
+      return points;
+    }
+
+    function launchChapter(type, row) {
+      if (type === 'quiz' && row.questions.length) {
+        sessionStorage.setItem('reviewapp.quizSetup', JSON.stringify({ mode: 'chapter', cert: certId, chapter: row.qKey }));
+        App.core.navigate('#/quiz');
+      } else if (type === 'flashcards' && row.fKey) {
+        sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: row.fKey }));
+        App.core.navigate('#/flashcards');
+      } else if (type === 'labs' && row.lKey) {
+        sessionStorage.setItem('reviewapp.labsSetup', JSON.stringify({ cert: certId, chapter: row.lKey }));
+        App.core.navigate('#/labs');
+      }
+    }
+
+    var rootPage = el('div', { className: 'stats-page' });
+    rootPage.style.setProperty('--stats-accent', certColor);
+    var header = el('header', { className: 'stats-header' });
+    var headerCopy = el('div', { className: 'stats-header-copy' });
+    headerCopy.appendChild(el('div', { className: 'stats-kicker', text: 'Active certification · Analysis center' }));
+    headerCopy.appendChild(el('h1', { text: 'Statistics' }));
+    headerCopy.appendChild(el('p', { text: cert.name + ' · Detailed performance, progress, and study analytics' }));
+    header.appendChild(headerCopy);
+    header.appendChild(el('div', { className: 'stats-cert-badge', style: { borderColor: certColor, color: certColor } }, [el('span', { className: 'stats-cert-dot', style: { background: certColor } }), el('span', { text: cert.name })]));
+    rootPage.appendChild(header);
+
+    var toolbar = el('div', { className: 'stats-toolbar', 'aria-label': 'Statistics controls' });
+    toolbar.appendChild(el('span', { className: 'stats-toolbar-label', text: 'Analysis range' }));
+    var rangeSelect = el('select', { className: 'form-control stats-range-select', 'aria-label': 'Analysis range' });
+    [[7, '7 days'], [14, '14 days'], [30, '30 days'], [90, '90 days'], [null, 'All time']].forEach(function (option) {
+      rangeSelect.appendChild(el('option', { value: option[0] == null ? 'all' : String(option[0]), text: option[1] }));
+    });
+    rangeSelect.value = '14';
+    toolbar.appendChild(rangeSelect);
+    toolbar.appendChild(el('span', { className: 'stats-toolbar-note', text: 'All metrics are scoped to ' + cert.name }));
+    rootPage.appendChild(toolbar);
+
+    var body = el('div');
+    rootPage.appendChild(body);
+    root.appendChild(rootPage);
+
+    function renderBody() {
+      body.innerHTML = '';
+      var rangeAnswers = filtered(allAnswers, selectedDays);
+      var rangeReviews = filtered(allReviews, selectedDays);
+      var regularAnswers = allAnswers.filter(function (a) { return a.mode !== 'exam'; });
+      var rangeRegularAnswers = rangeAnswers.filter(function (a) { return a.mode !== 'exam'; });
+      var currentAccuracy = accuracy(regularAnswers);
+      var totalAccuracy = accuracy(allAnswers);
+      var seenQuestions = {}; allAnswers.forEach(function (a) { if (a.qId) seenQuestions[a.qId] = true; });
+      var reviewedCards = {}; allReviews.forEach(function (r) { if (r.cardId) reviewedCards[r.cardId] = true; });
+      var coverage = questions.length ? Math.round((Object.keys(seenQuestions).length / questions.length) * 100) : (cards.length ? Math.round((Object.keys(reviewedCards).length / cards.length) * 100) : null);
+      var rows = buildChapterRows();
+      var completedChapters = rows.filter(function (r) { return r.coverage >= 100; }).length;
+      var inProgressChapters = rows.filter(function (r) { return r.coverage > 0 && r.coverage < 100; }).length;
+      var streak = streaks(activityEvents());
+      var studyDays = streak.activeDays;
+      var prevStart = selectedDays == null ? 0 : sinceFor(selectedDays) - selectedDays * 86400000;
+      var prevAnswers = selectedDays == null ? [] : regularAnswers.filter(function (a) { return a.ts >= prevStart && a.ts < sinceFor(selectedDays); });
+      var delta = selectedDays == null || prevAnswers.length < 3 ? null : relativeChange(accuracy(rangeRegularAnswers), accuracy(prevAnswers));
+
+      var snapshot = section('Overview', 'Performance snapshot', selectedDays == null ? 'All recorded activity' : 'Current certification · selected period', 'stats-snapshot-section');
+      var snapshotGrid = el('div', { className: 'stats-metric-grid' });
+      snapshotGrid.appendChild(metricTile('Overall accuracy', totalAccuracy == null ? '—' : totalAccuracy + '%', delta == null ? (allAnswers.length ? 'Based on ' + allAnswers.length + ' answers' : 'No quiz history yet') : (delta >= 0 ? '+' : '') + delta + ' pts vs previous ' + selectedDays + ' days', delta != null && delta >= 0 ? 'positive' : delta != null ? 'negative' : ''));
+      snapshotGrid.appendChild(metricTile('Certification coverage', coverage == null ? '—' : coverage + '%', questions.length ? Object.keys(seenQuestions).length + ' / ' + questions.length + ' questions explored' : 'No question content loaded', 'accent'));
+      snapshotGrid.appendChild(metricTile('Questions answered', allAnswers.length ? allAnswers.length : '—', allAnswers.length ? uniqueCount(allAnswers, 'qId') + ' unique questions' : 'Complete a quiz to begin'));
+      snapshotGrid.appendChild(metricTile('Flashcards reviewed', allReviews.length ? allReviews.length : '—', allReviews.length ? Object.keys(reviewedCards).length + ' unique cards' : 'No card reviews yet'));
+      snapshotGrid.appendChild(metricTile('Study streak', streak.current ? streak.current + ' days' : '—', streak.longest ? 'Best: ' + streak.longest + ' days' : 'No active streak yet'));
+      snapshotGrid.appendChild(metricTile('Active study days', studyDays ? studyDays : '—', studyDays ? 'Across all recorded activity' : 'No activity yet'));
+      snapshot.appendChild(snapshotGrid);
+      body.appendChild(snapshot);
+
+      var insights = section('Interpretation', 'Insights', 'The clearest signals from your current data', 'stats-insights-section');
+      var insightGrid = el('div', { className: 'stats-insight-grid' });
+      var weakest = rows.filter(function (r) { return r.accuracy != null && r.qAnswers.length >= 3; }).sort(function (a, b) { return a.accuracy - b.accuracy; })[0];
+      var best = rows.filter(function (r) { return r.accuracy != null && r.qAnswers.length >= 3; }).sort(function (a, b) { return b.accuracy - a.accuracy; })[0];
+      var flashNow = rangeReviews.length ? Math.round((rangeReviews.filter(function (r) { return r.outcome === 'again'; }).length / rangeReviews.length) * 100) : null;
+      var flashPrevious = prevStart ? allReviews.filter(function (r) { return r.ts >= prevStart && r.ts < sinceFor(selectedDays); }) : [];
+      var flashOldRate = flashPrevious.length ? Math.round((flashPrevious.filter(function (r) { return r.outcome === 'again'; }).length / flashPrevious.length) * 100) : null;
+      var insightsData = [];
+      if (weakest) insightsData.push({ tone: 'warn', icon: '!', title: weakest.title + ' needs attention', text: weakest.accuracy + '% accuracy across ' + weakest.qAnswers.length + ' question attempts.', action: 'Practice quiz', fn: function () { launchChapter('quiz', weakest); } });
+      if (delta != null && Math.abs(delta) >= 2) insightsData.push({ tone: delta > 0 ? 'good' : 'warn', icon: delta > 0 ? '↑' : '↓', title: delta > 0 ? 'Accuracy is improving' : 'Accuracy is slipping', text: (delta > 0 ? '+' : '') + delta + ' percentage points compared with the previous period.', action: 'View trend', fn: function () { var target = rootPage.querySelector('.stats-trend-section'); if (target) target.scrollIntoView({ behavior: App.core.motionEnabled() ? 'smooth' : 'auto' }); } });
+      if (flashNow != null && flashOldRate != null && Math.abs(flashNow - flashOldRate) >= 3) insightsData.push({ tone: flashNow < flashOldRate ? 'good' : 'warn', icon: flashNow < flashOldRate ? '↓' : '↑', title: flashNow < flashOldRate ? 'Flashcard retention is improving' : 'Flashcards need reinforcement', text: 'Again rate moved from ' + flashOldRate + '% to ' + flashNow + '% in the selected period.', action: 'Open Flashcards', fn: function () { App.core.navigate('#/flashcards'); } });
+      if (!insightsData.length && best) insightsData.push({ tone: 'good', icon: '✓', title: best.title + ' is a strength', text: best.accuracy + '% accuracy across ' + best.qAnswers.length + ' question attempts.', action: 'Keep practicing', fn: function () { launchChapter('quiz', best); } });
+      if (exams.length) {
+        var threshold = (App.store.getSettings().passThreshold && App.store.getSettings().passThreshold[certId]) || 70;
+        var recentExams = exams.slice(0, 3);
+        var passedRecent = recentExams.filter(function (e) { return e.passed; }).length;
+        insightsData.push({ tone: passedRecent === recentExams.length ? 'good' : 'neutral', icon: passedRecent === recentExams.length ? '✓' : 'i', title: passedRecent === recentExams.length ? 'Exam trend is on target' : 'Exam practice still has room', text: passedRecent + ' of ' + recentExams.length + ' recent simulations passed the ' + threshold + '% threshold.', action: 'View exam analysis', fn: function () { var target = rootPage.querySelector('.stats-exam-section'); if (target) target.scrollIntoView({ behavior: App.core.motionEnabled() ? 'smooth' : 'auto' }); } });
+      }
+      insightsData.slice(0, 4).forEach(function (item) {
+        var card = el('article', { className: 'stats-insight ' + item.tone });
+        card.appendChild(el('span', { className: 'stats-insight-icon', text: item.icon, 'aria-hidden': 'true' }));
+        card.appendChild(el('div', { className: 'stats-insight-copy' }, [el('strong', { text: item.title }), el('p', { text: item.text })]));
+        card.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: item.action, onClick: item.fn }));
+        insightGrid.appendChild(card);
+      });
+      if (!insightsData.length) insightGrid.appendChild(emptyPanel('Insights will appear as you study', 'Complete a few quizzes or card reviews to reveal meaningful patterns.'));
+      insights.appendChild(insightGrid); body.appendChild(insights);
+
+      var trend = section('Performance', 'Performance over time', 'How your accuracy or retention is changing', 'stats-trend-section');
+      var trendSelect = el('select', { className: 'form-control stats-inline-select', 'aria-label': 'Performance trend metric' });
+      [['quiz', 'Quiz accuracy'], ['flashcards', 'Flashcard Next rate'], ['combined', 'Combined success']].forEach(function (option) { trendSelect.appendChild(el('option', { value: option[0], text: option[1] })); });
+      var trendHead = trend.querySelector('.stats-section-head');
+      trendHead.appendChild(trendSelect);
+      var trendMode = 'quiz';
+      var trendChart = el('div', { className: 'stats-chart-wrap' });
+      function updateTrend() {
+        var trendItems = trendMode === 'quiz' ? rangeAnswers.filter(function (a) { return a.mode !== 'exam'; }) : trendMode === 'flashcards' ? rangeReviews : rangeAnswers.concat(rangeReviews);
+        var trendPoints = makeBuckets(selectedDays, trendItems, function (item) { return trendMode === 'flashcards' ? item.outcome === 'next' : trendMode === 'combined' ? (item.outcome ? item.outcome === 'next' : !!item.correct) : !!item.correct; });
+        trendChart.innerHTML = '';
+        trendChart.appendChild(renderLineChart(trendPoints, certColor, trendMode === 'flashcards' ? 'Flashcard Next rate over time' : 'Accuracy over time'));
+      }
+      trendSelect.addEventListener('change', function () { trendMode = trendSelect.value; updateTrend(); });
+      updateTrend(); trend.appendChild(trendChart); body.appendChild(trend);
+
+      var coverageSection = section('Progress', 'Certification progress & coverage', 'Coverage is how much content you have explored', 'stats-coverage-section');
+      var coverageGrid = el('div', { className: 'stats-coverage-grid' });
+      var coverageVisual = el('div', { className: 'stats-coverage-visual' });
+      coverageVisual.appendChild(animatedRing(coverage, 'Coverage'));
+      coverageVisual.appendChild(el('p', { className: 'stats-visual-caption', text: questions.length ? 'Question coverage · ' + Object.keys(seenQuestions).length + ' of ' + questions.length : 'Study content to build coverage' }));
+      coverageGrid.appendChild(coverageVisual);
+      var coverageDetails = el('div', { className: 'stats-coverage-details' });
+      function coverageRow(label, done, total, tone) {
+        var row = el('div', { className: 'stats-coverage-row' });
+        var pct = total ? Math.round(done / total * 100) : null;
+        row.appendChild(el('div', { className: 'stats-coverage-meta' }, [el('span', { text: label }), el('strong', { text: total ? done + ' / ' + total : '—' })]));
+        var track = el('div', { className: 'stats-bar-track' });
+        track.appendChild(el('span', { className: 'stats-bar-fill', style: { width: '0%', background: tone || certColor } }));
+        row.appendChild(track);
+        row.appendChild(el('span', { className: 'stats-coverage-percent', text: pct == null ? 'No data' : pct + '%' }));
+        var fill = track.firstChild;
+        if (pct != null) { if (App.core.motionEnabled()) requestAnimationFrame(function () { fill.style.width = pct + '%'; }); else fill.style.width = pct + '%'; }
+        coverageDetails.appendChild(row);
+      }
+      coverageRow('Questions explored', Object.keys(seenQuestions).length, questions.length, certColor);
+      coverageRow('Flashcards reviewed', Object.keys(reviewedCards).length, cards.length, 'var(--accent-cyan)');
+      coverageRow('Labs completed', labs.filter(function (lab) { return !!labsDone[lab._id]; }).length, labs.length, 'var(--accent-green)');
+      coverageRow('Chapters completed', completedChapters, rows.length, 'var(--accent-amber)');
+      coverageDetails.appendChild(el('div', { className: 'stats-coverage-summary' }, [el('span', { text: inProgressChapters + ' chapters in progress' }), el('span', { text: Math.max(0, rows.length - completedChapters - inProgressChapters) + ' not started' })]));
+      coverageGrid.appendChild(coverageDetails); coverageSection.appendChild(coverageGrid); body.appendChild(coverageSection);
+
+      var chapterSection = section('Structure', 'Chapter performance', rows.length ? rows.length + ' chapters · click a row for detail' : 'No chapter content loaded', 'stats-chapters-section');
+      if (!rows.length) chapterSection.appendChild(emptyPanel('No chapters available', 'Add certification content and reload the app.'));
+      else {
+        var chapterTable = el('div', { className: 'stats-chapter-table', role: 'table', 'aria-label': 'Chapter performance' });
+        var tableHead = el('div', { className: 'stats-chapter-head', role: 'row' });
+        ['Chapter', 'Coverage', 'Accuracy', 'Questions', 'Cards', 'Labs', 'Status'].forEach(function (label) { tableHead.appendChild(el('span', { role: 'columnheader', text: label })); });
+        chapterTable.appendChild(tableHead);
+        rows.forEach(function (row) {
+          var details = el('details', { className: 'stats-chapter-details' });
+          var summary = el('summary', { className: 'stats-chapter-row', role: 'row' });
+          summary.appendChild(el('span', { className: 'stats-chapter-name' }, [el('b', { style: { color: certColor }, text: row.number }), el('span', { text: row.title })]));
+          summary.appendChild(el('span', { className: 'stats-chapter-coverage' }, [el('i', { style: { width: row.coverage + '%', background: certColor } }), el('em', { text: row.coverage + '%' })]));
+          summary.appendChild(el('span', { text: row.accuracy == null ? '—' : row.accuracy + '%' }));
+          summary.appendChild(el('span', { text: row.questions.length ? row.seenQuestions + ' / ' + row.questions.length : '—' }));
+          summary.appendChild(el('span', { text: row.cards.length ? row.reviewedCards + ' / ' + row.cards.length : '—' }));
+          summary.appendChild(el('span', { text: row.labs.length ? row.labsDone + ' / ' + row.labs.length : '—' }));
+          summary.appendChild(el('span', { className: 'stats-status ' + row.status.toLowerCase().replace(/\s/g, '-'), text: row.status }));
+          details.appendChild(summary);
+          var detail = el('div', { className: 'stats-chapter-detail' });
+          detail.appendChild(el('div', { className: 'stats-chapter-detail-copy' }, [el('strong', { text: row.title }), el('p', { className: 'text-muted', text: (row.qAnswers.length ? row.qAnswers.length + ' question attempts' : 'No quiz attempts') + (row.fReviews.length ? ' · ' + row.fReviews.length + ' flashcard reviews' : '') + (row.lastTs ? ' · Last studied ' + utils.formatDate(row.lastTs) : '') })]));
+          var actions = el('div', { className: 'stats-action-row' });
+          if (row.questions.length) actions.appendChild(el('button', { className: 'btn btn-primary btn-xs', text: 'Quiz', onClick: function (e) { e.preventDefault(); launchChapter('quiz', row); } }));
+          if (row.cards.length) actions.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Flashcards', onClick: function (e) { e.preventDefault(); launchChapter('flashcards', row); } }));
+          if (row.labs.length) actions.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Labs', onClick: function (e) { e.preventDefault(); launchChapter('labs', row); } }));
+          var note = App.content.getChapterNotes(certId).find(function (n) { return n._chapter === row.qKey || (App.content.chapterNumber(n._chapter) != null && App.content.chapterNumber(n._chapter) === App.content.chapterNumber(row.qKey)); });
+          if (note) actions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Notes', onClick: function (e) { e.preventDefault(); App.core.navigate('#/notes/' + encodeURIComponent(note._id)); } }));
+          detail.appendChild(actions); details.appendChild(detail); chapterTable.appendChild(details);
+        });
+        chapterSection.appendChild(chapterTable);
+      }
+      body.appendChild(chapterSection);
+
+      var areasSection = section('Priorities', 'Weak areas & strengths', 'Use the evidence to focus your next review', 'stats-areas-section');
+      var areasGrid = el('div', { className: 'stats-two-column' });
+      var weakPanel = el('div', { className: 'stats-subpanel' });
+      weakPanel.appendChild(el('h3', { text: 'Focus areas' }));
+      var weakAreas = App.store.flashcardWeakAreas({ days: selectedDays == null ? 3650 : selectedDays, cert: certId }).slice(0, 6);
+      if (!weakAreas.length) weakPanel.appendChild(emptyPanel('No weak card areas yet', 'Again marks and repeated difficulty will appear here as you review.'));
+      else weakAreas.forEach(function (area) {
+        var item = el('div', { className: 'stats-area-item' });
+        item.appendChild(el('div', { className: 'stats-area-copy' }, [el('strong', { text: area.tag }), el('small', { text: (area.chapter || 'Certification-wide') + ' · ' + area.attempts + ' attempts · ' + area.agains + ' Again' + (area.agains === 1 ? '' : 's') + ' · ' + area.daysSince + 'd ago' })]));
+        item.appendChild(el('span', { className: 'stats-area-score ' + (area.improving ? 'improving' : ''), text: area.ratio + '% Again' }));
+        item.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Review', onClick: function () { sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: chapterKeyFor('flashcards', area.chapter) || null })); App.core.navigate('#/flashcards'); } }));
+        weakPanel.appendChild(item);
+      });
+      areasGrid.appendChild(weakPanel);
+      var tagMap = {};
+      regularAnswers.forEach(function (a) { (a.tags || []).forEach(function (tag) { if (!tagMap[tag]) tagMap[tag] = { total: 0, correct: 0 }; tagMap[tag].total++; if (a.correct) tagMap[tag].correct++; }); });
+      var tagList = Object.keys(tagMap).map(function (tag) { return { tag: tag, total: tagMap[tag].total, accuracy: percent(tagMap[tag].correct, tagMap[tag].total) }; }).filter(function (x) { return x.total >= 2 && x.accuracy != null; });
+      var strongPanel = el('div', { className: 'stats-subpanel' });
+      strongPanel.appendChild(el('h3', { text: 'Strong areas' }));
+      tagList.sort(function (a, b) { return b.accuracy - a.accuracy; });
+      var strengths = tagList.slice(0, 6);
+      if (!strengths.length) strongPanel.appendChild(emptyPanel('Strengths will appear here', 'Answer tagged questions to reveal your strongest topics.'));
+      else strengths.forEach(function (area) {
+        strongPanel.appendChild(el('div', { className: 'stats-area-item strength' }, [el('div', { className: 'stats-area-copy' }, [el('strong', { text: area.tag }), el('small', { text: area.total + ' attempts' })]), el('span', { className: 'stats-area-score', text: area.accuracy + '%' })]));
+      });
+      areasGrid.appendChild(strongPanel); areasSection.appendChild(areasGrid); body.appendChild(areasSection);
+
+      var quizSection = section('Quiz analytics', 'Quiz performance', 'Question-level accuracy across the active certification', 'stats-quiz-section');
+      var quizAnswers = regularAnswers;
+      var quizGrid = el('div', { className: 'stats-deep-grid' });
+      var quizSummary = el('div', { className: 'stats-subpanel' });
+      quizSummary.appendChild(el('h3', { text: 'Answer distribution' }));
+      var quizTotal = quizAnswers.length, quizCorrect = quizAnswers.filter(function (a) { return a.correct; }).length;
+      quizSummary.appendChild(el('div', { className: 'stats-donut-layout' }, [renderDonut(quizCorrect, quizTotal, certColor, 'Correct'), el('div', { className: 'stats-legend' }, [el('div', {}, [el('span', { className: 'stats-legend-dot good' }), el('span', { text: 'Correct · ' + (quizTotal ? quizCorrect + ' (' + Math.round(quizCorrect / quizTotal * 100) + '%)' : '—') })]), el('div', {}, [el('span', { className: 'stats-legend-dot bad' }), el('span', { text: 'Incorrect · ' + (quizTotal ? (quizTotal - quizCorrect) + ' (' + Math.round((quizTotal - quizCorrect) / quizTotal * 100) + '%)' : '—') })])])]));
+      quizSummary.appendChild(el('div', { className: 'stats-mini-metrics' }, [metricTile('Quiz sessions', quizTotal ? '—' : '—', 'Session IDs are not stored for quiz history'), metricTile('Average score', quizTotal ? accuracy(quizAnswers) + '%' : '—', quizTotal ? quizTotal + ' answers' : 'No quiz history')]));
+      quizGrid.appendChild(quizSummary);
+      var modeMap = {};
+      quizAnswers.forEach(function (a) { var mode = (a.mode || 'random').replace(':skip', ''); if (!modeMap[mode]) modeMap[mode] = []; modeMap[mode].push(a); });
+      var modeLabels = { chapter: 'Chapter Focus', random: 'Random Mix', theme: 'Theme Attack', weak: 'Weak Spots', speed: 'Speed Run', practice: 'Practice' };
+      var modeItems = Object.keys(modeMap).map(function (mode) { return { label: modeLabels[mode] || mode, value: accuracy(modeMap[mode]) }; }).sort(function (a, b) { return (b.value || 0) - (a.value || 0); });
+      var modePanel = el('div', { className: 'stats-subpanel' }); modePanel.appendChild(el('h3', { text: 'Performance by mode' })); modePanel.appendChild(renderHorizontalBars(modeItems, certColor)); quizGrid.appendChild(modePanel);
+      quizSection.appendChild(quizGrid); body.appendChild(quizSection);
+
+      var flashSection = section('Flashcards analytics', 'Flashcard review performance', 'Again versus Next across your saved review history', 'stats-flash-section');
+      var flashGrid = el('div', { className: 'stats-deep-grid' });
+      var fcSummary = el('div', { className: 'stats-subpanel' }); fcSummary.appendChild(el('h3', { text: 'Review effort' }));
+      var nextCount = allReviews.filter(function (r) { return r.outcome === 'next'; }).length;
+      var againCount = allReviews.filter(function (r) { return r.outcome === 'again'; }).length;
+      var uniqueCards = Object.keys(reviewedCards).length;
+      var retryCards = {}; allReviews.forEach(function (r) { if (r.outcome === 'again') retryCards[r.cardId] = true; });
+      var firstTry = allReviews.filter(function (r) { return r.outcome === 'next' && Number(r.attempt) === 1; }).length;
+      var due = App.store.cardsDueCount(certId);
+      var fcMetrics = el('div', { className: 'stats-mini-metrics stats-mini-metrics-4' });
+      [[allReviews.length, 'Review events'], [uniqueCards, 'Unique cards'], [againCount, 'Again marks'], [uniqueCards ? Math.round(allReviews.length / uniqueCards * 10) / 10 : null, 'Avg attempts']].forEach(function (m) { fcMetrics.appendChild(metricTile(m[1], m[0] == null ? '—' : m[0], '')); });
+      fcSummary.appendChild(fcMetrics);
+      fcSummary.appendChild(el('div', { className: 'stats-effort-list' }, [el('div', {}, [el('span', { text: 'First-try Next' }), el('strong', { text: uniqueCards ? Math.round(firstTry / uniqueCards * 100) + '%' : '—' })]), el('div', {}, [el('span', { text: 'Cards needing retry' }), el('strong', { text: uniqueCards ? Object.keys(retryCards).length : '—' })]), el('div', {}, [el('span', { text: 'Currently due' }), el('strong', { text: due })])]));
+      flashGrid.appendChild(fcSummary);
+      var fcTrend = el('div', { className: 'stats-subpanel' }); fcTrend.appendChild(el('h3', { text: 'Next rate over time' })); fcTrend.appendChild(renderOutcomeTrend(rangeReviews, selectedDays)); flashGrid.appendChild(fcTrend);
+      flashSection.appendChild(flashGrid);
+      var fcFooter = el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: nextCount + ' Next · ' + againCount + ' Again · ' + (allReviews.length ? Math.round(againCount / allReviews.length * 100) : 0) + '% Again rate' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Flashcards', onClick: function () { App.core.navigate('#/flashcards'); } })]);
+      flashSection.appendChild(fcFooter); body.appendChild(flashSection);
+
+      var examSection = section('Exam Simulation', 'Exam performance', exams.length ? exams.length + ' recorded simulations' : 'No simulations recorded yet', 'stats-exam-section');
+      if (!exams.length) examSection.appendChild(emptyPanel('No exam history yet', 'Complete an Exam Simulation to see score trend, pass rate, and readiness.'));
+      else {
+        var threshold = (App.store.getSettings().passThreshold && App.store.getSettings().passThreshold[certId]) || 70;
+        var avgScore = Math.round(exams.reduce(function (sum, e) { return sum + (e.score || 0); }, 0) / exams.length);
+        var bestScore = Math.max.apply(null, exams.map(function (e) { return e.score || 0; }));
+        var passed = exams.filter(function (e) { return e.passed; }).length;
+        var examMetrics = el('div', { className: 'stats-metric-grid stats-exam-metrics' });
+        examMetrics.appendChild(metricTile('Average score', avgScore + '%', 'Across ' + exams.length + ' exams'));
+        examMetrics.appendChild(metricTile('Best score', bestScore + '%', 'Personal best'));
+        examMetrics.appendChild(metricTile('Pass rate', Math.round(passed / exams.length * 100) + '%', passed + ' of ' + exams.length + ' passed'));
+        examMetrics.appendChild(metricTile('Pass threshold', threshold + '%', 'From Settings'));
+        examSection.appendChild(examMetrics);
+        var examChart = el('div', { className: 'stats-exam-chart' });
+        var examPoints = exams.slice().reverse().map(function (e, i) { return { value: e.score, total: e.total, label: 'Exam ' + (i + 1) }; });
+        examChart.appendChild(renderLineChart(examPoints, certColor, 'Exam score trend'));
+        examSection.appendChild(examChart);
+        var readiness = avgScore >= threshold && passed >= Math.min(3, exams.length) ? 'Strong' : avgScore >= threshold ? 'On track' : 'Not ready yet';
+        examSection.appendChild(el('div', { className: 'stats-readiness ' + readiness.toLowerCase().replace(/\s/g, '-'), }, [el('strong', { text: 'Exam readiness · ' + readiness }), el('span', { text: passed + ' passing simulations · ' + avgScore + '% average against a ' + threshold + '% threshold' })]));
+      }
+      body.appendChild(examSection);
+
+      var labsSection = section('Hands-on practice', 'Labs progress', labs.length ? labs.filter(function (l) { return labsDone[l._id]; }).length + ' / ' + labs.length + ' completed' : 'No labs loaded', 'stats-labs-section');
+      if (!labs.length) labsSection.appendChild(emptyPanel('No labs available', 'This certification does not currently provide lab content.'));
+      else {
+        var labRows = rows.filter(function (r) { return r.labs.length; }).map(function (r) { return { label: r.number + ' · ' + r.title, value: Math.round(r.labsDone / r.labs.length * 100) }; });
+        labsSection.appendChild(renderHorizontalBars(labRows, 'var(--accent-green)'));
+        labsSection.appendChild(el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: labs.filter(function (l) { return labsDone[l._id]; }).length + ' completed · ' + labs.filter(function (l) { return !labsDone[l._id]; }).length + ' remaining' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Labs', onClick: function () { App.core.navigate('#/labs'); } })]));
+      }
+      body.appendChild(labsSection);
+
+      var consistency = section('Consistency', 'Study activity & consistency', selectedDays == null ? 'All recorded activity' : 'Last ' + selectedDays + ' days', 'stats-consistency-section');
+      var events = activityEvents().filter(function (event) { return !selectedDays || inRange(event.ts, selectedDays); });
+      var activityGrid = el('div', { className: 'stats-activity-layout' });
+      var heat = el('div', { className: 'stats-heatmap-wrap' });
+      heat.appendChild(el('div', { className: 'stats-heatmap-legend' }, [el('span', { text: 'Less' }), el('i', { className: 'level-0' }), el('i', { className: 'level-1' }), el('i', { className: 'level-2' }), el('i', { className: 'level-3' }), el('i', { className: 'level-4' }), el('span', { text: 'More' })]));
+      var heatmap = el('div', { className: 'stats-heatmap', role: 'img', 'aria-label': 'Study activity heatmap' });
+      var heatDays = selectedDays == null ? 84 : selectedDays;
+      var heatStart = dayStart(Date.now()) - (heatDays - 1) * 86400000;
+      var byDay = {}; events.forEach(function (event) { var key = dayStart(event.ts); byDay[key] = (byDay[key] || 0) + 1; });
+      var maxActivity = Math.max.apply(null, Object.keys(byDay).map(function (key) { return byDay[key]; }).concat([1]));
+      for (var hi = 0; hi < heatDays; hi++) {
+        var hts = heatStart + hi * 86400000;
+        var count = byDay[hts] || 0;
+        var level = count ? Math.min(4, Math.ceil(count / maxActivity * 4)) : 0;
+        var cell = el('span', { className: 'stats-heat-cell level-' + level, title: utils.formatDate(hts) + ' · ' + count + ' activities', 'aria-label': utils.formatDate(hts) + ': ' + count + ' activities', tabindex: '0' });
+        heatmap.appendChild(cell);
+      }
+      heat.appendChild(heatmap); activityGrid.appendChild(heat);
+      var consistencyMetrics = el('div', { className: 'stats-consistency-metrics' });
+      consistencyMetrics.appendChild(metricTile('Current streak', streak.current ? streak.current + ' days' : '—', streak.current ? 'Active now' : 'Study today to start'));
+      consistencyMetrics.appendChild(metricTile('Longest streak', streak.longest ? streak.longest + ' days' : '—', streak.longest ? 'All-time best' : 'No streak yet'));
+      consistencyMetrics.appendChild(metricTile('Activity events', events.length ? events.length : '—', selectedDays == null ? 'All time' : 'Selected period'));
+      consistencyMetrics.appendChild(metricTile('Active days', events.length ? Object.keys(events.reduce(function (map, event) { map[dayStart(event.ts)] = true; return map; }, {})).length : '—', 'Days with study activity'));
+      activityGrid.appendChild(consistencyMetrics); consistency.appendChild(activityGrid); body.appendChild(consistency);
+
+      var exportSection = section('Data', 'Export analytics', 'Take a snapshot of this certification\'s progress', 'stats-export-section');
+      var exportRow = el('div', { className: 'stats-export-row' });
+      exportRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'CSV answer log', onClick: function () { utils.downloadBlob(new Blob([App.store.exportAnswersCSV(certId)], { type: 'text/csv' }), 'reviewapp-' + certId + '-answers.csv'); } }));
+      exportRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'JSON full backup', onClick: function () { utils.downloadBlob(new Blob([JSON.stringify(App.store.exportFullBackup(), null, 2)], { type: 'application/json' }), 'reviewapp-backup.json'); } }));
+      exportRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Markdown report', onClick: function () {
+        var md = '# ReviewApp Statistics — ' + cert.name + '\n\n- Overall accuracy: ' + (totalAccuracy == null ? 'No data' : totalAccuracy + '%') + '\n- Coverage: ' + (coverage == null ? 'No data' : coverage + '%') + '\n- Questions answered: ' + allAnswers.length + '\n- Flashcard reviews: ' + allReviews.length + '\n- Labs completed: ' + labs.filter(function (lab) { return labsDone[lab._id]; }).length + ' / ' + labs.length + '\n- Current streak: ' + (streak.current || 0) + ' days\n\nGenerated ' + new Date().toISOString() + '\n';
+        utils.downloadBlob(new Blob([md], { type: 'text/markdown' }), 'reviewapp-' + certId + '-statistics.md');
+      } }));
+      exportSection.appendChild(exportRow); body.appendChild(exportSection);
+    }
+
+    rangeSelect.addEventListener('change', function () { selectedDays = rangeSelect.value === 'all' ? null : Number(rangeSelect.value); renderBody(); });
+    renderBody();
+  }
+
   function viewNotes(root, parsed) {
     var noteId = parsed.params[0] ? decodeURIComponent(parsed.params[0]) : null;
     if (noteId) return viewNoteDetail(root, noteId);
+    var certId = App.core.getCurrentCertId();
+    var cert = App.content.getCert(certId);
     root.appendChild(el('h1', { text: 'Notes' }));
-    var bundled = App.content.getAll('notes');
-    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Choose a certification and chapter to open the notes you need.' }));
-    if (!bundled.length) root.appendChild(el('p', { className: 'text-muted mb-3', text: 'No bundled notes loaded.' }));
+    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to view its notes.')); return; }
+    var bundled = App.content.getChapterNotes(certId);
+    root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Notes for ' + cert.name + ' — one complete note per chapter.' }));
+    if (!bundled.length) root.appendChild(el('p', { className: 'text-muted mb-3', text: 'No bundled notes loaded for this certification.' }));
     else {
       var controls = el('div', { className: 'panel mb-3' });
-      var certSel = el('select', { className: 'form-control', id: 'note-cert' });
-      certSel.appendChild(el('option', { value: '', text: 'All certifications' }));
-      App.content.getCerts().forEach(function (cert) {
-        var count = App.content.getByCert('notes', cert.id).length;
-        if (count) certSel.appendChild(el('option', { value: cert.id, text: cert.name + ' (' + count + ')' }));
-      });
-      controls.appendChild(el('div', { className: 'form-group mb-2' }, [el('label', { text: 'Certification' }), certSel]));
       var chapterSel = el('select', { className: 'form-control', id: 'note-chapter' });
       controls.appendChild(el('div', { className: 'form-group' }, [el('label', { text: 'Chapter' }), chapterSel]));
       root.appendChild(controls);
@@ -1304,7 +2639,7 @@
       function fillChapters() {
         chapterSel.innerHTML = '';
         chapterSel.appendChild(el('option', { value: '', text: 'All chapters' }));
-        var chapters = App.content.getChapters(certSel.value || null, 'notes');
+        var chapters = App.content.getChapters(certId, 'notes');
         Object.keys(chapters).sort().forEach(function (chapter) {
           chapterSel.appendChild(el('option', { value: chapter, text: chapter + ' (' + chapters[chapter].length + ')' }));
         });
@@ -1312,22 +2647,23 @@
       function renderBundled() {
         bundledList.innerHTML = '';
         var visible = bundled.filter(function (n) {
-          return (!certSel.value || n._cert === certSel.value) && (!chapterSel.value || n._chapter === chapterSel.value);
+          return n._cert === certId && (!chapterSel.value || n._chapter === chapterSel.value);
         });
         if (!visible.length) {
-          bundledList.appendChild(emptyState('No notes found', 'Choose another certification or chapter.'));
+          bundledList.appendChild(emptyState('No notes found', 'Choose another chapter.'));
           return;
         }
         visible.forEach(function (n) {
           var p = el('div', { className: 'card mb-2', style: { cursor: 'pointer' }, onClick: function () { App.core.navigate('#/notes/' + encodeURIComponent(n._id)); } });
           p.appendChild(el('h3', { text: n.title }));
-          p.appendChild(el('div', { className: 'text-muted mt-1', text: n._chapter || 'General' }));
+          var certName = cert ? cert.name : (n._cert || 'General');
+          var meta = certName + (n.sections.length > 1 ? ' · ' + n.sections.length + ' sections' : '');
+          p.appendChild(el('div', { className: 'text-muted mt-1', text: meta }));
           bundledList.appendChild(p);
         });
       }
       fillChapters();
       renderBundled();
-      certSel.addEventListener('change', function () { fillChapters(); renderBundled(); });
       chapterSel.addEventListener('change', renderBundled);
     }
     root.appendChild(el('h2', { className: 'mt-3 mb-1', text: 'Personal notes' }));
@@ -1383,15 +2719,34 @@
   }
 
   function viewNoteDetail(root, noteId) {
-    var notes = App.content.getAll('notes');
-    var note = notes.find(function (n) { return n._id === noteId; });
+    // Consolidated chapter note for the active certification first; fall back
+    // to the full registry so cross-certification deep links still resolve.
+    var note = App.content.getChapterNotes(App.core.getCurrentCertId()).find(function (n) { return n._id === noteId; });
+    if (!note) note = App.content.getChapterNotes().find(function (n) { return n._id === noteId; });
+    if (!note) {
+      var legacy = App.content.getAll('notes').find(function (n) { return n._id === noteId; });
+      if (legacy) {
+        note = {
+          _id: legacy._id,
+          _cert: legacy._cert,
+          _chapter: legacy._chapter,
+          title: legacy._chapter || legacy.title,
+          sections: [{ _id: legacy._id, title: legacy.title, body: legacy.body, tags: legacy.tags || [] }]
+        };
+      }
+    }
     if (!note) { root.appendChild(emptyState('Note not found', noteId)); return; }
     root.appendChild(el('button', { className: 'btn btn-ghost btn-sm mb-2', text: '← All notes', onClick: function () { App.core.navigate('#/notes'); } }));
-    root.appendChild(el('h1', { text: note.title }));
-    root.appendChild(el('div', { className: 'flex gap-sm mb-2' }, [
+    var cert = App.content.getCert(note._cert);
+    root.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { flexWrap: 'wrap' } }, [
+      cert ? el('span', { className: 'chip chip-muted', text: cert.name }) : null,
       el('span', { className: 'chip chip-muted', text: note._chapter || 'General' })
     ]));
-    root.appendChild(el('div', { className: 'notes-preview', html: App.markdown.render(note.body || '') }));
+    root.appendChild(el('h1', { text: note.title }));
+    note.sections.forEach(function (s, i) {
+      root.appendChild(el('h2', { className: 'note-section-title', text: s.title }));
+      root.appendChild(el('div', { className: 'notes-preview mb-3', html: App.markdown.render(s.body || '') }));
+    });
   }
 
   function buildPermsPanel() {
@@ -1476,7 +2831,7 @@
 
     var inputRow = el('div', { className: 'flex gap-sm mt-2', style: { alignItems: 'center', flexWrap: 'wrap' } });
     inputRow.appendChild(el('span', { className: 'text-muted mono', style: { fontSize: '0.8rem' }, text: 'Or type a mode:' }));
-    var modeInp = el('input', { className: 'form-control mono', type: 'text', placeholder: 'e.g. 4755', style: { maxWidth: '110px' } });
+    var modeInp = el('input', { className: 'form-control mono', type: 'text', placeholder: 'e.g. 0644 or 4755', 'aria-label': 'Octal permission mode', style: { maxWidth: '180px' } });
     modeInp.addEventListener('input', function () {
       var parsed = App.tools.parseMode(modeInp.value);
       if (!parsed) return;
@@ -1718,15 +3073,20 @@
   }
 
   var THEME_META = [
-    { id: 'purple-night', name: 'Purple Night', desc: 'Deep purple technical', colors: ['#0d0b24', '#a78bfa', '#3dd68c', '#5ad1e6'] },
-    { id: 'dracula', name: 'Dracula', desc: 'Purple · pink · cyan', colors: ['#282a36', '#bd93f9', '#50fa7b', '#8be9fd'] },
     { id: 'monokai', name: 'Monokai', desc: 'Classic editor palette', colors: ['#272822', '#a6e22e', '#66d9ef', '#f92672'] },
-    { id: 'xcode', name: 'Xcode', desc: 'Clean developer blue', colors: ['#232329', '#4da3ff', '#7ac943', '#ff9f0a'] },
-    { id: 'nord', name: 'Nord', desc: 'Calm arctic frost', colors: ['#2e3440', '#88c0d0', '#a3be8c', '#bf616a'] },
+    { id: 'dracula', name: 'Dracula', desc: 'Purple · pink · cyan', colors: ['#282a36', '#bd93f9', '#50fa7b', '#8be9fd'] },
     { id: 'one-dark', name: 'One Dark', desc: 'Restrained & professional', colors: ['#282c34', '#61afef', '#98c379', '#d19a66'] },
-    { id: 'solarized-dark', name: 'Solarized Dark', desc: 'Muted earthy tones', colors: ['#073642', '#268bd2', '#859900', '#b58900'] },
+    { id: 'github-dark', name: 'GitHub Dark', desc: 'Crisp GitHub palette', colors: ['#0d1117', '#58a6ff', '#3fb950', '#bc8cff'] },
+    { id: 'nord', name: 'Nord', desc: 'Calm arctic frost', colors: ['#2e3440', '#88c0d0', '#a3be8c', '#bf616a'] },
+    { id: 'gruvbox-dark', name: 'Gruvbox Dark', desc: 'Warm retro earthy', colors: ['#282828', '#fabd2f', '#b8bb26', '#83a598'] },
     { id: 'tokyo-night', name: 'Tokyo Night', desc: 'Luminous indigo', colors: ['#1a1b26', '#7aa2f7', '#9ece6a', '#bb9af7'] },
-    { id: 'light', name: 'Light', desc: 'Classic light', colors: ['#ffffff', '#6c5ce7', '#1f9d61', '#0891b2'] }
+    { id: 'catppuccin', name: 'Catppuccin', desc: 'Soft pastel mocha', colors: ['#1e1e2e', '#cba6f7', '#a6e3a1', '#89dceb'] },
+    { id: 'tomorrow-night', name: 'Tomorrow Night', desc: 'Timeless classic', colors: ['#1d1f21', '#81a2be', '#8abeb7', '#cc6666'] },
+    { id: 'xcode', name: 'Xcode', desc: 'Clean developer blue', colors: ['#232329', '#4da3ff', '#7ac943', '#ff9f0a'] },
+    { id: 'light', name: 'Light', desc: 'Classic light', colors: ['#ffffff', '#6c5ce7', '#1f9d61', '#0891b2'] },
+    // Legacy — still resolved for existing saved preferences, but not selectable.
+    { id: 'purple-night', name: 'Purple Night', desc: 'Deep purple technical', colors: ['#0d0b24', '#a78bfa', '#3dd68c', '#5ad1e6'], legacy: true },
+    { id: 'solarized-dark', name: 'Solarized Dark', desc: 'Muted earthy tones', colors: ['#073642', '#268bd2', '#859900', '#b58900'], legacy: true }
   ];
   var themePickerOpen = false;
 
@@ -1736,7 +3096,7 @@
   }
 
   function buildThemePicker(settings, root) {
-    var current = App.core.normalizeTheme(settings.theme || 'purple-night');
+    var current = App.core.normalizeTheme(settings.theme || 'monokai');
     var meta = themeMeta(current);
     var panel = el('div', { className: 'panel theme-panel mb-3' + (themePickerOpen ? ' open' : '') });
     var head = el('button', {
@@ -1761,6 +3121,7 @@
     var wrap = el('div');
     var grid = el('div', { className: 'theme-grid' });
     THEME_META.forEach(function (t) {
+      if (t.legacy) return; // retired themes are not selectable
       var isSel = t.id === current;
       grid.appendChild(el('button', {
         className: 'theme-card' + (isSel ? ' selected' : ''),
@@ -1846,17 +3207,15 @@
     if (!settings.passThreshold) settings.passThreshold = {};
     App.content.getCerts().forEach(function (c) {
       var row = el('div', { className: 'form-group mb-1' });
-      var inp = el('input', {
-        className: 'form-control', type: 'number', min: '1', max: '100',
-        value: String(settings.passThreshold[c.id] || 70), style: { maxWidth: '100px' }
-      });
-      inp.addEventListener('change', function () {
-        settings.passThreshold[c.id] = parseInt(inp.value, 10) || 70;
+      var thresh = stepperField({ min: '1', max: '100', value: String(settings.passThreshold[c.id] || 70) });
+      thresh.el.style.maxWidth = '180px';
+      thresh.input.addEventListener('change', function () {
+        settings.passThreshold[c.id] = parseInt(thresh.input.value, 10) || 70;
         App.store.saveSettings(settings);
         App.toast('Threshold saved', 'success', 1500);
       });
       row.appendChild(el('label', { text: c.name }));
-      row.appendChild(inp);
+      row.appendChild(thresh.el);
       threshPanel.appendChild(row);
     });
     root.appendChild(threshPanel);
@@ -1936,8 +3295,7 @@
     root.appendChild(about);
   }
 
-  App.core.registerRoute('dashboard', viewDashboard);
-  App.core.registerRoute('certifications', viewCertifications);
+  App.core.registerRoute('dashboard', viewDashboardCommand);
   App.core.registerRoute('quiz', viewQuiz);
   App.core.registerRoute('exam', viewExam);
   App.core.registerRoute('flashcards', viewFlashcards);

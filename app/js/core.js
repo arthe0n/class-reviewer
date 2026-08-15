@@ -412,10 +412,16 @@
   }
 
   /* ── Theme ──────────────────────────────────────────────── */
-  var THEME_IDS = ['purple-night', 'dracula', 'monokai', 'xcode', 'nord', 'one-dark', 'solarized-dark', 'tokyo-night', 'light'];
+  var THEME_IDS = [
+    'monokai', 'dracula', 'one-dark', 'github-dark', 'nord', 'gruvbox-dark',
+    'tokyo-night', 'catppuccin', 'tomorrow-night', 'xcode', 'light',
+    // Legacy themes kept so existing saved preferences still resolve;
+    // they are not offered in the Settings picker anymore.
+    'purple-night', 'solarized-dark'
+  ];
 
   function normalizeTheme(t) {
-    return THEME_IDS.indexOf(t) >= 0 ? t : 'purple-night';
+    return THEME_IDS.indexOf(t) >= 0 ? t : 'monokai';
   }
 
   function applyTheme(theme) {
@@ -433,12 +439,12 @@
 
   function initTheme() {
     // Legacy sources: the localStorage key and settings.theme ('dark' maps to
-    // the new default Purple Night; 'light' stays available as a legacy theme).
+    // the new default Monokai; 'light' and the retired themes still resolve).
     var stored = null;
     try { stored = localStorage.getItem('reviewapp.v1.theme'); } catch (e) {}
     var s = (App.store && App.store.getSettings) ? App.store.getSettings() : {};
     var fromSettings = (s.theme && s.theme !== 'dark') ? s.theme : null;
-    applyTheme(stored || fromSettings || 'purple-night');
+    applyTheme(stored || fromSettings || 'monokai');
   }
 
   function applyTextSize(size) {
@@ -463,6 +469,194 @@
     document.documentElement.setAttribute('data-motion', on ? 'on' : 'off');
   }
 
+  /* ── Current certification (global context) ─────────────── */
+  // Single source of truth for the certification the user is studying.
+  // Persisted through the existing store, restored at boot, and re-rendered
+  // app-wide when it changes. Tools/Settings/Search stay global.
+  var currentCertId = null;
+
+  function restoreCurrentCert() {
+    var certs = App.content.getCerts();
+    if (!certs.length) { currentCertId = null; return; }
+    var stored = App.store.getCurrentCert ? App.store.getCurrentCert() : null;
+    var valid = stored && certs.some(function (c) { return c.id === stored; });
+    currentCertId = valid ? stored : certs[0].id;
+    if (!valid) App.store.setCurrentCert(currentCertId);
+  }
+
+  function getCurrentCertId() { return currentCertId; }
+
+  function getCurrentCert() {
+    return App.content.getCert(currentCertId);
+  }
+
+  // Find an in-progress session that belongs to a certification, so switching
+  // certifications can warn the user instead of silently discarding progress.
+  function activeSessionForCert() {
+    var quiz = App.quiz && App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
+    if (quiz && quiz.cert) return { cert: quiz.cert, label: 'quiz' };
+    var exam = App.quiz && App.quiz.getExamSession ? App.quiz.getExamSession() : null;
+    if (exam && exam.cert && !exam.submitted) return { cert: exam.cert, label: 'exam' };
+    var fc = App.store && App.store.getFlashSession ? App.store.getFlashSession() : null;
+    if (fc && fc.cert && !fc.finished) return { cert: fc.cert, label: 'flashcard session' };
+    return null;
+  }
+
+  // Pause running session timers without destroying the session, so the
+  // session can be resumed later under its own certification.
+  function pauseActiveSessionTimers() {
+    if (!App.quiz) return;
+    var ex = App.quiz.getExamSession ? App.quiz.getExamSession() : null;
+    if (ex && ex.timer) { clearInterval(ex.timer); ex.timer = null; }
+    var q = App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
+    if (q && q.speedTimer) { clearInterval(q.speedTimer); q.speedTimer = null; }
+  }
+
+  function setCurrentCert(id, opts) {
+    opts = opts || {};
+    var certs = App.content.getCerts();
+    var cert = null;
+    certs.forEach(function (c) { if (c.id === id) cert = c; });
+    if (!cert) return false;
+    if (currentCertId === id) { updateCertSelector(); return true; }
+
+    var active = activeSessionForCert();
+    if (active) {
+      var activeCert = App.content.getCert(active.cert);
+      var msg = 'You have an active ' + active.label +
+        (activeCert ? ' for ' + activeCert.name : '') +
+        '. Switch to ' + cert.name +
+        '? Your session will be preserved and can be resumed when you switch back.';
+      if (!window.confirm(msg)) return false;
+    }
+
+    pauseActiveSessionTimers();
+    currentCertId = id;
+    App.store.setCurrentCert(id);
+    updateCertSelector();
+    if (!opts.silent) handleRoute();
+    return true;
+  }
+
+  var certMenuOpen = false;
+
+  function initCertSelector() {
+    updateCertSelector();
+    document.addEventListener('click', function (e) {
+      var root = utils.$('#cert-picker');
+      if (root && certMenuOpen && !root.contains(e.target)) closeCertMenu();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && certMenuOpen) closeCertMenu();
+    });
+  }
+
+  function closeCertMenu() {
+    var root = utils.$('#cert-picker');
+    if (!root) return;
+    certMenuOpen = false;
+    var btn = utils.$('.cert-picker-btn', root);
+    var menu = utils.$('.cert-picker-menu', root);
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (menu) menu.hidden = true;
+  }
+
+  function toggleCertMenu() {
+    var root = utils.$('#cert-picker');
+    if (!root) return;
+    var menu = utils.$('.cert-picker-menu', root);
+    if (certMenuOpen) { closeCertMenu(); return; }
+    certMenuOpen = true;
+    var btn = utils.$('.cert-picker-btn', root);
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (menu) menu.hidden = false;
+  }
+
+  function certItemMeta(id) {
+    if (!App.content || !App.content.getByCert) return '';
+    var q = App.content.getByCert('questions', id).length;
+    var c = App.content.getByCert('flashcards', id).length;
+    var l = App.content.getByCert('labs', id).length;
+    return q + ' Q · ' + c + ' cards · ' + l + ' labs';
+  }
+
+  function updateCertSelector() {
+    var root = utils.$('#cert-picker');
+    if (!root) return;
+    var certs = App.content.getCerts();
+    var cur = currentCertId;
+    var valid = cur && certs.some(function (c) { return c.id === cur; });
+    if (!valid && certs.length) {
+      cur = certs[0].id;
+      currentCertId = cur;
+      App.store.setCurrentCert(cur);
+    }
+
+    root.innerHTML = '';
+    if (!certs.length) {
+      var empty = utils.el('button', { className: 'cert-picker-btn is-empty', disabled: 'true', text: 'No certifications' });
+      root.appendChild(empty);
+      return;
+    }
+
+    var active = App.content.getCert(cur) || certs[0];
+    var color = active.color || 'var(--accent-cyan)';
+    var btn = utils.el('button', {
+      className: 'cert-picker-btn',
+      'aria-haspopup': 'listbox',
+      'aria-expanded': 'false',
+      onClick: function () { toggleCertMenu(); }
+    }, [
+      utils.el('span', { className: 'cert-picker-label', text: 'Current' }),
+      utils.el('span', { className: 'cert-dot', style: { background: color } }),
+      utils.el('span', { className: 'cert-picker-name', text: active.name }),
+      utils.el('span', {
+        className: 'cert-picker-chevron',
+        html: '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      })
+    ]);
+    root.appendChild(btn);
+
+    var menu = utils.el('div', { className: 'cert-picker-menu', role: 'listbox', 'aria-label': 'Certifications', hidden: 'true' });
+    menu.appendChild(utils.el('div', { className: 'cert-picker-heading', text: 'Switch certification' }));
+    var items = [];
+    certs.forEach(function (c) {
+      var isActive = c.id === cur;
+      var item = utils.el('button', {
+        className: 'cert-picker-item' + (isActive ? ' active' : ''),
+        role: 'option',
+        'aria-selected': isActive ? 'true' : 'false',
+        onClick: function () { closeCertMenu(); setCurrentCert(c.id); }
+      }, [
+        utils.el('span', { className: 'cert-dot', style: { background: c.color || 'var(--accent-cyan)' } }),
+        utils.el('span', { className: 'cert-picker-item-body' }, [
+          utils.el('span', { className: 'cert-picker-item-name', text: c.name }),
+          utils.el('span', { className: 'cert-picker-item-meta', text: certItemMeta(c.id) })
+        ]),
+        isActive ? utils.el('span', { className: 'cert-picker-check', html: '&#10003;' }) : null
+      ]);
+      items.push({ id: c.id, node: item });
+      menu.appendChild(item);
+    });
+    root.appendChild(menu);
+
+    // Keyboard navigation within the open menu
+    btn.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!certMenuOpen) toggleCertMenu();
+        if (certMenuOpen && items.length) {
+          var idx = items.findIndex(function (i) { return i.id === currentCertId; });
+          if (idx < 0) idx = 0;
+          if (e.key === 'ArrowDown') idx = (idx + 1) % items.length;
+          if (e.key === 'ArrowUp') idx = (idx - 1 + items.length) % items.length;
+          if (e.key === 'Enter' || e.key === ' ') { closeCertMenu(); setCurrentCert(items[idx].id); return; }
+          items[idx].node.focus();
+        }
+      }
+    });
+  }
+
   /* ── Boot ───────────────────────────────────────────────── */
   function init() {
     initTheme();
@@ -483,12 +677,16 @@
     // Register routes (views will fill them)
     window.addEventListener('hashchange', handleRoute);
 
-    // Load content then route
+    // Load content then restore the certification context and route
     if (App.content && App.content.load) {
       App.content.load(function () {
+        restoreCurrentCert();
+        initCertSelector();
         handleRoute();
       });
     } else {
+      restoreCurrentCert();
+      initCertSelector();
       handleRoute();
     }
   }
@@ -503,6 +701,11 @@
     handleRoute: handleRoute,
     getRoute: function () { return currentRoute; },
     getParams: function () { return currentParams; },
+    getCurrentCertId: getCurrentCertId,
+    getCurrentCert: getCurrentCert,
+    setCurrentCert: setCurrentCert,
+    restoreCurrentCert: restoreCurrentCert,
+    updateCertSelector: updateCertSelector,
     applyTheme: applyTheme,
     applyTextSize: applyTextSize,
     themeIds: THEME_IDS.slice(),

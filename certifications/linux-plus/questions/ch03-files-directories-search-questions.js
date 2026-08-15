@@ -1,7 +1,7 @@
 window.ReviewApp.content.register({
 type: "questions",
 cert: "linux-plus",
-chapter: "Ch 3 · Files, Directories & Search",
+chapter: "Ch 03 · Files, Directories & Search",
 items: [
 {
 q: "Which pathname is an absolute pathname on Linux?",

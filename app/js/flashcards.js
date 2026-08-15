@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    ReviewApp · flashcards.js
-   Leitner spaced-repetition engine + 3D flip UI helpers
+   Flashcard review engine: Again / Next + retry queue + shuffle
    ═══════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
@@ -32,6 +32,10 @@
     return all;
   }
 
+  function newSessionId() {
+    return 'fc_' + utils.uid();
+  }
+
   function startSession(deck, opts) {
     opts = opts || {};
     if (!deck || !deck.length) {
@@ -61,84 +65,218 @@
       }
     }
 
+    var cardsById = {};
+    order.forEach(function (c) { cardsById[cardKey(c)] = c; });
+
+    var cert = opts.cert || null;
+    var chapter = opts.chapter || null;
+    if (!cert || !chapter) {
+      var first = order[0];
+      if (first) {
+        if (!cert) cert = first._cert || null;
+        if (!chapter) chapter = first._chapter || null;
+      }
+    }
+
     session = {
-      deck: order,
+      id: newSessionId(),
+      ts: Date.now(),
+      cert: cert,
+      chapter: chapter,
+      cardsById: cardsById,
+      totalCards: order.length,
+      queue: order.map(cardKey),
       index: 0,
+      retry: [],                 // card keys marked Again in the current pass
+      done: {},                  // cardKey -> true once answered Next
+      stats: {},                 // cardKey -> { attempts, agains }
       flipped: false,
-      graded: 0,
-      again: 0,
-      good: 0,
-      easy: 0
+      finished: false,
+      completed: 0,              // cards answered Next
+      agains: 0,                 // total Again marks
+      attempts: 0                // total grades
     };
-    App.store.setLastStudy({ type: 'flashcards', ts: Date.now() });
+    App.store.setLastStudy({ type: 'flashcards', cert: session.cert, ts: Date.now() });
+    persistSession();
     return session;
   }
 
+  function getSession() {
+    if (!session) session = App.store.getFlashSession();
+    return session;
+  }
+
+  function persistSession() {
+    if (session) App.store.saveFlashSession(session);
+  }
+
+  function currentKey() {
+    if (!session || session.finished) return null;
+    return session.queue[session.index] || null;
+  }
+
   function currentCard() {
-    if (!session) return null;
-    return session.deck[session.index];
+    var k = currentKey();
+    if (!k) return null;
+    return session.cardsById[k] || null;
   }
 
   function flip() {
     if (!session) return;
     session.flipped = !session.flipped;
+    persistSession();
+  }
+
+  /* Move forward; promote the retry queue when the current pass ends. */
+  function advance() {
+    if (session.index + 1 < session.queue.length) {
+      session.index++;
+      return true;
+    }
+    if (session.retry.length) {
+      session.queue = session.retry;
+      session.retry = [];
+      session.index = 0;
+      return true;
+    }
+    return false; // session complete
   }
 
   function grade(gradeName) {
     if (!session) return null;
-    var card = currentCard();
-    if (!card) return null;
-    App.store.gradeCard(cardKey(card), gradeName);
-    session.graded++;
-    if (gradeName === 'again') session.again++;
-    else if (gradeName === 'good') session.good++;
-    else if (gradeName === 'easy') session.easy++;
+    var k = currentKey();
+    if (!k) return null;
+    var card = session.cardsById[k];
+    var st = session.stats[k] || (session.stats[k] = { attempts: 0, agains: 0 });
+    st.attempts++;
+    session.attempts++;
 
-    session.flipped = false;
-    if (session.index < session.deck.length - 1) {
-      session.index++;
-      return true;
+    // Spaced-repetition scheduling (existing Leitner boxes)
+    App.store.gradeCard(k, gradeName === 'again' ? 'again' : 'good');
+
+    // Card-level analytics record
+    App.store.logCardReview({
+      cardId: k,
+      cert: card._cert || session.cert || null,
+      chapter: card._chapter || session.chapter || null,
+      tags: card.tags || [],
+      outcome: gradeName,       // 'again' | 'next'
+      sessionId: session.id,
+      sessionTs: session.ts,
+      attempt: st.attempts
+    });
+
+    if (gradeName === 'again') {
+      st.agains++;
+      session.agains++;
+      session.retry.push(k);    // retry later, never immediately
+    } else {
+      session.completed++;
+      session.done[k] = true;
     }
-    return false; // finished
+    session.flipped = false;
+    var more = advance();
+    if (!more) session.finished = true;
+    persistSession();
+    return more; // true = more cards remain, false = complete
   }
 
-  function next() {
-    if (!session) return false;
-    session.flipped = false;
-    if (session.index < session.deck.length - 1) {
-      session.index++;
-      return true;
+  /* Shuffle remaining (ungraded) active cards + the retry queue.
+     Never drops, duplicates, resets progress, or replaces the current card. */
+  function shuffleList(list) {
+    if (list.length < 2) return list.slice();
+    var original = list.slice();
+    var shuffled = utils.shuffle(list);
+    var unchanged = shuffled.every(function (item, index) { return item === original[index]; });
+    // A random shuffle can coincidentally produce the same order. Make the
+    // control visibly meaningful whenever there are at least two cards.
+    if (unchanged) {
+      var swap = shuffled[0];
+      shuffled[0] = shuffled[1];
+      shuffled[1] = swap;
     }
-    return false;
+    return shuffled;
   }
 
-  function prev() {
-    if (!session) return false;
-    session.flipped = false;
-    if (session.index > 0) {
-      session.index--;
-      return true;
+  function shuffle() {
+    if (!session || session.finished) return false;
+
+    // Keep cards already answered Next behind us, but put every unresolved
+    // card — including the current card and retry cards — into one new deck.
+    // Moving the index to the new deck head makes the shuffled card appear
+    // immediately instead of leaving the old card on screen.
+    var completedHead = session.queue.slice(0, session.index).filter(function (key) {
+      return !!session.done[key];
+    });
+    var currentKey = session.queue[session.index] || null;
+    var unresolved = session.queue.slice(session.index).concat(session.retry);
+    if (unresolved.length < 2) {
+      persistSession();
+      return false;
     }
-    return false;
+
+    var shuffled = shuffleList(unresolved);
+    // Do not leave the same card visible after pressing Shuffle when another
+    // unresolved card is available.
+    if (shuffled[0] === currentKey) {
+      var swapIndex = shuffled.findIndex(function (key) { return key !== currentKey; });
+      if (swapIndex > 0) {
+        var swap = shuffled[0];
+        shuffled[0] = shuffled[swapIndex];
+        shuffled[swapIndex] = swap;
+      }
+    }
+
+    session.queue = completedHead.concat(shuffled);
+    session.index = completedHead.length;
+    session.retry = [];
+    session.flipped = false;
+    persistSession();
+    return true;
+  }
+
+  function buildSummary() {
+    var neededReview = 0;
+    var withoutRetry = 0;
+    var tagCount = {};
+    Object.keys(session.stats).forEach(function (k) {
+      var s = session.stats[k];
+      var card = session.cardsById[k] || {};
+      if (s.agains > 0) {
+        neededReview++;
+        (card.tags || []).forEach(function (t) { tagCount[t] = (tagCount[t] || 0) + 1; });
+      } else {
+        withoutRetry++;
+      }
+    });
+    var focus = Object.keys(tagCount).sort(function (a, b) { return tagCount[b] - tagCount[a]; });
+    return {
+      id: session.id,
+      ts: session.ts,
+      cert: session.cert,
+      chapter: session.chapter,
+      totalCards: session.totalCards,
+      completed: session.completed,
+      neededReview: neededReview,
+      withoutRetry: withoutRetry,
+      repeatAttempts: session.agains,
+      focusAreas: focus.slice(0, 3)
+    };
   }
 
   function endSession() {
-    var result = session ? {
-      total: session.deck.length,
-      graded: session.graded,
-      again: session.again,
-      good: session.good,
-      easy: session.easy
-    } : null;
+    var summary = null;
+    if (session) {
+      summary = buildSummary();
+      App.store.saveFlashSessionSummary(summary);
+      App.store.clearFlashSession();
+    }
     session = null;
-    return result;
+    return summary;
   }
-
-  function getSession() { return session; }
 
   function startWithCard(card) {
     pendingStartCard = card;
-    // views will pick this up
   }
 
   function consumePendingCard() {
@@ -153,8 +291,7 @@
     currentCard: currentCard,
     flip: flip,
     grade: grade,
-    next: next,
-    prev: prev,
+    shuffle: shuffle,
     endSession: endSession,
     getSession: getSession,
     startWithCard: startWithCard,

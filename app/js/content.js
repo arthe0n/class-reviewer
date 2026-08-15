@@ -17,6 +17,14 @@
   };
   var manifest = null;
   var loadToken = 0;
+  // Normalized index: { 'certId::type' -> [items], 'certId::chapterMap:type' -> { chapter: [items] } }
+  // Built lazily and invalidated whenever the registry changes, so views filter
+  // by certification without re-scanning the arrays on every render.
+  var _cache = {};
+
+  function invalidateCache() {
+    _cache = {};
+  }
 
   function setManifest(m) {
     manifest = m;
@@ -58,6 +66,7 @@
     registry.flashcards = [];
     registry.labs = [];
     registry.notes = [];
+    invalidateCache();
   }
 
   function injectScript(src, onload, onerror) {
@@ -103,6 +112,7 @@
     if (snap && snap.registry) {
       registry = snap.registry;
       if (snap.manifest) manifest = snap.manifest;
+      invalidateCache();
       if (cb) cb();
       return;
     }
@@ -117,10 +127,12 @@
       registry.certs = (manifest.certs || []).slice();
       loadManifestFiles(manifest.files || [], function () {
         if (myToken !== loadToken) return;
+        invalidateCache();
         if (cb) cb();
       });
     }, function () {
       console.warn('Manifest missing — using empty registry');
+      invalidateCache();
       if (cb) cb();
     });
   }
@@ -142,6 +154,8 @@
       registry.certs = (manifest.certs || []).slice();
       loadManifestFiles(manifest.files || [], function () {
         if (myToken !== loadToken) return;
+        invalidateCache();
+        if (App.core && App.core.updateCertSelector) App.core.updateCertSelector();
         var q = registry.questions.length;
         var c = registry.flashcards.length;
         var l = registry.labs.length;
@@ -165,6 +179,8 @@
     function finishOne() {
       done++;
       if (done >= pending) {
+        invalidateCache();
+        if (App.core && App.core.updateCertSelector) App.core.updateCertSelector();
         if (saveSnapshot) {
           App.store.saveContentSnapshot({
             registry: JSON.parse(JSON.stringify(registry)),
@@ -243,22 +259,85 @@
   }
 
   function getByCert(type, certId) {
-    return getAll(type).filter(function (i) { return i._cert === certId; });
+    if (!certId) return getAll(type);
+    var key = certId + '::' + type;
+    if (!_cache[key]) _cache[key] = getAll(type).filter(function (i) { return i._cert === certId; });
+    return _cache[key];
   }
 
   function getChapters(certId, type) {
     var items = certId ? getByCert(type || 'questions', certId) : getAll(type || 'questions');
-    var map = {};
-    items.forEach(function (i) {
-      var ch = i._chapter || 'General';
-      if (!map[ch]) map[ch] = [];
-      map[ch].push(i);
-    });
-    return map;
+    var key = 'ch::' + (certId || '*') + '::' + (type || 'questions');
+    if (!_cache[key]) {
+      var map = {};
+      items.forEach(function (i) {
+        var ch = i._chapter || 'General';
+        if (!map[ch]) map[ch] = [];
+        map[ch].push(i);
+      });
+      _cache[key] = map;
+    }
+    return _cache[key];
   }
 
-  function getTags(type) {
-    var items = getAll(type || 'questions');
+  // Extract the chapter number from a chapter label ("Ch 02 · …" → 2).
+  // Content types sometimes spell the same chapter slightly differently, so
+  // cross-type lookups (e.g. a quiz chapter → its flashcard chapter) match on
+  // the chapter number rather than the exact string.
+  function chapterNumber(name) {
+    var m = String(name || '').match(/Ch\s*(\d+)/i);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  // Resolve a chapter reference for a content type: exact name first, then
+  // chapter-number prefix. Returns the actual chapter key in that type's data,
+  // or null when there is no match.
+  function findChapter(certId, type, chapter) {
+    if (!chapter) return null;
+    var map = getChapters(certId, type);
+    if (map[chapter]) return chapter;
+    var n = chapterNumber(chapter);
+    if (n == null) return null;
+    var keys = Object.keys(map);
+    for (var i = 0; i < keys.length; i++) {
+      if (chapterNumber(keys[i]) === n) return keys[i];
+    }
+    return null;
+  }
+
+  // Consolidate note content blocks into one note per certification+chapter.
+  // A single source chapter may register multiple note items (sections); these
+  // are merged into one chapter note whose `sections` retain source order.
+  // The stable id is derived from cert+chapter so it never changes across loads.
+  function getChapterNotes(certId) {
+    var notes = certId ? getByCert('notes', certId) : getAll('notes');
+    var map = {};
+    var order = [];
+    notes.forEach(function (n) {
+      var chapter = n._chapter || 'General';
+      var key = n._cert + '\u0000' + chapter;
+      if (!map[key]) {
+        map[key] = {
+          _id: n._cert + ':notes:' + chapter,
+          _cert: n._cert,
+          _chapter: chapter,
+          title: chapter,
+          sections: []
+        };
+        order.push(map[key]);
+      }
+      map[key].sections.push({
+        _id: n._id,
+        title: n.title,
+        body: n.body,
+        tags: n.tags || []
+      });
+    });
+    return order;
+  }
+
+  function getTags(type, certId) {
+    var items = certId ? getByCert(type || 'questions', certId) : getAll(type || 'questions');
     var set = {};
     items.forEach(function (i) {
       (i.tags || []).forEach(function (t) { set[t] = true; });
@@ -281,6 +360,26 @@
   }
 
   /* ── Search ─────────────────────────────────────────────── */
+  // Human-readable cert label for search results.
+  function certName(id) {
+    var c = getCert(id);
+    return c ? c.name : id;
+  }
+
+  // Opening a cross-certification result switches the active certification so
+  // the content always opens inside the correct context.
+  function currentCertId() {
+    if (App.core && App.core.getCurrentCertId) return App.core.getCurrentCertId();
+    if (App.store && App.store.getCurrentCert) return App.store.getCurrentCert();
+    return null;
+  }
+
+  function ensureCert(id) {
+    if (!id) return;
+    if (currentCertId() === id) return;
+    if (App.core && App.core.setCurrentCert) App.core.setCurrentCert(id, { silent: true });
+  }
+
   function search(q) {
     q = (q || '').toLowerCase();
     var results = [];
@@ -296,8 +395,9 @@
         results.push({
           group: 'Questions',
           title: item.q.slice(0, 80) + (item.q.length > 80 ? '…' : ''),
-          meta: item._cert + ' · ' + (item._chapter || ''),
+          meta: certName(item._cert) + ' · ' + (item._chapter || ''),
           action: function () {
+            ensureCert(item._cert);
             var body = document.createElement('div');
             if (App.quiz && App.quiz.renderSingle) {
               App.quiz.renderSingle(body, item);
@@ -316,8 +416,9 @@
         results.push({
           group: 'Flashcards',
           title: item.front.slice(0, 70),
-          meta: item._cert + ' · ' + (item._chapter || ''),
+          meta: certName(item._cert) + ' · ' + (item._chapter || ''),
           action: function () {
+            ensureCert(item._cert);
             App.core.navigate('#/flashcards');
             setTimeout(function () {
               if (App.flashcards && App.flashcards.startWithCard) {
@@ -329,13 +430,17 @@
       }
     });
 
+    // Labs stay scoped to the current certification: they are never returned
+    // as cross-certification search results.
+    var curCert = currentCertId();
     registry.labs.forEach(function (item) {
+      if (curCert && item._cert !== curCert) return;
       var text = (item.title || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.scenario || '');
       if (text.toLowerCase().indexOf(q) >= 0) {
         results.push({
           group: 'Labs',
           title: item.title,
-          meta: item._cert + ' · difficulty ' + (item.difficulty || '?'),
+          meta: certName(item._cert) + ' · difficulty ' + (item.difficulty || '?'),
           action: function () {
             App.core.navigate('#/labs/' + encodeURIComponent(item._id));
           }
@@ -343,15 +448,18 @@
       }
     });
 
-    registry.notes.forEach(function (item) {
-      var text = (item.title || '') + ' ' + (item.body || '') + ' ' + (item.tags || []).join(' ');
+    getChapterNotes().forEach(function (note) {
+      var text = note.sections.map(function (s) {
+        return (s.title || '') + ' ' + (s.body || '') + ' ' + (s.tags || []).join(' ');
+      }).join(' ');
       if (text.toLowerCase().indexOf(q) >= 0) {
         results.push({
           group: 'Notes',
-          title: item.title,
-          meta: item._cert || 'bundled',
+          title: note.title,
+          meta: certName(note._cert) + (note.sections.length > 1 ? ' · ' + note.sections.length + ' sections' : ''),
           action: function () {
-            App.core.navigate('#/notes/' + encodeURIComponent(item._id));
+            ensureCert(note._cert);
+            App.core.navigate('#/notes/' + encodeURIComponent(note._id));
           }
         });
       }
@@ -422,6 +530,9 @@
     getAll: getAll,
     getByCert: getByCert,
     getChapters: getChapters,
+    chapterNumber: chapterNumber,
+    findChapter: findChapter,
+    getChapterNotes: getChapterNotes,
     getTags: getTags,
     getQuestionById: getQuestionById,
     counts: counts,

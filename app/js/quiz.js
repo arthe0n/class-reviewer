@@ -98,7 +98,7 @@
   var session = null;
 
   function startQuiz(config) {
-    // config: { mode, certs, chapter, tags, count, questions }
+    // config: { mode, cert, certs, chapter, tags, count, questions }
     var questions = config.questions || [];
     if (!questions.length) {
       App.toast('No questions match your criteria', 'error');
@@ -110,6 +110,7 @@
     }
     session = {
       mode: config.mode || 'random',
+      cert: config.cert || (questions[0] && questions[0]._cert) || null,
       questions: questions,
       index: 0,
       answers: [], // { qId, correct, userAnswer }
@@ -118,7 +119,7 @@
       speedTimer: null,
       speedRemaining: null
     };
-    App.store.setLastStudy({ type: 'quiz', mode: session.mode, ts: Date.now() });
+    App.store.setLastStudy({ type: 'quiz', mode: session.mode, cert: session.cert, ts: Date.now() });
     return session;
   }
 
@@ -208,20 +209,18 @@
   }
 
   /* ── Build question pool by mode ────────────────────────── */
+  // Every mode operates inside the active certification (opts.cert). The
+  // historical multi-cert 'random' picker is retired: pools are scoped first.
   function buildPool(mode, opts) {
     opts = opts || {};
     var all = App.content.getAll('questions');
+    if (opts.cert) {
+      all = all.filter(function (q) { return q._cert === opts.cert; });
+    }
     if (mode === 'chapter') {
       return all.filter(function (q) {
-        return (!opts.cert || q._cert === opts.cert) && (!opts.chapter || q._chapter === opts.chapter);
+        return (!opts.chapter || q._chapter === opts.chapter);
       });
-    }
-    if (mode === 'random') {
-      var certs = opts.certs || [];
-      if (certs.length) {
-        return all.filter(function (q) { return certs.indexOf(q._cert) >= 0; });
-      }
-      return all;
     }
     if (mode === 'theme') {
       var tags = opts.tags || [];
@@ -231,11 +230,11 @@
       });
     }
     if (mode === 'weak') {
-      var weak = App.store.weakQuestions(60);
+      var weak = App.store.weakQuestions(60, opts.cert);
       var weakIds = {};
       weak.forEach(function (w) { weakIds[w.qId] = true; });
       var seen = {};
-      App.store.getAnswers().forEach(function (a) { seen[a.qId] = true; });
+      (opts.cert ? App.store.getAnswers({ cert: opts.cert }) : App.store.getAnswers()).forEach(function (a) { seen[a.qId] = true; });
       return all.filter(function (q) {
         return weakIds[q._id] || !seen[q._id];
       });
@@ -545,6 +544,19 @@
     return full;
   }
 
+  // Leaving an active practice player for its setup menu should not resume
+  // the same player immediately. These explicit discards only affect the
+  // in-memory session; logged answers and completed exam attempts remain safe.
+  function discardQuiz() {
+    if (session && session.speedTimer) clearInterval(session.speedTimer);
+    session = null;
+  }
+
+  function discardExam() {
+    if (examSession && examSession.timer) clearInterval(examSession.timer);
+    examSession = null;
+  }
+
   function getExamSession() { return examSession; }
   function getQuizSession() { return session; }
 
@@ -565,6 +577,8 @@
     examAnswer: examAnswer,
     examFlag: examFlag,
     submitExam: submitExam,
+    discardQuiz: discardQuiz,
+    discardExam: discardExam,
     getExamSession: getExamSession,
     getQuizSession: getQuizSession
   };
