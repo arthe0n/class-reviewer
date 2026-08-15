@@ -537,6 +537,7 @@
     getQuestionById: getQuestionById,
     counts: counts,
     search: search,
-    getRegistry: function () { return registry; }
+    getRegistry: function () { return registry; },
+    getManifest: function () { return manifest; }
   };
 })();

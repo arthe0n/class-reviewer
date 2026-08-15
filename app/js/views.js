@@ -3152,6 +3152,306 @@
     return panel;
   }
 
+  var BACKUP_TYPE_META = [
+    { id: 'everything', title: 'Everything', desc: 'Study data + certification material' },
+    { id: 'user', title: 'Statistics & Study Data', desc: 'Progress, answers, flashcard history, exams, labs, notes, and study activity.' },
+    { id: 'material', title: 'Study Material', desc: 'Questions, flashcards, labs, notes, and certification metadata.' }
+  ];
+
+  function backupIcon(kind) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '16');
+    svg.setAttribute('height', '16');
+    svg.setAttribute('viewBox', '0 0 16 16');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+    if (kind === 'export') {
+      svg.innerHTML = '<path d="M8 2v7M5.5 6.5L8 9l2.5-2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11v1.5A1.5 1.5 0 004.5 14h7a1.5 1.5 0 001.5-1.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    } else {
+      svg.innerHTML = '<path d="M8 14V7M5.5 9.5L8 7l2.5 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 11v1.5A1.5 1.5 0 004.5 14h7a1.5 1.5 0 001.5-1.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>';
+    }
+    return svg;
+  }
+
+  // Shared, compact export-configuration controls used inside the export modal.
+  function buildBackupExportControls() {
+    var selectedType = 'everything';
+    var wrap = el('div');
+    var typeRow = el('div', { className: 'backup-type-grid', role: 'radiogroup', 'aria-label': 'Backup export type' });
+    var certPicker = el('div', { className: 'backup-cert-picker' });
+    certPicker.appendChild(el('div', { className: 'backup-picker-title', text: 'Certifications to include' }));
+    var certs = App.backup.getCertificationOptions();
+    var allInput = el('input', { type: 'checkbox', checked: true });
+    certPicker.appendChild(el('label', { className: 'backup-cert-all' }, [allInput, el('span', { text: 'All certifications' })]));
+    var certRows = el('div', { className: 'backup-cert-list' });
+    var certInputs = [];
+    certs.forEach(function (cert) {
+      var input = el('input', { type: 'checkbox', checked: true });
+      input.dataset.certId = cert.id;
+      certRows.appendChild(el('label', { className: 'backup-cert-option' }, [input, el('span', { text: cert.name })]));
+      certInputs.push({ cert: cert, input: input });
+      input.addEventListener('change', function () {
+        var every = certInputs.length > 0 && certInputs.every(function (item) { return item.input.checked; });
+        allInput.checked = every;
+        allInput.indeterminate = !every && certInputs.some(function (item) { return item.input.checked; });
+      });
+    });
+    allInput.addEventListener('change', function () {
+      if (allInput.checked) certInputs.forEach(function (item) { item.input.checked = true; });
+      allInput.indeterminate = false;
+      certInputs.forEach(function (item) { item.input.disabled = allInput.checked; });
+    });
+    certPicker.appendChild(certRows);
+
+    BACKUP_TYPE_META.forEach(function (option) {
+      var input = el('input', { type: 'radio', name: 'reviewapp-backup-type', value: option.id });
+      input.checked = option.id === selectedType;
+      var card = el('label', { className: 'backup-type-option' }, [
+        input,
+        el('span', { className: 'backup-type-copy' }, [
+          el('strong', { text: option.title }),
+          el('span', { className: 'text-muted', text: option.desc })
+        ])
+      ]);
+      input.addEventListener('change', function () {
+        if (!input.checked) return;
+        selectedType = option.id;
+        certPicker.hidden = selectedType === 'user';
+      });
+      typeRow.appendChild(card);
+    });
+    wrap.appendChild(typeRow);
+    wrap.appendChild(certPicker);
+
+    return {
+      wrap: wrap,
+      getType: function () { return selectedType; },
+      getCertIds: function () {
+        if (selectedType === 'user') return [];
+        return certInputs.filter(function (item) { return item.input.checked; }).map(function (item) { return item.cert.id; });
+      },
+      summary: function () {
+        if (selectedType === 'user') return 'Statistics & Study Data · —';
+        var names = certInputs.filter(function (item) { return item.input.checked; }).map(function (item) { return item.cert.name.replace(/^CompTIA\s+/, ''); });
+        var certLabel = allInput.checked ? 'All certifications' : (names.length ? names.join(', ') : '—');
+        return (selectedType === 'everything' ? 'Everything' : 'Study Material') + ' · ' + certLabel;
+      }
+    };
+  }
+
+  function buildBackupPanel() {
+    var lastBackupLabel = el('span', { className: 'text-muted', text: 'No backup created yet' });
+
+    var panel = el('div', { className: 'panel mb-3 backup-panel' });
+    panel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Backup & data' }));
+    panel.appendChild(el('p', { className: 'text-muted mb-2', text: 'Manage your study data and certification material.' }));
+
+    var summary = el('span', { className: 'backup-summary mono', text: 'Everything · All certifications' });
+    var tiles = el('div', { className: 'backup-tiles' });
+
+    var exportTile = el('button', { className: 'backup-tile', type: 'button' }, [
+      el('span', { className: 'backup-tile-icon' }, [backupIcon('export')]),
+      el('span', { className: 'backup-tile-copy' }, [
+        el('strong', { text: 'Export Backup' }),
+        el('span', { className: 'text-muted', text: 'Create a portable ZIP backup' })
+      ])
+    ]);
+    var importTile = el('button', { className: 'backup-tile', type: 'button' }, [
+      el('span', { className: 'backup-tile-icon' }, [backupIcon('import')]),
+      el('span', { className: 'backup-tile-copy' }, [
+        el('strong', { text: 'Import Backup' }),
+        el('span', { className: 'text-muted', text: 'Restore from a ReviewApp ZIP' })
+      ])
+    ]);
+    tiles.appendChild(exportTile);
+    tiles.appendChild(importTile);
+    panel.appendChild(tiles);
+
+    var meta = el('div', { className: 'backup-meta' }, [
+      el('span', { text: 'Current export: ' }),
+      summary,
+      el('span', { className: 'backup-meta-sep', text: '·' }),
+      el('span', { text: 'Last backup: ' }),
+      lastBackupLabel
+    ]);
+    panel.appendChild(meta);
+
+    // ── Export modal ────────────────────────────────────────
+    exportTile.addEventListener('click', function () {
+      var controls = buildBackupExportControls();
+      var status = el('div', { className: 'backup-status text-muted', role: 'status', 'aria-live': 'polite' });
+      var exportButton = el('button', { className: 'btn btn-primary', text: 'Export ZIP' });
+      var cancelButton = el('button', { className: 'btn btn-secondary', text: 'Cancel' });
+      var body = el('div', { className: 'backup-modal-body' }, [
+        el('p', { className: 'text-muted mb-2', text: 'Create one dated ZIP to move your ReviewApp progress, certification material, or both.' }),
+        controls.wrap,
+        status,
+        el('div', { className: 'backup-modal-actions' }, [cancelButton, exportButton])
+      ]);
+      App.core.openModal(body, { title: 'Export Backup' });
+
+      function markSuccess(filename) {
+        summary.textContent = controls.summary();
+        lastBackupLabel.textContent = 'Just now · ' + filename;
+      }
+
+      exportButton.addEventListener('click', function () {
+        var ids = controls.getCertIds();
+        if (controls.getType() !== 'user' && !ids.length) {
+          status.textContent = 'Select at least one certification.';
+          status.className = 'backup-status backup-error';
+          return;
+        }
+        exportButton.disabled = true;
+        cancelButton.disabled = true;
+        status.className = 'backup-status text-muted';
+        status.textContent = 'Preparing backup…';
+        App.backup.exportZip(controls.getType(), ids, function (message) { status.textContent = message; }).then(function (result) {
+          utils.downloadBlob(result.blob, result.filename);
+          markSuccess(result.filename);
+          App.toast('Backup created successfully', 'success', 3500);
+          App.core.closeModal();
+        }).catch(function (err) {
+          exportButton.disabled = false;
+          cancelButton.disabled = false;
+          status.className = 'backup-status backup-error';
+          status.textContent = 'Export failed: ' + err.message;
+          App.toast('Backup export failed', 'error');
+        });
+      });
+      cancelButton.addEventListener('click', function () { App.core.closeModal(); });
+    });
+
+    // ── Import modal ────────────────────────────────────────
+    importTile.addEventListener('click', function () {
+      var fileInput = el('input', { type: 'file', accept: '.zip,application/zip', hidden: true });
+      var chooseButton = el('button', { className: 'btn btn-secondary', text: 'Choose ZIP' });
+      var chosenName = el('span', { className: 'text-muted backup-file-name', text: 'Select a ReviewApp ZIP backup.' });
+      var status = el('div', { className: 'backup-status text-muted', role: 'status', 'aria-live': 'polite' });
+      var importButton = el('button', { className: 'btn btn-primary', text: 'Import Backup', disabled: true });
+      var cancelButton = el('button', { className: 'btn btn-secondary', text: 'Cancel' });
+      var preview = el('div', { className: 'backup-preview', hidden: true });
+      var pending = null;
+      var conflictSelects = {};
+
+      var body = el('div', { className: 'backup-modal-body' }, [
+        el('p', { className: 'text-muted mb-2', text: 'Restore from a ReviewApp backup ZIP. The archive is inspected before anything changes.' }),
+        fileInput,
+        el('div', { className: 'backup-action-row mb-2' }, [chooseButton, chosenName]),
+        preview,
+        status,
+        el('div', { className: 'backup-modal-actions' }, [cancelButton, importButton])
+      ]);
+      App.core.openModal(body, { title: 'Import Backup' });
+
+      function renderPreview(pkg) {
+        pending = pkg;
+        conflictSelects = {};
+        preview.innerHTML = '';
+        preview.appendChild(el('div', { className: 'backup-preview-title', text: 'Backup detected' }));
+        preview.appendChild(el('div', { className: 'backup-preview-meta' }, [
+          el('span', { text: 'Created: ' + utils.formatDate(new Date(pkg.manifest.createdAt).getTime()) }),
+          el('span', { text: 'Type: ' + App.backup.typeLabel(pkg.manifest.exportType) })
+        ]));
+        if (pkg.manifest.includesUserData) {
+          preview.appendChild(el('div', { className: 'backup-preview-block' }, [
+            el('strong', { text: 'User data' }),
+            el('p', { className: 'text-muted mb-0', text: '✓ Quiz statistics · ✓ Flashcard history · ✓ Exam history · ✓ Lab progress · ✓ Personal notes · ✓ Study activity' })
+          ]));
+        }
+        if (pkg.manifest.includesStudyMaterial) {
+          var materialList = el('ul', { className: 'backup-preview-list' });
+          pkg.certifications.forEach(function (cert) { materialList.appendChild(el('li', { text: '✓ ' + cert.name })); });
+          preview.appendChild(el('div', { className: 'backup-preview-block' }, [el('strong', { text: 'Study material included' }), materialList]));
+
+          var currentIds = App.content.getCerts().map(function (cert) { return cert.id; });
+          var conflicts = pkg.certifications.filter(function (cert) { return currentIds.indexOf(cert.id) >= 0; });
+          if (conflicts.length) {
+            var conflictBox = el('div', { className: 'backup-conflicts' });
+            conflictBox.appendChild(el('strong', { text: 'Existing certification detected' }));
+            conflictBox.appendChild(el('p', { className: 'text-muted mb-1', text: 'Choose how to handle each certification already installed. Keep is the safe default; Replace updates its material from this backup.' }));
+            conflicts.forEach(function (cert) {
+              var select = el('select', { className: 'form-control backup-conflict-select' }, [
+                el('option', { value: 'keep', text: cert.name + ' — Keep existing material' }),
+                el('option', { value: 'replace', text: cert.name + ' — Replace with backup material' })
+              ]);
+              conflictSelects[cert.id] = select;
+              conflictBox.appendChild(select);
+            });
+            preview.appendChild(conflictBox);
+          }
+        }
+        importButton.disabled = false;
+        preview.hidden = false;
+      }
+
+      chooseButton.addEventListener('click', function () { fileInput.click(); });
+      fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        pending = null;
+        importButton.disabled = true;
+        chosenName.textContent = file.name;
+        preview.hidden = true;
+        status.className = 'backup-status text-muted';
+        status.textContent = 'Reading backup…';
+        App.backup.inspect(file, function (message) { status.textContent = message; }).then(function (pkg) {
+          renderPreview(pkg);
+          status.textContent = 'Review the contents, then choose Import Backup.';
+        }).catch(function (err) {
+          status.className = 'backup-status backup-error';
+          status.textContent = 'Unable to import backup: ' + err.message;
+          App.toast('Backup validation failed', 'error');
+        });
+      });
+
+      importButton.addEventListener('click', function () {
+        if (!pending) return;
+        var choices = {};
+        Object.keys(conflictSelects).forEach(function (id) { choices[id] = conflictSelects[id].value; });
+        var replacements = Object.keys(choices).filter(function (id) { return choices[id] === 'replace'; });
+        var message = 'Import this ReviewApp backup?';
+        if (replacements.length) message += '\n\nThis will replace material for ' + replacements.length + ' existing certification' + (replacements.length === 1 ? '' : 's') + '. Other certifications remain untouched.';
+        else if (pending.manifest.includesStudyMaterial) message += '\n\nExisting certifications will be kept; new certifications will be added.';
+        if (!confirm(message)) return;
+        importButton.disabled = true;
+        cancelButton.disabled = true;
+        status.className = 'backup-status text-muted';
+        status.textContent = 'Restoring backup…';
+        App.backup.importPackage(pending, choices, function (update) { status.textContent = update; }).then(function (result) {
+          var count = result.material.imported;
+          var summaryText = 'Backup imported successfully';
+          if (count) summaryText += ' · ' + count + ' certification' + (count === 1 ? '' : 's') + ' restored';
+          App.toast(summaryText, 'success', 4000);
+          lastBackupLabel.textContent = 'Just now';
+          App.core.closeModal();
+          App.core.handleRoute();
+        }).catch(function (err) {
+          importButton.disabled = false;
+          cancelButton.disabled = false;
+          status.className = 'backup-status backup-error';
+          status.textContent = 'Import failed: ' + err.message;
+          App.toast('Backup import failed', 'error');
+        });
+      });
+      cancelButton.addEventListener('click', function () { App.core.closeModal(); });
+    });
+
+    // Wipe progress stays as its own independent destructive action.
+    panel.appendChild(el('div', { className: 'backup-divider' }));
+    panel.appendChild(el('button', {
+      className: 'btn btn-danger btn-sm', text: 'Wipe progress',
+      onClick: function () {
+        if (confirm('Delete all answers, streaks, exams, and card progress? This cannot be undone.')) {
+          App.store.wipeProgress();
+          App.toast('Progress wiped', 'info');
+          App.core.handleRoute();
+        }
+      }
+    }));
+    return panel;
+  }
+
   function viewSettings(root) {
     root.appendChild(el('h1', { text: 'Settings' }));
     var settings = App.store.getSettings();
@@ -3247,47 +3547,7 @@
     });
     root.appendChild(contentPanel);
 
-    var backupPanel = el('div', { className: 'panel mb-3' });
-    backupPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Backup & data' }));
-    backupPanel.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { flexWrap: 'wrap' } }, [
-      el('button', {
-        className: 'btn btn-secondary btn-sm', text: 'Export backup',
-        onClick: function () {
-          utils.downloadBlob(new Blob([JSON.stringify(App.store.exportFullBackup(), null, 2)], { type: 'application/json' }), 'reviewapp-backup.json');
-        }
-      }),
-      el('button', {
-        className: 'btn btn-secondary btn-sm', text: 'Import backup',
-        onClick: function () {
-          var inp = el('input', { type: 'file', accept: '.json' });
-          inp.addEventListener('change', function () {
-            var f = inp.files[0];
-            if (!f) return;
-            var reader = new FileReader();
-            reader.onload = function (e) {
-              try {
-                App.store.importFullBackup(JSON.parse(e.target.result));
-                App.toast('Backup imported', 'success');
-                App.core.handleRoute();
-              } catch (err) { App.toast('Import failed: ' + err.message, 'error'); }
-            };
-            reader.readAsText(f);
-          });
-          inp.click();
-        }
-      }),
-      el('button', {
-        className: 'btn btn-danger btn-sm', text: 'Wipe progress',
-        onClick: function () {
-          if (confirm('Delete all answers, streaks, exams, and card progress? This cannot be undone.')) {
-            App.store.wipeProgress();
-            App.toast('Progress wiped', 'info');
-            App.core.handleRoute();
-          }
-        }
-      })
-    ]));
-    root.appendChild(backupPanel);
+    root.appendChild(buildBackupPanel());
 
     // ── About ──
     root.appendChild(el('div', { className: 'settings-section', text: 'About' }));
@@ -3297,6 +3557,17 @@
     about.appendChild(el('p', { className: 'text-muted', style: { fontSize: '0.85rem' }, text: 'Vanilla HTML/CSS/JS. No network required. All data stays in your browser.' }));
     var c = App.content.counts();
     about.appendChild(el('p', { className: 'mono text-muted mt-1', style: { fontSize: '0.8rem' }, text: 'Loaded: ' + c.questions + 'Q · ' + c.flashcards + 'C · ' + c.labs + 'L · ' + c.notes + 'N' }));
+    var attribution = el('div', { className: 'about-attribution' });
+    var codeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    codeIcon.setAttribute('width', '13');
+    codeIcon.setAttribute('height', '13');
+    codeIcon.setAttribute('viewBox', '0 0 14 14');
+    codeIcon.setAttribute('fill', 'none');
+    codeIcon.setAttribute('aria-hidden', 'true');
+    codeIcon.innerHTML = '<path d="M5 4L2 7l3 3M9 4l3 3-3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>';
+    attribution.appendChild(codeIcon);
+    attribution.appendChild(document.createTextNode(' Created by mfundora19'));
+    about.appendChild(attribution);
     root.appendChild(about);
   }
 
