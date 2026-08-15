@@ -4,7 +4,7 @@
 
 ReviewApp is a vanilla HTML/CSS/JavaScript study platform designed to run
 locally, without an account, build step, framework, CDN, or network connection.
-Open `index.html` and study with certification content loaded from the local
+Open `ReviewApp.html` and study with certification content loaded from the local
 `certifications/` directory.
 
 The application uses a **one-certification-at-a-time** study model. Choose the
@@ -62,7 +62,7 @@ not shipped with the app or stored in the repository.
 ## Quick start
 
 1. Open the project folder.
-2. Double-click **`index.html`**.
+2. Double-click **`ReviewApp.html`**.
 3. Use Chrome, Edge, Firefox, or Safari.
 
 All progress lives in the browser's `localStorage`.
@@ -296,7 +296,7 @@ Flashcards menu keeps an unfinished session available for explicit resume.
 
 ```text
 Review/
-├── index.html                 ← open this
+├── ReviewApp.html             ← open this
 ├── app/
 │   ├── favicon.svg
 │   ├── css/styles.css         themed responsive UI and motion
