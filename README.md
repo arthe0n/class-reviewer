@@ -104,7 +104,8 @@ certification-specific views.
 
 ### Global areas
 
-- **Tools** are shared utilities and reference material.
+- **Tools** are shared utilities and reference material. Linux command examples
+  are shown in terminal-style boxes with an inline **Copy** button on the right.
 - **Settings** control global theme, text size, animation, threshold, backup,
   deep-scan, and reload behavior.
 - **Search** indexes questions, flashcards, notes, ports, and commands across
@@ -125,7 +126,7 @@ certification-specific views.
 | **Labs** | Active certification's labs grouped by expandable chapter sections, search, ordering, completion status, objectives, hints, solutions, and copy controls. |
 | **Notes** | One user-facing note per certification chapter, with all source sections rendered inside the note and stable deep-linkable IDs. |
 | **Stats** | Accuracy, question coverage, chapter progress, streak, activity chart, weak tags, Flashcards weak areas, exam history, and CSV/JSON/Markdown export. |
-| **Tools** | Subnet calculator, number converter, common ports, Linux command reference, and a live permissions utility for symbolic and octal modes. |
+| **Tools** | Subnet calculator, number converter, common ports, Linux command reference with terminal-style examples and inline Copy buttons, and a live permissions utility for symbolic and octal modes. |
 | **Search** | Fast global search across questions, flashcards, notes, ports, and commands; labs stay within the active certification. |
 | **Settings** | Global theme, application size, animation toggle, exam threshold, data backup/import, deep scan, reload, and wipe controls. |
 

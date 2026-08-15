@@ -3044,11 +3044,16 @@
         tr.appendChild(el('td', { className: 'mono', text: c.cmd }));
         tr.appendChild(el('td', { text: c.desc }));
         var exTd = el('td');
-        exTd.appendChild(el('code', { className: 'mono', text: c.example, style: { fontSize: '0.82rem' } }));
-        exTd.appendChild(el('button', {
-          className: 'btn btn-ghost btn-sm', text: 'Copy', style: { marginLeft: '0.5rem' },
+        var exampleBox = el('div', { className: 'terminal-command' });
+        exampleBox.appendChild(el('code', { className: 'mono terminal-command-text', text: c.example }));
+        exampleBox.appendChild(el('button', {
+          className: 'btn btn-ghost btn-sm terminal-command-copy',
+          text: 'Copy',
+          'aria-label': 'Copy example command',
+          title: 'Copy example command',
           onClick: function () { utils.copyText(c.example).then(function () { App.toast('Copied', 'success', 1200); }); }
         }));
+        exTd.appendChild(exampleBox);
         tr.appendChild(exTd);
         cmdBody.appendChild(tr);
       });

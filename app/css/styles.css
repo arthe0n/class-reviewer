@@ -2656,7 +2656,57 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   background: color-mix(in srgb, var(--bg-panel) 75%, var(--bg-base));
 }
 .dashboard-reference strong { font-family: var(--font-mono); font-size: 0.78rem; }
-.dashboard-reference code { min-width: 0; overflow-wrap: anywhere; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.8rem; }
+.dashboard-reference code,
+.terminal-command {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  position: relative;
+  padding: 0.65rem 0.75rem 0.65rem 1.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  color: var(--accent-green);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.dashboard-reference code { overflow-x: auto; }
+.terminal-command {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dashboard-reference code::before,
+.terminal-command::before {
+  content: '$';
+  position: absolute;
+  left: 0.7rem;
+  color: var(--accent-cyan);
+}
+.terminal-command-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: inherit;
+  font: inherit;
+  white-space: pre-wrap;
+}
+.terminal-command-copy {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  color: var(--accent-cyan);
+  border-color: var(--border);
+  font-size: 0.7rem;
+}
+.terminal-command-copy:hover,
+.terminal-command-copy:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--accent-cyan);
+}
 .dashboard-reference small { font-size: 0.75rem; line-height: 1.35; }
 
 /* ── Responsive ───────────────────────────────────────────── */
