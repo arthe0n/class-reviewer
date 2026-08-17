@@ -138,15 +138,9 @@
       userAnswer: userAnswer,
       question: q
     });
-    App.store.logAnswer({
-      qId: q._id,
-      cert: q._cert,
-      chapter: q._chapter,
-      tags: q.tags || [],
-      correct: correct,
-      type: q.type,
-      mode: session.mode
-    });
+    // Answers are recorded in the session only. They are written to the stats
+    // log when the quiz finishes (see endQuiz), so an abandoned quiz never
+    // counts toward statistics.
     if (session.speedTimer) {
       clearInterval(session.speedTimer);
       session.speedTimer = null;
@@ -167,15 +161,6 @@
     if (!session) return;
     var q = currentQ();
     session.answers.push({ qId: q._id, correct: false, userAnswer: null, skipped: true, question: q });
-    App.store.logAnswer({
-      qId: q._id,
-      cert: q._cert,
-      chapter: q._chapter,
-      tags: q.tags || [],
-      correct: false,
-      type: q.type,
-      mode: session.mode + ':skip'
-    });
     return nextQuestion();
   }
 
@@ -203,6 +188,22 @@
     result.tagBreakdown = Object.keys(tagMap).map(function (t) {
       return { tag: t, correct: tagMap[t].correct, total: tagMap[t].total, pct: Math.round((tagMap[t].correct / tagMap[t].total) * 100) };
     });
+
+    // Commit the completed quiz's answers to the stats log. Answers are held
+    // back while the quiz is in progress, so only finished quizzes count.
+    session.answers.forEach(function (a) {
+      var q = a.question || {};
+      App.store.logAnswer({
+        qId: a.qId,
+        cert: q._cert,
+        chapter: q._chapter,
+        tags: q.tags || [],
+        correct: a.correct,
+        type: q.type,
+        mode: session.mode + (a.skipped ? ':skip' : '')
+      });
+    });
+
     App.store.addTimeOnTask(result.timeMs);
     session = null;
     return result;
@@ -544,9 +545,9 @@
     return full;
   }
 
-  // Leaving an active practice player for its setup menu should not resume
-  // the same player immediately. These explicit discards only affect the
-  // in-memory session; logged answers and completed exam attempts remain safe.
+  // Discard an in-progress quiz without counting it: nothing was written to
+  // the stats log yet (answers commit only in endQuiz), so clearing the
+  // in-memory session leaves statistics untouched.
   function discardQuiz() {
     if (session && session.speedTimer) clearInterval(session.speedTimer);
     session = null;

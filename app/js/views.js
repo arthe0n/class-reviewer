@@ -838,11 +838,10 @@
 
   function viewQuiz(root) {
     var cur = App.core.getCurrentCertId();
-    var sess = App.quiz.getQuizSession();
-    // Resume only sessions that belong to the active certification.
-    if (sess && (!sess.cert || sess.cert === cur)) { renderQuizPlayer(root); return; }
 
     // Direct launch from a certification chapter (Certifications → Chapter → Quiz).
+    // An in-progress quiz is never resumed implicitly — the setup page shows a
+    // Resume / Cancel panel for it, mirroring the flashcard flow.
     var pre = null;
     try { pre = JSON.parse(sessionStorage.getItem('reviewapp.quizSetup') || 'null'); } catch (e) {}
     if (pre && pre.mode === 'chapter' && pre.cert && pre.chapter) {
@@ -860,12 +859,36 @@
     renderQuizSetup(root);
   }
 
+  function quizModeLabel(mode) {
+    return { chapter: 'Chapter Focus', random: 'Random Mix', theme: 'Theme Attack', weak: 'Weak Spots', speed: 'Speed Run' }[mode] || mode;
+  }
+
   function renderQuizSetup(root) {
     var certId = App.core.getCurrentCertId();
     var cert = App.content.getCert(certId);
     if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to start practicing.')); return; }
     root.appendChild(el('h1', { text: 'Quiz' }));
     root.appendChild(el('p', { className: 'text-muted mb-3', text: 'Five focused practice modes inside ' + cert.name + '. Pick one and start.' }));
+    var activeSession = App.quiz.getQuizSession();
+    if (activeSession && (!activeSession.cert || activeSession.cert === certId)) {
+      var resumePanel = el('div', { className: 'quiz-resume-panel mb-3' });
+      resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
+      resumePanel.appendChild(el('p', { className: 'text-muted', text: quizModeLabel(activeSession.mode) + ' · ' + Math.max(0, activeSession.questions.length - activeSession.index) + ' questions remaining' }));
+      var resumeRow = el('div', { className: 'flex gap-sm' });
+      resumeRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Resume quiz', onClick: function () { root.innerHTML = ''; renderQuizPlayer(root); } }));
+      resumeRow.appendChild(el('button', {
+        className: 'btn btn-danger btn-sm', text: 'Cancel quiz',
+        title: 'Discard this quiz — its progress will not count toward your statistics',
+        onClick: function () {
+          if (!confirm('Cancel this quiz? Its progress will not count toward your statistics.')) return;
+          App.quiz.discardQuiz();
+          root.innerHTML = '';
+          renderQuizSetup(root);
+        }
+      }));
+      resumePanel.appendChild(resumeRow);
+      root.appendChild(resumePanel);
+    }
     var modes = [
       { id: 'chapter', name: 'Chapter focus', desc: 'All questions from one chapter' },
       { id: 'random', name: 'Random mix', desc: 'N random questions from this certification' },
@@ -932,6 +955,8 @@
     root.appendChild(el('button', {
       className: 'btn btn-primary btn-lg', text: 'Start Quiz',
       onClick: function () {
+        var active = App.quiz.getQuizSession();
+        if (active && !confirm('You have a quiz in progress. Starting a new quiz will discard it (it will not count toward your statistics). Continue?')) return;
         var opts = { cert: certId };
         if (selectedMode === 'chapter') {
           opts.chapter = ($('#qz-chapter') || {}).value;
@@ -969,12 +994,12 @@
   function renderQuizPlayer(root) {
     var sess = App.quiz.getQuizSession();
     if (!sess) { renderQuizSetup(root); return; }
-    practiceBack(root, '#/quiz', 'Back', function () {
-      if (App.quiz.discardQuiz) App.quiz.discardQuiz();
-    });
+    // Back preserves the in-progress quiz (answers are not logged until the
+    // quiz is completed) so it can be resumed or cancelled from the setup page.
+    practiceBack(root, '#/quiz', 'Back');
     var q = App.quiz.currentQ();
     var answered = false;
-    var modeLabel = { chapter: 'Chapter Focus', random: 'Random Mix', theme: 'Theme Attack', weak: 'Weak Spots', speed: 'Speed Run' }[sess.mode] || sess.mode;
+    var modeLabel = quizModeLabel(sess.mode);
     if (q._cert || q._chapter) {
       root.appendChild(makeContextHeader(q._cert, q._chapter, 'Quiz · ' + modeLabel));
     }
@@ -993,6 +1018,7 @@
     card.appendChild(el('div', { className: 'question-text', text: q.q }));
     var optsWrap = el('div', { className: 'options-list' });
     var selectedMulti = {};
+    var selectedIdx = null; // single-answer selection (mcq / tf)
     var matchUI = null;
     function doSubmit(ua) {
       if (answered) return;
@@ -1034,19 +1060,54 @@
       if (App.quiz.nextQuestion()) { root.innerHTML = ''; renderQuizPlayer(root); }
       else { var result = App.quiz.endQuiz(); root.innerHTML = ''; renderQuizResults(root, result); }
     }
+    // Keyboard interaction: 1-5 toggles option selection, Enter/Space submits
+    // the current answer and advances to the next question (see onKey).
+    function toggleOption(i) {
+      if (answered) return;
+      if (q.type === 'multi') selectedMulti[i] = !selectedMulti[i];
+      else selectedIdx = (selectedIdx === i) ? null : i;
+      applyOptionVisuals();
+    }
+    function applyOptionVisuals() {
+      optsWrap.querySelectorAll('.option-btn').forEach(function (b, i) {
+        var sel = q.type === 'multi' ? !!selectedMulti[i] : selectedIdx === i;
+        b.classList.toggle('selected', sel);
+      });
+    }
+    function isTypingTarget(e) {
+      var t = e.target;
+      return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+    }
+    function submitCurrent() {
+      if (answered) return;
+      if (q.type === 'mcq' || q.type === 'tf') {
+        if (selectedIdx == null) { App.toast('Select an answer first', 'error'); return; }
+        doSubmit(q.type === 'tf' ? selectedIdx === 0 : selectedIdx);
+      } else if (q.type === 'multi') {
+        var ua = Object.keys(selectedMulti).filter(function (k) { return selectedMulti[k]; }).map(Number);
+        if (!ua.length) { App.toast('Select at least one answer', 'error'); return; }
+        doSubmit(ua);
+      } else if (q.type === 'fill') {
+        doSubmit(($('#qz-fill') || {}).value);
+      } else if (q.type === 'command_match' && matchUI) {
+        var arr = matchUI.read();
+        if (arr.some(function (v) { return v == null; })) { App.toast('Match every option before submitting', 'error'); return; }
+        doSubmit(arr);
+      }
+    }
     if (q.type === 'mcq') {
       q._shuffledOptions.forEach(function (opt, i) {
-        optsWrap.appendChild(el('button', { className: 'option-btn', onClick: function () { doSubmit(i); } }, [
-          el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }),
+        optsWrap.appendChild(el('button', { className: 'option-btn', onClick: function () { toggleOption(i); } }, [
+          el('span', { className: 'option-key', text: String(i + 1) }),
           el('span', { text: opt.text })
         ]));
       });
     } else if (q.type === 'tf') {
       [true, false].forEach(function (v, i) {
         optsWrap.appendChild(el('button', {
-          className: 'option-btn', 'data-val': String(v), onClick: function () { doSubmit(v); }
+          className: 'option-btn', 'data-val': String(v), onClick: function () { toggleOption(i); }
         }, [
-          el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }),
+          el('span', { className: 'option-key', text: String(i + 1) }),
           el('span', { text: v ? 'True' : 'False' })
         ]));
       });
@@ -1054,18 +1115,26 @@
       q._shuffledOptions.forEach(function (opt, i) {
         optsWrap.appendChild(el('button', {
           className: 'option-btn',
-          onClick: function () {
-            if (answered) return;
-            selectedMulti[i] = !selectedMulti[i];
-            this.style.borderColor = selectedMulti[i] ? 'var(--accent-cyan)' : '';
-          }
+          onClick: function () { toggleOption(i); }
         }, [
-          el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }),
+          el('span', { className: 'option-key', text: String(i + 1) }),
           el('span', { text: opt.text })
         ]));
       });
     } else if (q.type === 'fill') {
-      optsWrap.appendChild(el('input', { className: 'form-control', type: 'text', id: 'qz-fill', placeholder: 'Type answer…', autocomplete: 'off' }));
+      optsWrap.appendChild(el('input', {
+        className: 'form-control', type: 'text', id: 'qz-fill', placeholder: 'Type answer…', autocomplete: 'off',
+        onKeydown: function (e) {
+          if (e.key !== 'Enter') return;
+          // Consume the event: the input handler shares `answered` with the
+          // document-level onKey, so without stopping propagation a single
+          // Enter would both submit and advance in one keystroke.
+          e.preventDefault();
+          e.stopPropagation();
+          if (answered) goNext();
+          else submitCurrent();
+        }
+      }));
     } else if (q.type === 'command_match') {
       if (q._invalid) {
         optsWrap.appendChild(emptyState('Question unavailable', 'This command-matching question is missing required data (command or pairs).'));
@@ -1079,14 +1148,8 @@
     card.appendChild(optsWrap);
     root.appendChild(card);
     var actions = el('div', { className: 'flex gap-sm mt-2' });
-    if (q.type === 'multi' || q.type === 'fill') {
-      actions.appendChild(el('button', {
-        className: 'btn btn-primary', text: 'Submit',
-        onClick: function () {
-          if (q.type === 'fill') doSubmit(($('#qz-fill') || {}).value);
-          else doSubmit(Object.keys(selectedMulti).filter(function (k) { return selectedMulti[k]; }).map(Number));
-        }
-      }));
+    if (q.type === 'mcq' || q.type === 'tf' || q.type === 'multi' || q.type === 'fill') {
+      actions.appendChild(el('button', { className: 'btn btn-primary', text: 'Submit', onClick: submitCurrent }));
     }
     actions.appendChild(el('button', {
       className: 'btn btn-ghost', text: 'Skip',
@@ -1102,15 +1165,29 @@
     }));
     root.appendChild(actions);
     function onKey(e) {
-      if (answered && e.key === 'Enter') { goNext(); return; }
-      if (answered) return;
-      if (q.type === 'mcq' || q.type === 'tf') {
-        var num = parseInt(e.key, 10);
-        if (num >= 1 && num <= 4) {
-          var idx = num - 1;
-          if (q.type === 'tf' && idx < 2) doSubmit(idx === 0);
-          else if (q.type === 'mcq' && idx < q._shuffledOptions.length) doSubmit(idx);
+      // Self-cleaning guard: if this listener belongs to a render whose card
+      // has left the DOM (e.g. a double-pressed Enter raced a re-render), drop
+      // it instead of acting on a question that is no longer visible.
+      if (!root.contains(card)) { document.removeEventListener('keydown', onKey); return; }
+      var key = e.key;
+      if (answered) {
+        if (key === 'Enter' || key === ' ' || key === 'Spacebar') { e.preventDefault(); goNext(); }
+        return;
+      }
+      var num = parseInt(key, 10);
+      if (num >= 1 && num <= 5) {
+        var idx = num - 1;
+        if (q.type === 'mcq' || q.type === 'multi') {
+          if (idx < q._shuffledOptions.length) toggleOption(idx);
+        } else if (q.type === 'tf' && idx < 2) {
+          toggleOption(idx);
         }
+        return;
+      }
+      if (key === 'Enter' || key === ' ' || key === 'Spacebar') {
+        if (isTypingTarget(e)) return; // let inputs/selects handle their own keys
+        e.preventDefault();
+        submitCurrent();
       }
     }
     document.addEventListener('keydown', onKey);
@@ -1268,27 +1345,51 @@
     card.appendChild(el('div', { className: 'label-upper mb-1', text: 'Question ' + (sess.index + 1) + ' of ' + sess.questions.length }));
     card.appendChild(el('div', { className: 'question-text', text: q.q }));
     var optsWrap = el('div', { className: 'options-list' });
+    // Keyboard interaction mirrors the quiz player: 1-5 toggles option
+    // selection; Enter/Space moves to the next question (see onKey).
+    function selectOption(i) {
+      if (q.type === 'mcq') {
+        App.quiz.examAnswer(sess.index, sess.answers[sess.index] === i ? undefined : i);
+      } else if (q.type === 'tf') {
+        var v = i === 0;
+        App.quiz.examAnswer(sess.index, sess.answers[sess.index] === v ? undefined : v);
+      } else if (q.type === 'multi') {
+        var arr = (sess.answers[sess.index] || []).slice();
+        if (!Array.isArray(arr)) arr = [];
+        var idx = arr.indexOf(i);
+        if (idx >= 0) arr.splice(idx, 1); else arr.push(i);
+        App.quiz.examAnswer(sess.index, arr);
+      }
+      root.innerHTML = '';
+      renderExamPlayer(root);
+    }
     if (q.type === 'mcq') {
       q._shuffledOptions.forEach(function (opt, i) {
         var selected = sess.answers[sess.index] === i;
         optsWrap.appendChild(el('button', {
-          className: 'option-btn', style: selected ? { borderColor: 'var(--accent-cyan)' } : {},
-          onClick: function () { App.quiz.examAnswer(sess.index, i); root.innerHTML = ''; renderExamPlayer(root); }
-        }, [el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }), el('span', { text: opt.text })]));
+          className: 'option-btn' + (selected ? ' selected' : ''),
+          onClick: function () { selectOption(i); }
+        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: opt.text })]));
       });
     } else if (q.type === 'tf') {
       [true, false].forEach(function (v, i) {
         var selected = sess.answers[sess.index] === v;
         optsWrap.appendChild(el('button', {
-          className: 'option-btn', style: selected ? { borderColor: 'var(--accent-cyan)' } : {},
-          onClick: function () { App.quiz.examAnswer(sess.index, v); root.innerHTML = ''; renderExamPlayer(root); }
-        }, [el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }), el('span', { text: v ? 'True' : 'False' })]));
+          className: 'option-btn' + (selected ? ' selected' : ''),
+          onClick: function () { selectOption(i); }
+        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: v ? 'True' : 'False' })]));
       });
     } else if (q.type === 'fill') {
       optsWrap.appendChild(el('input', {
         className: 'form-control', type: 'text', value: sess.answers[sess.index] || '',
         placeholder: 'Type answer…',
-        onInput: function (e) { App.quiz.examAnswer(sess.index, e.target.value); }
+        onInput: function (e) { App.quiz.examAnswer(sess.index, e.target.value); },
+        onKeydown: function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (sess.index < sess.questions.length - 1) { sess.index++; root.innerHTML = ''; renderExamPlayer(root); }
+          }
+        }
       }));
     } else if (q.type === 'multi') {
       var cur = sess.answers[sess.index] || [];
@@ -1296,17 +1397,9 @@
       q._shuffledOptions.forEach(function (opt, i) {
         var selected = cur.indexOf(i) >= 0;
         optsWrap.appendChild(el('button', {
-          className: 'option-btn', style: selected ? { borderColor: 'var(--accent-cyan)' } : {},
-          onClick: function () {
-            var arr = (sess.answers[sess.index] || []).slice();
-            if (!Array.isArray(arr)) arr = [];
-            var idx = arr.indexOf(i);
-            if (idx >= 0) arr.splice(idx, 1); else arr.push(i);
-            App.quiz.examAnswer(sess.index, arr);
-            root.innerHTML = '';
-            renderExamPlayer(root);
-          }
-        }, [el('span', { className: 'option-key', text: String.fromCharCode(65 + i) }), el('span', { text: opt.text })]));
+          className: 'option-btn' + (selected ? ' selected' : ''),
+          onClick: function () { selectOption(i); }
+        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: opt.text })]));
       });
     } else if (q.type === 'command_match') {
       if (q._invalid) {
@@ -1341,6 +1434,36 @@
     layout.appendChild(main);
     layout.appendChild(side);
     root.appendChild(layout);
+    function onKey(e) {
+      // Self-cleaning guard: drop listeners whose render has left the DOM so a
+      // rapid keypress can't act on (or advance) a question that is no longer
+      // visible.
+      if (!root.contains(card)) { document.removeEventListener('keydown', onKey); return; }
+      var key = e.key;
+      var num = parseInt(key, 10);
+      if (num >= 1 && num <= 5) {
+        var idx = num - 1;
+        if (q.type === 'mcq' || q.type === 'multi') {
+          if (idx < q._shuffledOptions.length) selectOption(idx);
+        } else if (q.type === 'tf' && idx < 2) {
+          selectOption(idx);
+        }
+        return;
+      }
+      if (key === 'Enter' || key === ' ' || key === 'Spacebar') {
+        var t = e.target;
+        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+        e.preventDefault();
+        if (sess.index < sess.questions.length - 1) { sess.index++; root.innerHTML = ''; renderExamPlayer(root); }
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    setTimeout(function () {
+      var obs = new MutationObserver(function () {
+        if (!root.contains(card)) { document.removeEventListener('keydown', onKey); obs.disconnect(); }
+      });
+      obs.observe(root, { childList: true });
+    }, 50);
     if (sess.timer) clearInterval(sess.timer);
     sess.timer = setInterval(function () {
       sess.remaining--;
@@ -1433,7 +1556,19 @@
       var resumePanel = el('div', { className: 'flash-resume-panel mb-3' });
       resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
       resumePanel.appendChild(el('p', { className: 'text-muted', text: (savedSession.chapter || 'All chapters') + ' · ' + Math.max(0, savedSession.totalCards - savedSession.completed) + ' cards remaining' }));
-      resumePanel.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Resume saved session', onClick: function () { root.innerHTML = ''; renderFlashPlayer(root); } }));
+      var resumeRow = el('div', { className: 'flex gap-sm' });
+      resumeRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Resume saved session', onClick: function () { root.innerHTML = ''; renderFlashPlayer(root); } }));
+      resumeRow.appendChild(el('button', {
+        className: 'btn btn-danger btn-sm', text: 'Cancel session',
+        title: 'Discard this session — its progress will not count toward your statistics',
+        onClick: function () {
+          if (!confirm('Cancel this session? Its progress will not count toward your statistics.')) return;
+          App.flashcards.cancelSession();
+          root.innerHTML = '';
+          renderFlashSetup(root);
+        }
+      }));
+      resumePanel.appendChild(resumeRow);
       root.appendChild(resumePanel);
     }
     var pending = App.flashcards.consumePendingCard();
@@ -1446,6 +1581,8 @@
 
     var picker = el('div', { className: 'fc-chapter-picker' });
     function startChapter(value) {
+      var active = App.flashcards.getSession();
+      if (active && !active.finished && !confirm('You have a saved session in progress. Starting a new session will discard it (it will not count toward your statistics). Continue?')) return;
       var deck = App.flashcards.buildDeck({ cert: certId, chapter: value || null });
       if (!App.flashcards.startSession(deck, { startCard: pending })) return;
       root.innerHTML = '';

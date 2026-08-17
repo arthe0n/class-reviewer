@@ -51,9 +51,9 @@ All progress lives in the browser's `localStorage`.
 ## Main features
 
 - **Dashboard** — certification-scoped stats, recommendations, 14-day activity, and per-chapter progress with direct launch actions.
-- **Quiz** — Chapter Focus, Random Mix, Theme Attack, Weak Spots, and Speed Run modes.
-- **Exam Simulation** — timed exam with question palette, flag-for-review, and pass threshold.
-- **Flashcards** — flip cards with Again / Next, Shuffle, a retry queue, and saved-session resume.
+- **Quiz** — Chapter Focus, Random Mix, Theme Attack, Weak Spots, and Speed Run modes, with keyboard shortcuts (`1-5` to select options, Enter/Space to submit and advance).
+- **Exam Simulation** — timed exam with question palette, flag-for-review, pass threshold, and keyboard answer selection.
+- **Flashcards** — flip cards with Again / Next, Shuffle, a retry queue, and saved-session resume or cancel.
 - **Labs** — hands-on scenarios grouped by chapter with objectives, hints, and solutions.
 - **Notes** — one complete note per chapter with all source sections inside it.
 - **Stats** — accuracy, coverage, streaks, activity, weak areas, and exportable reports.

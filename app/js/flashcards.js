@@ -94,7 +94,8 @@
       finished: false,
       completed: 0,              // cards answered Next
       agains: 0,                 // total Again marks
-      attempts: 0                // total grades
+      attempts: 0,               // total grades
+      reviews: []                // per-attempt records, committed only on completion
     };
     App.store.setLastStudy({ type: 'flashcards', cert: session.cert, ts: Date.now() });
     persistSession();
@@ -151,19 +152,17 @@
     st.attempts++;
     session.attempts++;
 
-    // Spaced-repetition scheduling (existing Leitner boxes)
-    App.store.gradeCard(k, gradeName === 'again' ? 'again' : 'good');
-
-    // Card-level analytics record
-    App.store.logCardReview({
+    // Record the attempt locally. Nothing reaches the stats log or the Leitner
+    // scheduler until the whole deck is completed, so an abandoned session
+    // never counts toward statistics (see commitSession).
+    session.reviews.push({
       cardId: k,
       cert: card._cert || session.cert || null,
       chapter: card._chapter || session.chapter || null,
       tags: card.tags || [],
       outcome: gradeName,       // 'again' | 'next'
-      sessionId: session.id,
-      sessionTs: session.ts,
-      attempt: st.attempts
+      attempt: st.attempts,
+      ts: Date.now()
     });
 
     if (gradeName === 'again') {
@@ -264,15 +263,46 @@
     };
   }
 
+  /* Apply a completed session's deferred effects: write every recorded attempt
+     to the stats log and advance the Leitner scheduler. Called only when the
+     whole deck is finished, so incomplete sessions never count toward stats.
+     Sessions saved before this change carry no `reviews` list (their attempts
+     were already logged live), so they simply keep their legacy behavior. */
+  function commitSession() {
+    if (!session) return;
+    (session.reviews || []).forEach(function (r) {
+      App.store.logCardReview({
+        cardId: r.cardId,
+        cert: r.cert,
+        chapter: r.chapter,
+        tags: r.tags || [],
+        outcome: r.outcome,
+        sessionId: session.id,
+        sessionTs: session.ts,
+        attempt: r.attempt,
+        ts: r.ts
+      });
+      // Spaced-repetition scheduling (existing Leitner boxes)
+      App.store.gradeCard(r.cardId, r.outcome === 'again' ? 'again' : 'good');
+    });
+  }
+
   function endSession() {
     var summary = null;
     if (session) {
+      commitSession();
       summary = buildSummary();
       App.store.saveFlashSessionSummary(summary);
       App.store.clearFlashSession();
     }
     session = null;
     return summary;
+  }
+
+  /* Discard the in-progress session without counting it toward statistics. */
+  function cancelSession() {
+    if (session) App.store.clearFlashSession();
+    session = null;
   }
 
   function startWithCard(card) {
@@ -293,6 +323,7 @@
     grade: grade,
     shuffle: shuffle,
     endSession: endSession,
+    cancelSession: cancelSession,
     getSession: getSession,
     startWithCard: startWithCard,
     consumePendingCard: consumePendingCard,

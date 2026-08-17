@@ -233,6 +233,9 @@
     var parsed = parseHash();
     currentRoute = parsed.path;
     currentParams = parsed;
+    // Leaving any view pauses in-memory session timers (speed-run quizzes and
+    // exams). Sessions themselves survive so they can be resumed later.
+    pauseActiveSessionTimers();
     // Update nav active state
     utils.$$('.nav-item').forEach(function (a) {
       var r = a.getAttribute('data-route');
