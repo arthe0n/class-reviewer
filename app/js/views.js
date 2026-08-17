@@ -863,6 +863,34 @@
     return { chapter: 'Chapter Focus', random: 'Random Mix', theme: 'Theme Attack', weak: 'Weak Spots', speed: 'Speed Run' }[mode] || mode;
   }
 
+  // Keyboard-shortcut reference panel, opened with ? from any question.
+  function showShortcutsModal(mode) {
+    var rows = mode === 'exam'
+      ? [
+        { keys: ['1–5'], desc: 'Select or deselect an option' },
+        { keys: ['Enter', 'Space'], desc: 'Move to the next question (Space works outside text fields)' },
+        { keys: ['Enter'], desc: 'Advance from a fill-in answer box' }
+      ]
+      : [
+        { keys: ['1–5'], desc: 'Select or deselect an option (single-answer questions move the selection)' },
+        { keys: ['Enter', 'Space'], desc: 'Submit your answer, then advance to the next question' },
+        { keys: ['Enter'], desc: 'Submit the answer typed in a fill-in field' },
+        { keys: ['Enter'], desc: 'Submit a command-matching question once every row is matched' }
+      ];
+    rows.push({ keys: ['?'], desc: 'Show this reference' });
+    var body = el('div', { className: 'shortcuts-list' });
+    rows.forEach(function (r) {
+      body.appendChild(el('div', { className: 'shortcut-row' }, [
+        el('span', { className: 'shortcut-desc', text: r.desc }),
+        el('span', { className: 'shortcut-keys' }, r.keys.map(function (k) {
+          return el('kbd', { className: 'shortcut-key', text: k });
+        }))
+      ]));
+    });
+    body.appendChild(el('p', { className: 'text-muted mt-2', style: { fontSize: '0.8rem' }, text: 'Press Escape to close.' }));
+    App.core.openModal(body, { title: 'Keyboard shortcuts' });
+  }
+
   function renderQuizSetup(root) {
     var certId = App.core.getCurrentCertId();
     var cert = App.content.getCert(certId);
@@ -1025,7 +1053,7 @@
       answered = true;
       if (sess.speedTimer) { clearInterval(sess.speedTimer); sess.speedTimer = null; }
       var result = App.quiz.submitAnswer(ua);
-      optsWrap.querySelectorAll('.option-btn').forEach(function (b) { b.disabled = true; });
+      optsWrap.querySelectorAll('.option-btn').forEach(function (b) { b.disabled = true; b.classList.remove('selected'); });
       if (q.type === 'mcq') {
         optsWrap.querySelectorAll('.option-btn').forEach(function (b, i) {
           if (i === q._correctShuffled) b.classList.add('correct');
@@ -1096,8 +1124,10 @@
       }
     }
     if (q.type === 'mcq') {
+      // Click submits immediately (single-answer). The keyboard still
+      // selects/toggles with 1-5 and submits with Enter/Space.
       q._shuffledOptions.forEach(function (opt, i) {
-        optsWrap.appendChild(el('button', { className: 'option-btn', onClick: function () { toggleOption(i); } }, [
+        optsWrap.appendChild(el('button', { className: 'option-btn', onClick: function () { doSubmit(i); } }, [
           el('span', { className: 'option-key', text: String(i + 1) }),
           el('span', { text: opt.text })
         ]));
@@ -1105,7 +1135,7 @@
     } else if (q.type === 'tf') {
       [true, false].forEach(function (v, i) {
         optsWrap.appendChild(el('button', {
-          className: 'option-btn', 'data-val': String(v), onClick: function () { toggleOption(i); }
+          className: 'option-btn', 'data-val': String(v), onClick: function () { doSubmit(v); }
         }, [
           el('span', { className: 'option-key', text: String(i + 1) }),
           el('span', { text: v ? 'True' : 'False' })
@@ -1169,7 +1199,15 @@
       // has left the DOM (e.g. a double-pressed Enter raced a re-render), drop
       // it instead of acting on a question that is no longer visible.
       if (!root.contains(card)) { document.removeEventListener('keydown', onKey); return; }
+      var modalRoot = document.getElementById('modal-root');
+      if (modalRoot && !modalRoot.hidden) return; // shortcuts panel is open
       var key = e.key;
+      if (key === '?' || (key === '/' && e.shiftKey)) {
+        if (isTypingTarget(e)) return; // let ? type normally in answer fields
+        e.preventDefault();
+        showShortcutsModal('quiz');
+        return;
+      }
       if (answered) {
         if (key === 'Enter' || key === ' ' || key === 'Spacebar') { e.preventDefault(); goNext(); }
         return;
@@ -1364,11 +1402,13 @@
       renderExamPlayer(root);
     }
     if (q.type === 'mcq') {
+      // Click selects the answer (no deselect on re-click); the keyboard
+      // toggles with 1-5 and Enter/Space moves to the next question.
       q._shuffledOptions.forEach(function (opt, i) {
         var selected = sess.answers[sess.index] === i;
         optsWrap.appendChild(el('button', {
           className: 'option-btn' + (selected ? ' selected' : ''),
-          onClick: function () { selectOption(i); }
+          onClick: function () { App.quiz.examAnswer(sess.index, i); root.innerHTML = ''; renderExamPlayer(root); }
         }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: opt.text })]));
       });
     } else if (q.type === 'tf') {
@@ -1376,7 +1416,7 @@
         var selected = sess.answers[sess.index] === v;
         optsWrap.appendChild(el('button', {
           className: 'option-btn' + (selected ? ' selected' : ''),
-          onClick: function () { selectOption(i); }
+          onClick: function () { App.quiz.examAnswer(sess.index, v); root.innerHTML = ''; renderExamPlayer(root); }
         }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: v ? 'True' : 'False' })]));
       });
     } else if (q.type === 'fill') {
@@ -1439,7 +1479,17 @@
       // rapid keypress can't act on (or advance) a question that is no longer
       // visible.
       if (!root.contains(card)) { document.removeEventListener('keydown', onKey); return; }
+      var modalRoot = document.getElementById('modal-root');
+      if (modalRoot && !modalRoot.hidden) return; // shortcuts panel is open
       var key = e.key;
+      var t = e.target;
+      var typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+      if (key === '?' || (key === '/' && e.shiftKey)) {
+        if (typing) return; // let ? type normally in answer fields
+        e.preventDefault();
+        showShortcutsModal('exam');
+        return;
+      }
       var num = parseInt(key, 10);
       if (num >= 1 && num <= 5) {
         var idx = num - 1;
@@ -1451,8 +1501,7 @@
         return;
       }
       if (key === 'Enter' || key === ' ' || key === 'Spacebar') {
-        var t = e.target;
-        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+        if (typing) return;
         e.preventDefault();
         if (sess.index < sess.questions.length - 1) { sess.index++; root.innerHTML = ''; renderExamPlayer(root); }
       }

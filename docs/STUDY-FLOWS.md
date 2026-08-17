@@ -38,6 +38,7 @@ true/false questions. Press the same key again to deselect it (single-answer
 questions move the selection when you press a different key).
 - **Enter / Space** — submit the current answer, then advance to the next
 question. In the fill-in-the-blank answer box, Enter submits.
+- **`?`** — show the keyboard shortcut reference panel.
 - Command-matching questions validate all rows before submitting.
 
 ## Exam Simulation
@@ -47,8 +48,8 @@ count and time limit, then answer with immediate feedback only after you submit.
 Answers are recorded as you select them and only count toward your statistics
 once the exam is submitted. Leaving the exam page pauses the countdown, and an
 in-progress exam resumes where you left off. The same keyboard shortcuts apply:
-`1`–`5` select or deselect options, and Enter (or Space outside a text field)
-moves to the next question.
+`1`–`5` select or deselect options, Enter (or Space outside a text field) moves
+to the next question, and `?` opens the shortcut reference panel.
 
 ## Flashcards
 
