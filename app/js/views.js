@@ -2007,6 +2007,279 @@
     }));
   }
 
+  /* ── Markdown progress report ────────────────────────────── */
+  // Self-contained builder: recomputes everything from the store/content so it
+  // is reusable by any view. Produces a rich, readable Markdown snapshot.
+  function escMd(str) {
+    return String(str == null ? '' : str).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+  }
+
+  function buildMarkdownReport(certId) {
+    var cert = App.content.getCert(certId);
+    var certName = cert ? cert.name : (certId || 'General');
+    var questions = App.content.getByCert('questions', certId);
+    var cards = App.content.getByCert('flashcards', certId);
+    var labs = App.content.getByCert('labs', certId);
+    var answers = App.store.getAnswers({ cert: certId });
+    var reviews = App.store.getCardReviews({ cert: certId });
+    var exams = App.store.getExams(certId);
+    var labsDone = App.store.get('labsDone', {});
+    var settings = App.store.getSettings();
+    var threshold = (settings.passThreshold && settings.passThreshold[certId]) || 70;
+
+    function pct(correct, total) { return total ? Math.round((correct / total) * 100) : null; }
+    function dayStart(ts) { var d = new Date(ts || Date.now()); d.setHours(0, 0, 0, 0); return d.getTime(); }
+    function chapterKeyFor(type, chapter) { return App.content.findChapter ? App.content.findChapter(certId, type, chapter) : chapter; }
+    function chapterNumber(name, fallback) {
+      var n = App.content.chapterNumber ? App.content.chapterNumber(name) : null;
+      return n == null ? String(fallback + 1).padStart(2, '0') : String(n).padStart(2, '0');
+    }
+    function chapterTitle(name) {
+      var value = String(name || 'General');
+      return value.replace(/^Ch\s*\d+\s*[·:-]?\s*/i, '') || value;
+    }
+
+    var regular = answers.filter(function (a) { return a.mode !== 'exam'; });
+    var totalAccuracy = pct(regular.filter(function (a) { return a.correct; }).length, regular.length);
+    var seenQ = {}; answers.forEach(function (a) { if (a.qId) seenQ[a.qId] = true; });
+    var reviewed = {}; reviews.forEach(function (r) { if (r.cardId) reviewed[r.cardId] = true; });
+    var coverage = questions.length ? pct(Object.keys(seenQ).length, questions.length)
+      : (cards.length ? pct(Object.keys(reviewed).length, cards.length) : null);
+    var labsDoneCount = labs.filter(function (l) { return labsDone[l._id]; }).length;
+
+    // Streak derived from all activity (answers, reviews, labs).
+    var activeDays = {};
+    answers.forEach(function (a) { if (a.ts) activeDays[dayStart(a.ts)] = true; });
+    reviews.forEach(function (r) { if (r.ts || r.sessionTs) activeDays[dayStart(r.ts || r.sessionTs)] = true; });
+    labs.forEach(function (l) { if (labsDone[l._id]) activeDays[dayStart(labsDone[l._id])] = true; });
+    var dayKeys = Object.keys(activeDays).map(Number).sort(function (a, b) { return a - b; });
+    var longest = 0, run = 0, prev = null;
+    dayKeys.forEach(function (k) {
+      if (prev != null && k === prev + 86400000) run++; else run = 1;
+      if (run > longest) longest = run;
+      prev = k;
+    });
+    var cursor = dayStart(Date.now());
+    if (!activeDays[cursor]) cursor -= 86400000;
+    var current = 0;
+    while (activeDays[cursor]) { current++; cursor -= 86400000; }
+
+    // Chapter rows, mirroring the Stats view's aggregation.
+    var qMap = App.content.getChapters(certId, 'questions');
+    var fMap = App.content.getChapters(certId, 'flashcards');
+    var lMap = App.content.getChapters(certId, 'labs');
+    var rowKeys = [];
+    function addKeys(map) {
+      Object.keys(map).forEach(function (k) {
+        var number = App.content.chapterNumber ? App.content.chapterNumber(k) : null;
+        var existing = rowKeys.find(function (item) { return (number != null && item.number === number) || item.key === k; });
+        if (!existing) rowKeys.push({ key: k, number: number });
+      });
+    }
+    addKeys(qMap); addKeys(fMap); addKeys(lMap);
+    rowKeys.sort(function (a, b) {
+      if (a.number != null && b.number != null) return a.number - b.number;
+      if (a.number != null) return -1;
+      if (b.number != null) return 1;
+      return a.key.localeCompare(b.key);
+    });
+
+    var chapterRows = rowKeys.map(function (entry, index) {
+      var qKey = chapterKeyFor('questions', entry.key) || entry.key;
+      var fKey = chapterKeyFor('flashcards', entry.key);
+      var lKey = chapterKeyFor('labs', entry.key);
+      var qItems = qMap[qKey] || [];
+      var fItems = fKey ? (fMap[fKey] || []) : [];
+      var lItems = lKey ? (lMap[lKey] || []) : [];
+      var qAnswers = answers.filter(function (a) { return chapterKeyFor('questions', a.chapter) === qKey; });
+      var qSeen = {}; qAnswers.forEach(function (a) { if (a.qId) qSeen[a.qId] = true; });
+      var fReviews = reviews.filter(function (r) {
+        return chapterKeyFor('flashcards', r.chapter) === fKey || (!fKey && chapterKeyFor('questions', r.chapter) === qKey);
+      });
+      var fSeen = {}; fReviews.forEach(function (r) { if (r.cardId) fSeen[r.cardId] = true; });
+      var lDone = lItems.filter(function (l) { return labsDone[l._id]; }).length;
+      var comps = [];
+      if (qItems.length) comps.push(Object.keys(qSeen).length / qItems.length);
+      if (fItems.length) comps.push(Object.keys(fSeen).length / fItems.length);
+      if (lItems.length) comps.push(lDone / lItems.length);
+      var cov = comps.length ? Math.round((comps.reduce(function (a, b) { return a + b; }, 0) / comps.length) * 100) : 0;
+      var acc = pct(qAnswers.filter(function (a) { return a.correct; }).length, qAnswers.length);
+      var status = cov >= 90 && (acc == null || acc >= 80) ? 'Strong' : cov > 0 ? 'In progress' : 'Not started';
+      if (acc != null && acc < 60 && qAnswers.length >= 3) status = 'Needs review';
+      return {
+        number: chapterNumber(entry.key, index),
+        title: chapterTitle(entry.key),
+        questions: qItems.length,
+        seen: Object.keys(qSeen).length,
+        coverage: Math.min(100, cov),
+        accuracy: acc,
+        attempts: qAnswers.length,
+        cards: fItems.length,
+        reviewedCards: Object.keys(fSeen).length,
+        labs: lItems.length,
+        labsDone: lDone,
+        status: status
+      };
+    });
+
+    var weak = App.store.flashcardWeakAreas({ days: 3650, cert: certId }).slice(0, 5);
+    var weakQ = App.store.weakQuestions(60, certId).slice(0, 5);
+
+    // Insights / next steps.
+    var insights = [];
+    var weakest = chapterRows.filter(function (r) { return r.accuracy != null && r.attempts >= 3; }).sort(function (a, b) { return a.accuracy - b.accuracy; })[0];
+    var best = chapterRows.filter(function (r) { return r.accuracy != null && r.attempts >= 3; }).sort(function (a, b) { return b.accuracy - a.accuracy; })[0];
+    if (weakest) insights.push('**Needs attention:** Ch ' + weakest.number + ' · ' + escMd(weakest.title) + ' — ' + weakest.accuracy + '% accuracy across ' + weakest.attempts + ' attempts.');
+    if (best) insights.push('**Strength:** Ch ' + best.number + ' · ' + escMd(best.title) + ' — ' + best.accuracy + '% accuracy across ' + best.attempts + ' attempts.');
+    var now = Date.now();
+    var recentSince = now - 7 * 86400000;
+    var earlierSince = now - 14 * 86400000;
+    var recentReg = regular.filter(function (a) { return a.ts >= recentSince; });
+    var earlierReg = regular.filter(function (a) { return a.ts >= earlierSince && a.ts < recentSince; });
+    if (recentReg.length >= 3 && earlierReg.length >= 3) {
+      var delta = pct(recentReg.filter(function (a) { return a.correct; }).length, recentReg.length) - pct(earlierReg.filter(function (a) { return a.correct; }).length, earlierReg.length);
+      if (Math.abs(delta) >= 2) insights.push('**Accuracy trend:** ' + (delta > 0 ? '+' : '') + delta + ' percentage points vs. the previous 7 days (last 7d: ' + pct(recentReg.filter(function (a) { return a.correct; }).length, recentReg.length) + '%).');
+    }
+    var recentReviews = reviews.filter(function (r) { return (r.ts || r.sessionTs) >= recentSince; });
+    var earlierReviews = reviews.filter(function (r) { var ts = r.ts || r.sessionTs; return ts >= earlierSince && ts < recentSince; });
+    if (recentReviews.length >= 3 && earlierReviews.length >= 3) {
+      var againNow = Math.round(recentReviews.filter(function (r) { return r.outcome === 'again'; }).length / recentReviews.length * 100);
+      var againPrev = Math.round(earlierReviews.filter(function (r) { return r.outcome === 'again'; }).length / earlierReviews.length * 100);
+      if (Math.abs(againNow - againPrev) >= 3) {
+        insights.push('**Flashcards:** Again rate changed from ' + againPrev + '% to ' + againNow + '% over the last 7 days' + (againNow < againPrev ? ' — retention improving.' : ' — needs reinforcement.'));
+      }
+    }
+    if (exams.length) {
+      var avgScore = Math.round(exams.reduce(function (s, e) { return s + (e.score || 0); }, 0) / exams.length);
+      var passed = exams.filter(function (e) { return e.passed; }).length;
+      var readiness = avgScore >= threshold && passed >= Math.min(3, exams.length) ? 'Strong' : avgScore >= threshold ? 'On track' : 'Not ready yet';
+      insights.push('**Exam readiness:** ' + readiness + ' — ' + passed + ' / ' + exams.length + ' simulations passed, ' + avgScore + '% average vs. a ' + threshold + '% threshold.');
+    }
+    if (weak.length) insights.push('**Top weak area:** ' + escMd(weak[0].tag) + ' (' + weak[0].agains + ' Again mark' + (weak[0].agains === 1 ? '' : 's') + ' in ' + weak[0].attempts + ' attempt' + (weak[0].attempts === 1 ? '' : 's') + ').');
+
+    var L = [];
+    L.push('# ReviewApp Progress Report');
+    L.push('');
+    L.push('**Certification:** ' + escMd(certName));
+    L.push('');
+    L.push('**Generated:** ' + new Date().toLocaleString());
+    L.push('');
+    L.push('---');
+    L.push('');
+    L.push('## Overview');
+    L.push('');
+    L.push('| Metric | Value |');
+    L.push('| --- | --- |');
+    L.push('| Overall accuracy | ' + (totalAccuracy == null ? '—' : totalAccuracy + '%') + ' |');
+    L.push('| Certification coverage | ' + (coverage == null ? '—' : coverage + '%') + ' |');
+    L.push('| Questions answered | ' + answers.length + ' (' + Object.keys(seenQ).length + ' unique) |');
+    L.push('| Flashcard reviews | ' + reviews.length + ' (' + Object.keys(reviewed).length + ' unique cards) |');
+    L.push('| Labs completed | ' + labsDoneCount + ' / ' + labs.length + ' |');
+    L.push('| Current streak | ' + current + ' day' + (current === 1 ? '' : 's') + ' |');
+    L.push('| Longest streak | ' + longest + ' day' + (longest === 1 ? '' : 's') + ' |');
+    L.push('| Cards due for review | ' + App.store.cardsDueCount(certId) + ' |');
+    L.push('');
+
+    L.push('## Chapter performance');
+    L.push('');
+    if (!chapterRows.length) {
+      L.push('No chapter content loaded for this certification.');
+    } else {
+      L.push('| Ch | Chapter | Questions | Seen | Coverage | Accuracy | Cards | Labs | Status |');
+      L.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+      chapterRows.forEach(function (r) {
+        L.push('| ' + r.number + ' | ' + escMd(r.title) + ' | ' + r.questions + ' | ' + r.seen + ' | ' + r.coverage + '% | ' + (r.accuracy == null ? '—' : r.accuracy + '%') + ' | ' + (r.cards ? r.reviewedCards + '/' + r.cards : '—') + ' | ' + (r.labs ? r.labsDone + '/' + r.labs : '—') + ' | ' + r.status + ' |');
+      });
+    }
+    L.push('');
+
+    L.push('## Insights & next steps');
+    L.push('');
+    if (!insights.length) L.push('Complete a few quizzes or card reviews to surface meaningful insights.');
+    else insights.forEach(function (i) { L.push('- ' + i); });
+    L.push('');
+
+    if (weak.length) {
+      L.push('## Weak areas (flashcards)');
+      L.push('');
+      L.push('| Topic | Chapter | Attempts | Again | Again rate | Last seen |');
+      L.push('| --- | --- | --- | --- | --- | --- |');
+      weak.forEach(function (w) {
+        L.push('| ' + escMd(w.tag) + ' | ' + escMd(w.chapter || 'Certification-wide') + ' | ' + w.attempts + ' | ' + w.agains + ' | ' + w.ratio + '% | ' + w.daysSince + 'd ago |');
+      });
+      L.push('');
+    }
+
+    if (weakQ.length) {
+      L.push('## Weakest questions');
+      L.push('');
+      L.push('| Chapter | Accuracy | Attempts |');
+      L.push('| --- | --- | --- |');
+      weakQ.forEach(function (w) {
+        L.push('| ' + escMd(w.chapter || 'General') + ' | ' + w.accuracy + '% | ' + w.total + ' |');
+      });
+      L.push('');
+    }
+
+    if (exams.length) {
+      L.push('## Exam history');
+      L.push('');
+      L.push('| Date | Score | Correct | Threshold | Result |');
+      L.push('| --- | --- | --- | --- | --- |');
+      exams.slice(0, 20).forEach(function (e) {
+        L.push('| ' + utils.formatDate(e.ts) + ' | ' + (e.score == null ? '—' : e.score + '%') + ' | ' + (e.correct != null ? e.correct + ' / ' + e.total : '—') + ' | ' + (e.threshold != null ? e.threshold + '%' : '—') + ' | ' + (e.passed ? 'Pass' : 'Fail') + ' |');
+      });
+      L.push('');
+    }
+
+    L.push('## Flashcard summary');
+    L.push('');
+    var againCount = reviews.filter(function (r) { return r.outcome === 'again'; }).length;
+    var nextCount = reviews.length - againCount;
+    var firstTry = reviews.filter(function (r) { return r.outcome === 'next' && Number(r.attempt) === 1; }).length;
+    L.push('| Metric | Value |');
+    L.push('| --- | --- |');
+    L.push('| Review events | ' + reviews.length + ' |');
+    L.push('| Unique cards reviewed | ' + Object.keys(reviewed).length + ' |');
+    L.push('| Next / Again | ' + nextCount + ' / ' + againCount + ' |');
+    L.push('| Again rate | ' + (reviews.length ? Math.round(againCount / reviews.length * 100) + '%' : '—') + ' |');
+    L.push('| First-try Next | ' + (Object.keys(reviewed).length ? Math.round(firstTry / Object.keys(reviewed).length * 100) + '%' : '—') + ' |');
+    L.push('| Cards currently due | ' + App.store.cardsDueCount(certId) + ' |');
+    L.push('');
+
+    if (labs.length) {
+      L.push('## Labs progress');
+      L.push('');
+      L.push('| Chapter | Progress |');
+      L.push('| --- | --- |');
+      chapterRows.filter(function (r) { return r.labs; }).forEach(function (r) {
+        L.push('| Ch ' + r.number + ' · ' + escMd(r.title) + ' | ' + r.labsDone + ' / ' + r.labs + ' |');
+      });
+      L.push('');
+    }
+
+    var activity = App.store.getActivity(14, certId);
+    var activeDays14 = activity.filter(function (d) { return d.count; });
+    L.push('## Recent activity (last 14 days)');
+    L.push('');
+    if (!activeDays14.length) {
+      L.push('No answers logged in the last 14 days.');
+    } else {
+      L.push('| Day | Answers | Accuracy |');
+      L.push('| --- | --- | --- |');
+      activeDays14.forEach(function (d) {
+        L.push('| ' + utils.formatDate(d.date) + ' | ' + d.count + ' | ' + Math.round(d.correct / d.count * 100) + '% |');
+      });
+    }
+    L.push('');
+    L.push('---');
+    L.push('');
+    L.push('_Generated by ReviewApp v1.0 — offline study analytics._');
+    L.push('');
+
+    return L.join('\n');
+  }
+
   function viewStatsLegacy(root) {
     var certId = App.core.getCurrentCertId();
     var cert = App.content.getCert(certId);
@@ -2156,9 +2429,7 @@
     expRow.appendChild(el('button', {
       className: 'btn btn-secondary btn-sm', text: 'Markdown report',
       onClick: function () {
-        var s = App.store.getDashboardStats(certId);
-        var md = '# ReviewApp Progress Report — ' + cert.name + '\n\n- Total answered: ' + s.totalAnswered + '\n- Accuracy: ' + s.accuracy + '%\n- Streak: ' + s.streakDays + ' days\n- Labs completed: ' + s.labsDone + '\n- Cards due: ' + s.cardsDue + '\n\nGenerated ' + new Date().toISOString() + '\n';
-        utils.downloadBlob(new Blob([md], { type: 'text/markdown' }), 'reviewapp-report.md');
+        utils.downloadBlob(new Blob([buildMarkdownReport(certId)], { type: 'text/markdown' }), 'reviewapp-report.md');
       }
     }));
     root.appendChild(expRow);
@@ -2263,13 +2534,12 @@
       var target = pct == null ? circumference : circumference - (Math.max(0, Math.min(100, pct)) / 100) * circumference;
       fg.style.strokeDashoffset = String(circumference);
       wrap.appendChild(svg);
-      wrap.appendChild(el('div', { className: 'stats-ring-center' }, [
-        el('strong', { text: pct == null ? '—' : pct + '%' }),
-        el('span', { text: label })
-      ]));
+      var strong = el('strong', { text: pct == null ? '—' : '0%' });
+      wrap.appendChild(el('div', { className: 'stats-ring-center' }, [strong, el('span', { text: label })]));
       function finish() { fg.style.strokeDashoffset = String(target); }
       if (App.core.motionEnabled()) requestAnimationFrame(function () { requestAnimationFrame(finish); });
       else finish();
+      if (pct != null) animateMetric(strong, pct, '%');
       return wrap;
     }
 
@@ -2414,6 +2684,18 @@
         pathPoints.push({ x: x, y: y, p: p });
       });
       if (pathPoints.length > 1) {
+        var baseline = top + height;
+        var gradId = 'stats-area-' + Math.random().toString(36).slice(2, 9);
+        var defs = svgNode('defs', {});
+        var grad = svgNode('linearGradient', { id: gradId, x1: '0', y1: '0', x2: '0', y2: '1' });
+        grad.appendChild(svgNode('stop', { offset: '0%', 'stop-color': color, 'stop-opacity': '0.22' }));
+        grad.appendChild(svgNode('stop', { offset: '100%', 'stop-color': color, 'stop-opacity': '0' }));
+        defs.appendChild(grad);
+        svg.appendChild(defs);
+        var areaD = 'M' + pathPoints[0].x + ' ' + baseline;
+        pathPoints.forEach(function (point) { areaD += ' L' + point.x + ' ' + point.y; });
+        areaD += ' L' + pathPoints[pathPoints.length - 1].x + ' ' + baseline + ' Z';
+        svg.appendChild(svgNode('path', { d: areaD, class: 'stats-area', fill: 'url(#' + gradId + ')' }));
         var path = svgNode('path', { d: pathPoints.map(function (point, i) { return (i ? 'L' : 'M') + point.x + ' ' + point.y; }).join(' '), class: 'stats-line', stroke: color });
         svg.appendChild(path);
         var length = 1000;
@@ -2445,7 +2727,7 @@
         var row = el('div', { className: 'stats-bar-item' });
         row.appendChild(el('div', { className: 'stats-bar-meta' }, [el('span', { text: item.label }), el('strong', { text: item.value == null ? '—' : item.value + '%' })]));
         var track = el('div', { className: 'stats-bar-track' });
-        var fill = el('span', { className: 'stats-bar-fill', style: { width: '0%', background: item.color || color } });
+        var fill = el('span', { className: 'stats-bar-fill', style: { width: '0%', backgroundColor: item.color || color } });
         track.appendChild(fill); row.appendChild(track); wrap.appendChild(row);
         if (item.value != null) {
           if (App.core.motionEnabled()) requestAnimationFrame(function () { fill.style.width = item.value + '%'; });
@@ -2463,10 +2745,11 @@
       svg.appendChild(svgNode('circle', { cx: 50, cy: 50, r: r, class: 'stats-donut-bg', fill: 'none', 'stroke-width': 10 }));
       var fg = svgNode('circle', { cx: 50, cy: 50, r: r, class: 'stats-donut-fg', fill: 'none', 'stroke-width': 10, stroke: color, 'stroke-dasharray': c, 'stroke-dashoffset': c, transform: 'rotate(-90 50 50)' });
       svg.appendChild(fg);
-      var text = svgNode('text', { x: 50, y: 48, class: 'stats-donut-value', 'text-anchor': 'middle' }); text.textContent = pct + '%'; svg.appendChild(text);
+      var text = svgNode('text', { x: 50, y: 48, class: 'stats-donut-value', 'text-anchor': 'middle' }); text.textContent = '0%'; svg.appendChild(text);
       var sub = svgNode('text', { x: 50, y: 60, class: 'stats-donut-label', 'text-anchor': 'middle' }); sub.textContent = title; svg.appendChild(sub);
       var target = c - (correct / total) * c;
       if (App.core.motionEnabled()) requestAnimationFrame(function () { fg.style.strokeDashoffset = target; }); else fg.style.strokeDashoffset = target;
+      animateMetric(text, pct, '%');
       return svg;
     }
 
@@ -2532,10 +2815,26 @@
     });
     rangeSelect.value = '14';
     toolbar.appendChild(rangeSelect);
+    var rangeLabel = el('span', { className: 'stats-toolbar-range' });
+    toolbar.appendChild(rangeLabel);
     toolbar.appendChild(el('span', { className: 'stats-toolbar-note', text: 'All metrics are scoped to ' + cert.name }));
     rootPage.appendChild(toolbar);
 
-    var body = el('div');
+    function updateRangeLabel() {
+      var endTs = Date.now();
+      var text;
+      if (selectedDays == null) {
+        var evts = activityEvents();
+        var first = evts.length ? evts[0].ts : null;
+        text = first ? utils.formatDate(first) + ' → ' + utils.formatDate(endTs) : 'All recorded activity';
+      } else {
+        text = utils.formatDate(sinceFor(selectedDays)) + ' → ' + utils.formatDate(endTs);
+      }
+      rangeLabel.textContent = text;
+    }
+    updateRangeLabel();
+
+    var body = el('div', { className: 'stats-body' });
     rootPage.appendChild(body);
     root.appendChild(rootPage);
 
@@ -2626,7 +2925,7 @@
         var pct = total ? Math.round(done / total * 100) : null;
         row.appendChild(el('div', { className: 'stats-coverage-meta' }, [el('span', { text: label }), el('strong', { text: total ? done + ' / ' + total : '—' })]));
         var track = el('div', { className: 'stats-bar-track' });
-        track.appendChild(el('span', { className: 'stats-bar-fill', style: { width: '0%', background: tone || certColor } }));
+        track.appendChild(el('span', { className: 'stats-bar-fill', style: { width: '0%', backgroundColor: tone || certColor } }));
         row.appendChild(track);
         row.appendChild(el('span', { className: 'stats-coverage-percent', text: pct == null ? 'No data' : pct + '%' }));
         var fill = track.firstChild;
@@ -2753,6 +3052,12 @@
         examSection.appendChild(examChart);
         var readiness = avgScore >= threshold && passed >= Math.min(3, exams.length) ? 'Strong' : avgScore >= threshold ? 'On track' : 'Not ready yet';
         examSection.appendChild(el('div', { className: 'stats-readiness ' + readiness.toLowerCase().replace(/\s/g, '-'), }, [el('strong', { text: 'Exam readiness · ' + readiness }), el('span', { text: passed + ' passing simulations · ' + avgScore + '% average against a ' + threshold + '% threshold' })]));
+        var readinessTrack = el('div', { className: 'stats-readiness-track', 'aria-label': 'Average score vs pass threshold' });
+        var readinessFill = el('span', { style: { width: '0%', backgroundColor: avgScore >= threshold ? 'var(--accent-green)' : 'var(--accent-amber)' } });
+        readinessTrack.appendChild(readinessFill);
+        examSection.appendChild(readinessTrack);
+        if (App.core.motionEnabled()) requestAnimationFrame(function () { readinessFill.style.width = Math.min(100, avgScore) + '%'; });
+        else readinessFill.style.width = Math.min(100, avgScore) + '%';
       }
       body.appendChild(examSection);
 
@@ -2780,6 +3085,7 @@
         var count = byDay[hts] || 0;
         var level = count ? Math.min(4, Math.ceil(count / maxActivity * 4)) : 0;
         var cell = el('span', { className: 'stats-heat-cell level-' + level, title: utils.formatDate(hts) + ' · ' + count + ' activities', 'aria-label': utils.formatDate(hts) + ': ' + count + ' activities', tabindex: '0' });
+        if (App.core.motionEnabled()) cell.style.animationDelay = Math.min(hi, 64) * 6 + 'ms';
         heatmap.appendChild(cell);
       }
       heat.appendChild(heatmap); activityGrid.appendChild(heat);
@@ -2795,13 +3101,12 @@
       exportRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'CSV answer log', onClick: function () { utils.downloadBlob(new Blob([App.store.exportAnswersCSV(certId)], { type: 'text/csv' }), 'reviewapp-' + certId + '-answers.csv'); } }));
       exportRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'JSON full backup', onClick: function () { utils.downloadBlob(new Blob([JSON.stringify(App.store.exportFullBackup(), null, 2)], { type: 'application/json' }), 'reviewapp-backup.json'); } }));
       exportRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Markdown report', onClick: function () {
-        var md = '# ReviewApp Statistics — ' + cert.name + '\n\n- Overall accuracy: ' + (totalAccuracy == null ? 'No data' : totalAccuracy + '%') + '\n- Coverage: ' + (coverage == null ? 'No data' : coverage + '%') + '\n- Questions answered: ' + allAnswers.length + '\n- Flashcard reviews: ' + allReviews.length + '\n- Labs completed: ' + labs.filter(function (lab) { return labsDone[lab._id]; }).length + ' / ' + labs.length + '\n- Current streak: ' + (streak.current || 0) + ' days\n\nGenerated ' + new Date().toISOString() + '\n';
-        utils.downloadBlob(new Blob([md], { type: 'text/markdown' }), 'reviewapp-' + certId + '-statistics.md');
+        utils.downloadBlob(new Blob([buildMarkdownReport(certId)], { type: 'text/markdown' }), 'reviewapp-' + certId + '-statistics.md');
       } }));
       exportSection.appendChild(exportRow); body.appendChild(exportSection);
     }
 
-    rangeSelect.addEventListener('change', function () { selectedDays = rangeSelect.value === 'all' ? null : Number(rangeSelect.value); renderBody(); });
+    rangeSelect.addEventListener('change', function () { selectedDays = rangeSelect.value === 'all' ? null : Number(rangeSelect.value); updateRangeLabel(); renderBody(); });
     renderBody();
   }
 
