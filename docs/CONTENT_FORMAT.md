@@ -71,6 +71,7 @@ window.ReviewApp.content.register({
 | `type` | `"mcq"` \| `"multi"` \| `"tf"` \| `"fill"` \| `"command_match"` | yes | Question format |
 | `options` | string[] | mcq/multi | Answer choices |
 | `answer` | number \| number[] \| boolean \| string | yes (except `command_match`) | Correct answer (see below) |
+| `accepts` | string[] | no | fill only — extra equally-valid forms (acronyms, synonyms, spellings) accepted alongside `answer` |
 | `command` | string | command_match | The command whose options are being matched |
 | `pairs` | array | command_match | Option/description pairs (see below) |
 | `explain` | string | recommended | Shown after answering |
@@ -83,7 +84,7 @@ window.ReviewApp.content.register({
 | `mcq` | Zero-based index into `options` (e.g. `0`) |
 | `multi` | Array of 1–4 zero-based indices (e.g. `[0, 2]`); the correct-choice count should vary across questions and never default to 3 |
 | `tf` | `true` or `false` |
-| `fill` | String; compared case-insensitively after trim |
+| `fill` | String; matched case-insensitively with inner whitespace collapsed. An answer written as `"Full Name (ACR)"` also accepts `"Full Name"` alone and `"ACR"` alone. Extra legitimate equivalents go in `accepts` |
 | `command_match` | No `answer` field — the correct matching **is** the `pairs` array |
 
 ### Command matching (`command_match`)

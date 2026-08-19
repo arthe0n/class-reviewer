@@ -78,9 +78,7 @@
       return userAnswer === q.answer;
     }
     if (q.type === 'fill') {
-      var a = String(q.answer || '').trim().toLowerCase();
-      var u = String(userAnswer || '').trim().toLowerCase();
-      return a === u;
+      return acceptedAnswerForms(q).indexOf(normalizeAnswer(userAnswer)) >= 0;
     }
     if (q.type === 'command_match') {
       if (q._invalid || !Array.isArray(userAnswer)) return false;
@@ -92,6 +90,44 @@
       });
     }
     return false;
+  }
+
+  /* ── Fill-answer matching ──────────────────────────────── */
+  // Central normalization + accepted-form resolution for free-text answers.
+  // Matching is deliberately permissive for legitimate equivalents but never
+  // substring- or fuzzy-based: an answer only passes when it equals one of
+  // the accepted forms after normalization. Accepted forms come from:
+  //   1. the canonical `answer` itself;
+  //   2. an acronym written as "Full Name (ACR)" — both the full name alone
+  //      and the acronym alone are accepted;
+  //   3. the optional `accepts` array on the question (acronyms, synonyms,
+  //      alternate spellings declared explicitly by the content).
+  // All forms are compared case-insensitively with inner whitespace collapsed.
+
+  // Lowercase, trim, and collapse runs of whitespace (spaces/tabs/newlines)
+  // to single spaces, so "  Certificate   Authority\n" == "certificate authority".
+  function normalizeAnswer(s) {
+    return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  // "Certificate Authority (CA)" -> { full: "Certificate Authority", acronym: "ca" }.
+  // Only a trailing parenthetical of all-caps letters/digits (2+) counts as an
+  // acronym; prose parentheticals like "(in most cases)" do not.
+  function splitAnswerAcronym(answer) {
+    var m = String(answer == null ? '' : answer).match(/^(.*?)\s*\(([A-Z0-9]{2,})\)\s*$/);
+    return m ? { full: m[1], acronym: m[2].toLowerCase() } : null;
+  }
+
+  // Every normalized string the engine will accept for a fill question.
+  function acceptedAnswerForms(q) {
+    var forms = [String(q.answer == null ? '' : q.answer)];
+    var parts = splitAnswerAcronym(q.answer);
+    if (parts) {
+      forms.push(parts.full);
+      forms.push(parts.acronym);
+    }
+    (q.accepts || []).forEach(function (a) { forms.push(a); });
+    return forms.map(normalizeAnswer).filter(function (f) { return f !== ''; });
   }
 
   /* ── Quiz session state ─────────────────────────────────── */
@@ -588,6 +624,9 @@
     buildPool: buildPool,
     prepareQuestion: prepareQuestion,
     checkAnswer: checkAnswer,
+    normalizeAnswer: normalizeAnswer,
+    splitAnswerAcronym: splitAnswerAcronym,
+    acceptedAnswerForms: acceptedAnswerForms,
     sanitizeCommandMatch: sanitizeCommandMatch,
     renderCommandMatchUI: renderCommandMatchUI,
     renderSingle: renderSingle,

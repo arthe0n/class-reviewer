@@ -248,6 +248,7 @@ window.ReviewApp.content.register({
       q: "Clients communicate with a relational database server primarily using which language?",
       type: "fill",
       answer: "SQL",
+      accepts: ["Structured Query Language"],
       explain: "Structured Query Language (SQL) is the standard language for interacting with relational databases.",
       tags: ["database", "sql"]
     },
@@ -283,6 +284,7 @@ window.ReviewApp.content.register({
       q: "MySQL, combined with Linux, Apache, and PHP, forms which well-known software stack?",
       type: "fill",
       answer: "LAMP",
+      accepts: ["LAMP stack", "Linux Apache MySQL PHP"],
       explain: "LAMP stands for Linux, Apache, MySQL, PHP — a widely used open-source web application stack.",
       tags: ["mysql", "lamp"]
     },
@@ -467,6 +469,7 @@ window.ReviewApp.content.register({
       q: "What protocol does CUPS use to connect to network printers?",
       type: "fill",
       answer: "IPP",
+      accepts: ["Internet Printing Protocol"],
       explain: "CUPS uses the Internet Printing Protocol (IPP) to connect Linux systems to network printers.",
       tags: ["cups", "ipp"]
     },
@@ -608,6 +611,7 @@ window.ReviewApp.content.register({
       q: "Which directory protocol, created at the University of Michigan, is most popularly implemented on Linux as OpenLDAP?",
       type: "fill",
       answer: "LDAP",
+      accepts: ["Lightweight Directory Access Protocol"],
       explain: "LDAP (Lightweight Directory Access Protocol) provides network authentication services, with OpenLDAP as its most popular Linux implementation.",
       tags: ["ldap", "openldap"]
     },
@@ -635,7 +639,8 @@ window.ReviewApp.content.register({
     {
       q: "What must a server have in order to trust a certificate presented by a client?",
       type: "fill",
-      answer: "a certificate authority",
+      answer: "Certificate Authority (CA)",
+      accepts: ["a certificate authority"],
       explain: "A Certificate Authority (CA) is required so the server can validate and trust presented certificates.",
       tags: ["certificates", "ca"]
     },
