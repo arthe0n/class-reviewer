@@ -779,6 +779,20 @@ window.ReviewApp.content.register({
       answer: 0,
       explain: "Evolution, KMail, and Thunderbird are named in the notes as popular Linux desktop MUAs used directly by end users.",
       tags: ["mua", "email"]
+    },
+    {
+      q: "Match each security technology with its primary purpose.",
+      type: "match",
+      context: "Linux security layers",
+      pairs: [
+        { item: "NIS", match: "Shared naming directory for user accounts and hostnames" },
+        { item: "Kerberos", match: "Symmetric-key encrypted authentication" },
+        { item: "LDAP", match: "Hierarchical directory authentication" },
+        { item: "OpenSSH", match: "Encrypted remote access with tunneling support" },
+        { item: "OpenVPN", match: "Secure point-to-point VPN tunnel for remote access" }
+      ],
+      explain: "The notes distinguish these security technologies by the authentication, directory, remote-access, and VPN roles they provide.",
+      tags: ["security", "authentication", "ssh", "vpn"]
     }
   ]
 });

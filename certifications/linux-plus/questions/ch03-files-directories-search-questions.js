@@ -1327,6 +1327,20 @@ pairs: [
 ],
 explain: "These criteria are among the primary metadata-based searches described for `find`.",
 tags: ["find", "criteria"]
+},
+{
+q: "Match each shell notation with its meaning.",
+type: "match",
+context: "Shell metacharacters",
+pairs: [
+{ item: "$", match: "Shell variable expansion" },
+{ item: "~", match: "Home-directory expansion" },
+{ item: "#", match: "Shell-script comment" },
+{ item: "&", match: "Background execution" },
+{ item: "*", match: "Wildcard for any number of characters" }
+],
+explain: "These symbols form a coherent metacharacter group in the notes: variable and home-directory expansion, comments, background execution, and filename wildcards.",
+tags: ["shell", "metacharacters", "wildcards"]
 }
 ]
 });

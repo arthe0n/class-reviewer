@@ -30,7 +30,7 @@ picker and works with all certification-scoped views and global search.
 
 ## Supported content
 
-- **Questions** — multiple choice, multi-select, true/false, fill-in, and command matching.
+- **Questions** — multiple choice, multi-select, true/false, fill-in, and generic matching questions (including legacy command matching).
 - **Flashcards** — front/back cards with tags.
 - **Labs** — hands-on scenarios with objectives, hints, and solutions.
 - **Notes** — markdown notes grouped by chapter.
@@ -73,6 +73,8 @@ window.ReviewApp.content.register({
 ```
 
 ## Full schemas & generation
+
+Matching questions can pair any coherent item group from the notes with its meaning, definition, purpose, behavior, or other natural counterpart; they are not limited to commands and flags.
 
 For complete field-by-field schemas for questions, flashcards, labs, and notes,
 see **[CONTENT_FORMAT.md](./CONTENT_FORMAT.md)**.

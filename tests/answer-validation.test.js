@@ -4,8 +4,8 @@
 
    Covers: case-insensitive matching, whitespace tolerance, acronym
    derivation from "Full Name (ACR)", the optional `accepts` array,
-   rejection of incomplete/unrelated answers, and regression checks
-   that the other question types keep their behavior.
+   rejection of incomplete/unrelated answers, generic and legacy matching,
+   and regression checks that the other question types keep their behavior.
 
    Run with:  node tests/answer-validation.test.js
    ═══════════════════════════════════════════════════════════ */
@@ -102,6 +102,10 @@ expect('command_match correct',
   quiz.checkAnswer({ type: 'command_match', _valid: true, _correctDescIdx: [2, 0] }, [2, 0]), true);
 expect('command_match wrong',
   quiz.checkAnswer({ type: 'command_match', _valid: true, _correctDescIdx: [2, 0] }, [0, 2]), false);
+expect('generic match correct',
+  quiz.checkAnswer({ type: 'match', _correctMatchIdx: [2, 0] }, [2, 0]), true);
+expect('generic match wrong',
+  quiz.checkAnswer({ type: 'match', _correctMatchIdx: [2, 0] }, [0, 2]), false);
 
 /* ── 8. Normalization / acronym helpers ───────────────────── */
 var n = quiz.normalizeAnswer;

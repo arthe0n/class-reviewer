@@ -68,12 +68,13 @@ window.ReviewApp.content.register({
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `q` | string | yes | Question text |
-| `type` | `"mcq"` \| `"multi"` \| `"tf"` \| `"fill"` \| `"command_match"` | yes | Question format |
+| `type` | `"mcq"` \| `"multi"` \| `"tf"` \| `"fill"` \| `"match"` \| `"command_match"` | yes | Question format; `command_match` is retained for legacy content |
 | `options` | string[] | mcq/multi | Answer choices |
-| `answer` | number \| number[] \| boolean \| string | yes (except `command_match`) | Correct answer (see below) |
+| `answer` | number \| number[] \| boolean \| string | yes (except `match`/`command_match`) | Correct answer (see below) |
 | `accepts` | string[] | no | fill only — extra equally-valid forms (acronyms, synonyms, spellings) accepted alongside `answer` |
-| `command` | string | command_match | The command whose options are being matched |
-| `pairs` | array | command_match | Option/description pairs (see below) |
+| `context` | string | no | Optional label for the coherent group being matched (`match` only) |
+| `command` | string | command_match | Legacy command context for existing command/flag matching questions |
+| `pairs` | array | match/command_match | Item/counterpart pairs (see below) |
 | `explain` | string | recommended | Shown after answering |
 | `tags` | string[] | no | Used for theme attack & stats |
 
@@ -85,7 +86,8 @@ window.ReviewApp.content.register({
 | `multi` | Array of 1–4 zero-based indices (e.g. `[0, 2]`); the correct-choice count should vary across questions and never default to 3 |
 | `tf` | `true` or `false` |
 | `fill` | String; matched case-insensitively with inner whitespace collapsed. An answer written as `"Full Name (ACR)"` also accepts `"Full Name"` alone and `"ACR"` alone. Extra legitimate equivalents go in `accepts` |
-| `command_match` | No `answer` field — the correct matching **is** the `pairs` array |
+| `match` | No `answer` field — the correct matching **is** the `pairs` array |
+| `command_match` | No `answer` field — legacy command matching; the correct matching **is** the `pairs` array |
 
 ### Choice-authoring guidance
 
@@ -93,9 +95,34 @@ The AI prompt generator emits exactly five options for every `mcq` and `multi` q
 
 The quiz engine shuffles `mcq` and `multi` options before displaying them and remaps the stored answer index, so the authored index is not a fixed learner-facing A/B/C/D position. Authors should still vary source answer indices and multi-answer combinations because source files, exports, and review workflows can expose authored order. Use natural variation rather than a rigid position rotation or exact character counts.
 
-### Command matching (`command_match`)
+### Matching questions (`match`)
 
-The student must match each of a command's options/flags with its description. The command is shown as context, the options are listed in shuffled order, and each option has a dropdown of (shuffled) descriptions to pick from.
+A matching question pairs each item with one supported counterpart from a coherent group in the notes. The counterpart can be a definition, meaning, purpose, function, behavior, characteristic, category, use case, syntax effect, example, or another natural relationship. The optional context is shown above the pairs; items and counterparts are shuffled in the quiz UI.
+
+```js
+{
+  q: "Match each Linux system component with its role.",
+  type: "match",
+  context: "Linux system components",
+  pairs: [
+    { item: "Linux kernel", match: "Interfaces software with hardware" },
+    { item: "GNU utilities", match: "Provide command-line management programs" },
+    { item: "User interface", match: "Provides a graphical desktop or command-line shell" }
+  ],
+  explain: "Each pair connects a component named in the notes with its stated role.",
+  tags: ["linux-concepts", "components"]
+}
+```
+
+- `pairs` (required): at least two `{ item, match }` objects. Both sides must be non-empty and unique within the question. The engine drops malformed or duplicate pairs; fewer than two valid pairs make the question unavailable instead of crashing.
+- `context` (optional): a concise group label that does not reveal the answers.
+- A `match` question counts as **one** question for scoring and statistics, no matter how many pairs it contains.
+- The whole question is correct only if **every** item is matched to its counterpart (same all-or-nothing rule as `multi`).
+- Use matching only for coherent, parallel groups supported by the notes. Do not combine unrelated facts or invent missing relationships.
+
+### Legacy command matching (`command_match`)
+
+Existing content may use the older command-specific shape. It remains supported for compatibility, but new generated content should use generic `match` unless preserving an existing file:
 
 ```js
 {
@@ -105,18 +132,15 @@ The student must match each of a command's options/flags with its description. T
   pairs: [
     { option: "-a", description: "Show hidden files" },
     { option: "-l", description: "Use long listing format" },
-    { option: "-h", description: "Show human-readable sizes" },
-    { option: "-R", description: "List directories recursively" }
+    { option: "-h", description: "Show human-readable sizes" }
   ],
-  explain: "These options control which entries ls displays and how the output is formatted.",
+  explain: "These options modify how ls displays directory contents.",
   tags: ["ls", "options"]
 }
 ```
 
-- `command` (string, required): the command/tool the options belong to.
-- `pairs` (array, required): at least two `{ option, description }` objects. Options and descriptions must each be unique within the question; the engine silently drops pairs that are missing a side or duplicate an option/description. Questions with fewer than two valid pairs or no command are treated as invalid and rendered as "Question unavailable" instead of crashing.
-- A `command_match` question counts as **one** question for scoring and statistics, no matter how many pairs it contains.
-- The whole question is correct only if **every** option is matched to the right description (same all-or-nothing rule as `multi`).
+- `command` is required for the legacy type, and each pair must have unique `option` and `description` strings.
+- The runtime normalizes legacy `{ option, description }` pairs to the generic matching model internally.
 
 ---
 

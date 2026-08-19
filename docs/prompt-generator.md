@@ -81,7 +81,7 @@ notes and send it — the AI replies with a complete `.js` file.
 > ```js
 > {
 >   q: "Clear, exam-style question text",
->   type: "mcq" | "multi" | "tf" | "fill" | "command_match",
+>   type: "mcq" | "multi" | "tf" | "fill" | "match" | "command_match",
 >   options: ["A", "B", "C", "D", "E"],   // exactly 5 options for mcq and multi only
 >   answer: <see below>,
 >   accepts: ["alternate accepted answer", "ACR"],   // optional, fill only — extra legitimate equivalents
@@ -95,7 +95,8 @@ notes and send it — the AI replies with a complete `.js` file.
 > - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — 1 to 4 of the 5 options are correct; the correct-choice count must vary across questions, never default to 3
 > - tf:    true or false
 > - fill:  string — matched case-insensitively with inner whitespace collapsed; a parenthetical acronym in the answer (e.g. "Certificate Authority (CA)") also accepts the full name alone and the acronym alone; put extra legitimate equivalents in the optional `accepts` array
-> - command_match: no answer field — the pairs array IS the answer (see below)
+> - match: no answer field — the pairs array IS the answer (see below)
+> - command_match: legacy command/flag alias; use `match` for all newly generated matching questions
 >
 > ANSWER-CHOICE QUALITY / BALANCED ANSWER CHOICES (strict):
 > - Treat every option set as a balanced set of answers: the correct answer must not systematically be the longest or shortest choice, and no option should carry a meaningful writing-style or formatting advantage.
@@ -109,40 +110,57 @@ notes and send it — the AI replies with a complete `.js` file.
 > - After drafting the options, perform a **blind clue review** without looking at `answer`: compare word/character length, qualifiers, punctuation, sentence completeness, vocabulary, specificity, examples, parentheticals, acronym treatment, and formatting. Rewrite any choice that would let a learner identify the answer without knowing the subject. Then verify that exactly the intended choice or choices remain factually correct and that no distractor is ambiguous.
 > - For `multi`, apply these rules to every option individually. Correct choices must not collectively be longer, more technical, more confident, or more polished than incorrect choices. With 1, 2, 3, or 4 correct choices, keep the remaining distractors equally credible; do not use a conspicuously weak single distractor when four choices are correct, and do not make four obviously wrong choices when one is correct.
 > - Distribute authored correct-answer indices across the full set instead of repeatedly putting them first or last. Vary multi-answer position combinations as well as the number of correct choices. Do not use a rigid A/B/C/D/E rotation, and do not select positions based on option length or wording. The application shuffles choices at quiz time, but source order still must not contain a visible pattern.
-> - Apply the same balance to command-matching descriptions: use parallel, independently plausible descriptions with comparable specificity and grammar, and do not make the correct pair the only one with extra context.
+> - Apply the same balance to every matching counterpart (including legacy command-matching descriptions): use parallel, independently plausible text with comparable specificity and grammar, and do not make the correct pair the only one with extra context.
 >
-> COMMAND MATCHING (command_match):
-> A dedicated question type that tests the relationship between a command/tool and its options or flags. The command is the context, the options are listed, and the student must match each option to its description. It counts as ONE question no matter how many option/description pairs it contains — every pair belongs to that single question, and the whole question is correct only if every option is matched correctly.
+> MATCHING QUESTIONS (match):
+> A matching question tests a coherent set of relationships in the notes. It pairs each **item** with one natural **counterpart**: a definition, meaning, purpose, description, function, behavior, characteristic, category, use case, syntax effect, example, or other clearly supported information. It counts as ONE question no matter how many pairs it contains, and the whole question is correct only when every pair is matched correctly.
+>
+> Before deciding whether to create a matching question, analyze the notes in this order:
+> 1. Identify groups of related entities and look for their corresponding information.
+> 2. Decide whether each entity has one clear counterpart supported by the notes.
+> 3. Prefer a coherent group of parallel facts over a collection of unrelated facts.
+> 4. Create the question only when there are enough high-quality pairs to make matching educationally useful; otherwise create no matching question.
+> 5. Extract both sides from the supplied notes and verify every relationship before writing the question.
+>
+> Look for relationships wherever they appear — tables, bullets, prose, definitions, lists, examples, headings, and explanations. Do not require labels such as `COMMAND`, `FLAG`, or `MEANING`, and do not assume a particular note format.
+>
+> Matching may cover commands and flags, but that is only one example. Other possible note-supported relationships include symbols → meanings, file extensions → file types, terms → definitions, protocols → purposes, tools → primary uses, signals → actions, syntax → effects, permissions → meanings, concepts → examples, technologies → characteristics, or any other naturally pairable group. This list is illustrative, not an allowlist; discover the relationship from the notes rather than selecting from hard-coded categories.
+>
+> Do not mix unrelated facts merely because they can be paired. For example, a wildcard group is coherent, while combining a wildcard, a protocol, a permission command, and a programming language is not. Do not invent a counterpart, fill gaps from outside knowledge, or turn a weak association into a pair. It is better to omit matching than to force an artificial or ambiguous question.
 >
 > Schema (in addition to q and explain):
 > ```js
 > {
->   q: "Match the ls options with their descriptions.",
->   type: "command_match",
->   command: "ls",
+>   q: "Match each Linux system component with its role.",
+>   type: "match",
+>   context: "Optional concise label for the related group",
 >   pairs: [
->     { option: "-a", description: "Show hidden files" },
->     { option: "-l", description: "Use long listing format" },
->     { option: "-h", description: "Show human-readable sizes" }
+>     { item: "Linux kernel", match: "Interfaces software with hardware" },
+>     { item: "GNU utilities", match: "Provide command-line management programs" },
+>     { item: "User interface", match: "Provides a graphical desktop or command-line shell" }
 >   ],
->   explain: "These options modify how ls displays directory contents.",
->   tags: ["ls", "options"]
+>   explain: "Each pair connects a component named in the notes with its stated role.",
+>   tags: ["linux-concepts", "components"]
 > }
 > ```
 >
-> Rules for command_match:
-> - command (string) and pairs (array of { option, description }) are required; include at least 2–6 meaningful pairs.
-> - Options and descriptions must each be unique within the question. The pairs array IS the answer — do not add an answer field.
-> - Use it when the notes contain a command option table or a meaningful set of options/flags worth memorizing (ls, grep, find, chmod, tar, ip, ss, ps, systemctl, curl, etc.). Do NOT generate one for every command automatically — skip commands whose options are trivial, redundant, or not worth testing.
-> - Do NOT use it where a normal mcq is more appropriate (e.g. a single command/flag fact). command_match is for multi-option matching, not a replacement for mcq.
-> - Options and descriptions must come ONLY from information supported by the provided notes. Do not invent flags.
-> - The output must remain valid JavaScript matching the application's schema: q, type, command, pairs, explain, tags (all fields required except tags).
+> Rules for `match`:
+> - `pairs` must contain at least 2 meaningful pairs; usually prefer 3–6 parallel pairs when the notes support them. The two sides of every pair must be non-empty and unique within the question.
+> - Use `item` for the entity or notation being tested and `match` for its counterpart. Do not add an `answer` field; the `pairs` array is the answer.
+> - `context` is optional and should identify the group without revealing the pairings. Omit it when a label would make the question more obvious or is not supported by the notes.
+> - Use only relationships supported by the supplied notes. Preserve the notes' intended scope and terminology; do not silently import facts from general knowledge to complete a set.
+> - Make the items comparable in kind and the counterparts parallel in grammar, length, specificity, and technical detail. Avoid copied wording that makes one pairing obvious, answer text that appears inside its item, or a counterpart that is the only complete sentence.
+> - Shuffle is handled by the application, but the source pairs must still form a clear, non-redundant educational group. Do not use matching for a single fact that belongs in an `mcq`, `fill`, or flashcard.
+> - If no coherent candidate group meets these rules, do not generate a `match` question just to meet a quota.
+>
+> `command_match` compatibility:
+> - Existing files may use `type: "command_match"`, `command`, and `{ option, description }` pairs. Keep that legacy shape valid when encountered, but do not limit new matching questions to commands and flags; use the generic `match` schema for new output.
 >
 > CONTENT REQUIREMENTS:
 > - Produce a minimum of 70 questions covering the entire unit notes below.
 > - Create more questions if the content contains enough important information.
 > - Prioritize complete coverage of the material over reaching a specific number.
-> - Mix types: roughly 50% mcq, 20% multi, 15% tf, 15% fill.
+> - Mix types: roughly 50% mcq, 20% multi, 15% tf, 15% fill; include `match` questions when the notes contain strong coherent groups, but never force them or inflate the question count to add one.
 > - Present EXACTLY 5 options for every mcq and multi question (no more, no fewer).
 > - VARY THE NUMBER OF CORRECT ANSWERS in multi questions. A multi question may have 1, 2, 3, or 4 correct choices out of its 5 options. Never default to 3, and never give every multi question the same number of correct choices. Across a set of questions, the correct-answer counts of consecutive multi questions should be visibly varied (e.g. 1 / 2 / 3 / 4 / 1 or 2 / 4 / 1 / 3 / 2), never 3 / 3 / 3 / 3.
 > - Choose the correct-answer count that fits the question: one correct choice when only one answer is right, more when several distinct choices legitimately qualify (e.g. selecting multiple commands, options, or true statements). Do not add fake correct answers to reach a target count, do not pad with choices that are duplicates or near-duplicates, and do not write questions where it is unclear which choices should be correct.

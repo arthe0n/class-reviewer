@@ -10,6 +10,18 @@
   var el = utils.el;
   var $ = utils.$;
 
+  function isMatchQuestion(q) {
+    return App.quiz && App.quiz.isMatchQuestion ? App.quiz.isMatchQuestion(q) : !!q && (q.type === 'match' || q.type === 'command_match');
+  }
+
+  function matchItem(pair) {
+    return pair && pair.item != null ? pair.item : (pair && pair.option != null ? pair.option : '');
+  }
+
+  function matchCounterpart(pair) {
+    return pair && pair.match != null ? pair.match : (pair && pair.description != null ? pair.description : '');
+  }
+
   function emptyState(title, msg) {
     return el('div', { className: 'empty-state' }, [
       el('h3', { text: title }),
@@ -946,7 +958,7 @@
         { keys: ['1–5'], desc: 'Select or deselect an option (single-answer questions move the selection)' },
         { keys: ['Enter', 'Space'], desc: 'Submit your answer, then advance to the next question' },
         { keys: ['Enter'], desc: 'Submit the answer typed in a fill-in field' },
-        { keys: ['Enter'], desc: 'Submit a command-matching question once every row is matched' }
+        { keys: ['Enter'], desc: 'Submit a matching question once every row is matched' }
       ];
     rows.push({ keys: ['?'], desc: 'Show this reference' });
     var body = el('div', { className: 'shortcuts-list' });
@@ -1077,12 +1089,12 @@
 
   function appendQuestionReview(parent, q) {
     parent.appendChild(el('div', { style: { fontWeight: '600' }, text: q.q }));
-    if (q.type === 'command_match' && Array.isArray(q.pairs)) {
-      var list = el('div', { className: 'cmd-match-answer mt-1' });
+    if (isMatchQuestion(q) && Array.isArray(q.pairs)) {
+      var list = el('div', { className: 'match-answer mt-1' });
       q.pairs.forEach(function (p) {
-        list.appendChild(el('div', { className: 'cmd-match-answer-row' }, [
-          el('code', { className: 'cmd-match-option', text: p.option }),
-          el('span', { className: 'text-muted', text: '→ ' + p.description })
+        list.appendChild(el('div', { className: 'match-answer-row' }, [
+          el('span', { className: 'match-item', text: matchItem(p) }),
+          el('span', { className: 'text-muted', text: '→ ' + matchCounterpart(p) })
         ]));
       });
       parent.appendChild(list);
@@ -1141,7 +1153,7 @@
           if ((q._correctShuffled || []).indexOf(i) >= 0) b.classList.add('correct');
           else if (selectedMulti[i]) b.classList.add('wrong');
         });
-      } else if (q.type === 'command_match' && matchUI) {
+      } else if (isMatchQuestion(q) && matchUI) {
         matchUI.lock();
       }
       card.appendChild(el('div', { className: 'explain-panel' }, [
@@ -1188,9 +1200,9 @@
         doSubmit(ua);
       } else if (q.type === 'fill') {
         doSubmit(($('#qz-fill') || {}).value);
-      } else if (q.type === 'command_match' && matchUI) {
+      } else if (isMatchQuestion(q) && matchUI) {
         var arr = matchUI.read();
-        if (arr.some(function (v) { return v == null; })) { App.toast('Match every option before submitting', 'error'); return; }
+        if (arr.some(function (v) { return v == null; })) { App.toast('Match every item before submitting', 'error'); return; }
         doSubmit(arr);
       }
     }
@@ -1236,11 +1248,11 @@
           else submitCurrent();
         }
       }));
-    } else if (q.type === 'command_match') {
+    } else if (isMatchQuestion(q)) {
       if (q._invalid) {
-        optsWrap.appendChild(emptyState('Question unavailable', 'This command-matching question is missing required data (command or pairs).'));
+        optsWrap.appendChild(emptyState('Question unavailable', 'This matching question is missing required data (pairs or a valid counterpart on each side).'));
       } else {
-        matchUI = App.quiz.renderCommandMatchUI(optsWrap, q, {
+        matchUI = App.quiz.renderMatchUI(optsWrap, q, {
           submitLabel: 'Submit',
           onSubmit: function (arr) { doSubmit(arr); }
         });
@@ -1513,13 +1525,13 @@
           onClick: function () { selectOption(i); }
         }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: opt.text })]));
       });
-    } else if (q.type === 'command_match') {
+    } else if (isMatchQuestion(q)) {
       if (q._invalid) {
-        optsWrap.appendChild(emptyState('Question unavailable', 'This command-matching question is missing required data (command or pairs).'));
+        optsWrap.appendChild(emptyState('Question unavailable', 'This matching question is missing required data (pairs or a valid counterpart on each side).'));
       } else {
         var curMatch = sess.answers[sess.index];
         if (!Array.isArray(curMatch)) curMatch = null;
-        App.quiz.renderCommandMatchUI(optsWrap, q, {
+        App.quiz.renderMatchUI(optsWrap, q, {
           initial: curMatch,
           onChange: function (arr) {
             App.quiz.examAnswer(sess.index, arr);

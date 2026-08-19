@@ -10,42 +10,74 @@
   var el = utils.el;
 
   /* ── Helpers ────────────────────────────────────────────── */
-  // Validate/normalize a command_match question's pairs.
-  // Returns an array of { option, description } or null when malformed.
-  function sanitizeCommandMatch(q) {
+  // `match` is the generic authoring type. `command_match` remains a legacy
+  // alias so existing content and saved sessions continue to work.
+  function isMatchQuestion(q) {
+    return !!q && (q.type === 'match' || q.type === 'command_match');
+  }
+
+  function pairItem(pair) {
+    return pair && pair.item != null ? pair.item : (pair && pair.option != null ? pair.option : '');
+  }
+
+  // Validate/normalize a generic item-to-counterpart question's pairs.
+  // Canonical pairs use { item, match }; option/description is accepted for
+  // legacy command_match content. Returns null when the question is malformed.
+  function sanitizeMatch(q) {
+    if (!q || typeof q !== 'object') return null;
+    var legacy = q.type === 'command_match';
     var command = String(q.command == null ? '' : q.command).trim();
-    if (!command) return null;
+    if (legacy && !command) return null;
     var pairs = Array.isArray(q.pairs) ? q.pairs : [];
-    var seenOpt = {};
-    var seenDesc = {};
+    var seenItems = Object.create(null);
+    var seenMatches = Object.create(null);
     var clean = [];
     pairs.forEach(function (p) {
       if (!p || typeof p !== 'object') return;
-      var option = String(p.option == null ? '' : p.option).trim();
-      var description = String(p.description == null ? '' : p.description).trim();
-      if (!option || !description) return;      // drop pairs missing a side
-      if (seenOpt[option] || seenDesc[description]) return; // drop duplicates
-      seenOpt[option] = true;
-      seenDesc[description] = true;
-      clean.push({ option: option, description: description });
+      var itemValue = p.item != null ? p.item : (p.left != null ? p.left : p.option);
+      var matchValue = p.match != null ? p.match : (p.right != null ? p.right : p.description);
+      var item = String(itemValue == null ? '' : itemValue).trim();
+      var match = String(matchValue == null ? '' : matchValue).trim();
+      if (!item || !match) return; // drop pairs missing a side
+      var itemKey = item.toLowerCase();
+      var matchKey = match.toLowerCase();
+      if (seenItems[itemKey] || seenMatches[matchKey]) return; // drop duplicates
+      seenItems[itemKey] = true;
+      seenMatches[matchKey] = true;
+      clean.push({ item: item, match: match });
     });
     if (clean.length < 2) return null; // nothing meaningful to match
     return clean;
   }
 
+  // Public compatibility name retained for callers that used the old helper.
+  // Keep its old return shape while the generic engine uses { item, match }.
+  function sanitizeCommandMatch(q) {
+    var clean = sanitizeMatch(q);
+    return clean && clean.map(function (pair) {
+      return { option: pair.item, description: pair.match };
+    });
+  }
+
   function prepareQuestion(raw) {
     var q = Object.assign({}, raw);
     q._origAnswer = q.answer;
-    if (q.type === 'command_match') {
-      var pairs = sanitizeCommandMatch(q);
+    if (isMatchQuestion(q)) {
+      var pairs = sanitizeMatch(q);
       if (!pairs) {
         q._invalid = true;
       } else {
         q._pairs = pairs;
         q._shuffledPairs = utils.shuffle(pairs);
-        var descs = utils.shuffle(pairs.map(function (p) { return p.description; }));
-        q._shuffledDescs = descs;
-        q._correctDescIdx = q._shuffledPairs.map(function (p) { return descs.indexOf(p.description); });
+        var matches = utils.shuffle(pairs.map(function (p) { return p.match; }));
+        q._shuffledMatches = matches;
+        q._correctMatchIdx = q._shuffledPairs.map(function (p) { return matches.indexOf(p.match); });
+        // Retain the old field names for persisted sessions and callers that
+        // still inspect command_match questions directly.
+        q._shuffledDescs = matches;
+        q._correctDescIdx = q._correctMatchIdx;
+        q._matchContext = String(q.context == null ? (q.command == null ? '' : q.command) : q.context).trim();
+        q._matchLabel = q.command ? 'COMMAND' : String(q.contextLabel || 'MATCHING').trim();
       }
     } else if (q.type === 'mcq' || q.type === 'multi') {
       var opts = (q.options || []).map(function (o, i) { return { text: o, origIdx: i }; });
@@ -80,9 +112,9 @@
     if (q.type === 'fill') {
       return acceptedAnswerForms(q).indexOf(normalizeAnswer(userAnswer)) >= 0;
     }
-    if (q.type === 'command_match') {
+    if (isMatchQuestion(q)) {
       if (q._invalid || !Array.isArray(userAnswer)) return false;
-      var correct = q._correctDescIdx || [];
+      var correct = q._correctMatchIdx || q._correctDescIdx || [];
       if (userAnswer.length !== correct.length) return false;
       // One wrong match makes the whole question wrong (consistent with multi)
       return correct.every(function (c, i) {
@@ -287,32 +319,35 @@
     return all;
   }
 
-  /* ── Command-match UI builder ───────────────────────────── */
+  /* ── Generic matching UI builder ────────────────────────── */
   // Shared by the quiz player, exam player and single-question modal.
-  // Renders the command banner + one row per option with a <select> of
-  // shuffled descriptions. Returns { lock } — lock() disables the rows and
-  // paints correct/wrong feedback, revealing the right answer on wrong rows.
-  function renderCommandMatchUI(container, q, opts) {
+  // Renders an optional context banner plus one row per item with a <select>
+  // of shuffled counterparts. Returns { lock } for answer feedback.
+  function renderMatchUI(container, q, opts) {
     opts = opts || {};
-    var banner = el('div', { className: 'cmd-match-command' }, [
-      el('span', { className: 'cmd-match-command-label', text: 'COMMAND' }),
-      el('code', { className: 'cmd-match-command-name', text: q.command || '' })
+    var context = q._matchContext || q.context || q.command || '';
+    var label = q._matchLabel || (q.command ? 'COMMAND' : 'MATCHING');
+    var banner = el('div', { className: 'match-context' }, [
+      el('span', { className: 'match-context-label', text: label }),
+      el('span', { className: 'match-context-name', text: context || 'Related items' })
     ]);
     container.appendChild(banner);
 
-    var rows = el('div', { className: 'cmd-match-rows' });
+    var rows = el('div', { className: 'match-pairs' });
     var selects = [];
     var initial = Array.isArray(opts.initial) ? opts.initial : [];
+    var matches = q._shuffledMatches || q._shuffledDescs || [];
     q._shuffledPairs.forEach(function (pair, i) {
-      var row = el('div', { className: 'cmd-match-row' });
-      row.appendChild(el('code', { className: 'cmd-match-option', text: pair.option }));
+      var item = pairItem(pair);
+      var row = el('div', { className: 'match-row' });
+      row.appendChild(el('span', { className: 'match-item', text: item }));
       var sel = el('select', {
-        className: 'form-control cmd-match-select',
-        'aria-label': 'Match ' + pair.option + ' with its description'
+        className: 'form-control match-select',
+        'aria-label': 'Match ' + item + ' with its counterpart'
       });
-      sel.appendChild(el('option', { value: '', text: '— choose description —' }));
-      q._shuffledDescs.forEach(function (desc, j) {
-        sel.appendChild(el('option', { value: String(j), text: desc }));
+      sel.appendChild(el('option', { value: '', text: '— choose counterpart —' }));
+      matches.forEach(function (match, j) {
+        sel.appendChild(el('option', { value: String(j), text: match }));
       });
       if (initial[i] != null) sel.value = String(initial[i]);
       sel.addEventListener('change', function () {
@@ -338,14 +373,14 @@
       q._shuffledPairs.forEach(function (pair, i) {
         var row = rows.children[i];
         var chosen = selects[i].value;
-        var correctIdx = q._correctDescIdx[i];
+        var correctIdx = (q._correctMatchIdx || q._correctDescIdx || [])[i];
         if (String(correctIdx) === chosen) {
           row.classList.add('correct');
         } else {
           row.classList.add('wrong');
           row.appendChild(el('span', {
-            className: 'cmd-match-correct',
-            text: '→ ' + q._shuffledDescs[correctIdx]
+            className: 'match-correct',
+            text: '→ ' + matches[correctIdx]
           }));
         }
       });
@@ -359,7 +394,7 @@
           if (opts.locked) return;
           var arr = read();
           if (arr.some(function (v) { return v == null; })) {
-            App.toast('Match every option before submitting', 'error');
+            App.toast('Match every item before submitting', 'error');
             return;
           }
           opts.onSubmit(arr);
@@ -370,6 +405,9 @@
 
     return { lock: lock, read: read, selects: selects };
   }
+
+  // Public compatibility alias for callers that used the command-specific name.
+  var renderCommandMatchUI = renderMatchUI;
 
   /* ── Render single question (for search modal) ──────────── */
   function renderSingle(container, rawQ) {
@@ -465,14 +503,14 @@
           finish(correct, q.explain);
         }
       }));
-    } else if (q.type === 'command_match') {
+    } else if (isMatchQuestion(q)) {
       if (q._invalid) {
         optsWrap.appendChild(el('div', { className: 'empty-state', style: { padding: '1rem' } }, [
           el('h3', { text: 'Question unavailable' }),
-          el('p', { text: 'This command-matching question is missing required data (command or pairs).' })
+          el('p', { text: 'This matching question is missing required data (pairs or a valid counterpart on each side).' })
         ]));
       } else {
-        var ui = renderCommandMatchUI(optsWrap, q, {
+        var ui = renderMatchUI(optsWrap, q, {
           submitLabel: 'Check',
           onSubmit: function (arr) {
             if (answered) return;
@@ -627,7 +665,10 @@
     normalizeAnswer: normalizeAnswer,
     splitAnswerAcronym: splitAnswerAcronym,
     acceptedAnswerForms: acceptedAnswerForms,
+    isMatchQuestion: isMatchQuestion,
+    sanitizeMatch: sanitizeMatch,
     sanitizeCommandMatch: sanitizeCommandMatch,
+    renderMatchUI: renderMatchUI,
     renderCommandMatchUI: renderCommandMatchUI,
     renderSingle: renderSingle,
     startExam: startExam,

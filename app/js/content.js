@@ -386,10 +386,15 @@
 
     registry.questions.forEach(function (item) {
       var pairText = '';
-      if (item.type === 'command_match' && Array.isArray(item.pairs)) {
-        pairText = item.pairs.map(function (p) { return (p.option || '') + ' ' + (p.description || ''); }).join(' ');
+      if ((item.type === 'match' || item.type === 'command_match') && Array.isArray(item.pairs)) {
+        pairText = item.pairs.map(function (p) {
+          var itemText = p.item != null ? p.item : (p.option || '');
+          var counterpart = p.match != null ? p.match : (p.description || '');
+          return itemText + ' ' + counterpart;
+        }).join(' ');
       }
-      var text = (item.q || '') + ' ' + (item.command || '') + ' ' + pairText + ' ' +
+      var matchContext = item.context || item.command || '';
+      var text = (item.q || '') + ' ' + matchContext + ' ' + pairText + ' ' +
         (item.explain || '') + ' ' + (item.tags || []).join(' ');
       if (text.toLowerCase().indexOf(q) >= 0) {
         results.push({

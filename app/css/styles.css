@@ -1385,8 +1385,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   animation: rise-in var(--motion-normal) var(--ease);
 }
 
-/* ── Command matching ────────────────────────────────────── */
-.cmd-match-command {
+/* ── Matching questions ──────────────────────────────────── */
+.match-context {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1397,25 +1397,25 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   border-left: 3px solid var(--accent-cyan);
   border-radius: var(--radius-sm);
 }
-.cmd-match-command-label {
+.match-context-label {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
-.cmd-match-command-name {
+.match-context-name {
   font-family: var(--font-mono);
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--accent-cyan);
 }
-.cmd-match-rows {
+.match-pairs {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
 }
-.cmd-match-row {
+.match-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1425,15 +1425,15 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   padding: 0.5rem 0.75rem;
   transition: border-color var(--dur), background var(--dur);
 }
-.cmd-match-row.correct {
+.match-row.correct {
   border-color: var(--accent-green);
   background: var(--accent-green-dim);
 }
-.cmd-match-row.wrong {
+.match-row.wrong {
   border-color: var(--accent-red);
   background: var(--accent-red-dim);
 }
-.cmd-match-option {
+.match-item {
   font-family: var(--font-mono);
   font-size: 0.85rem;
   font-weight: 700;
@@ -1447,17 +1447,17 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   min-width: 3.2rem;
   text-align: center;
 }
-.cmd-match-select {
+.match-select {
   flex: 1;
   min-width: 0;
 }
-.cmd-match-correct {
+.match-correct {
   font-family: var(--font-mono);
   font-size: 0.82rem;
   color: var(--accent-green);
   white-space: nowrap;
 }
-.cmd-match-answer {
+.match-answer {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
@@ -1466,7 +1466,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
-.cmd-match-answer-row {
+.match-answer-row {
   display: flex;
   align-items: baseline;
   gap: 0.6rem;

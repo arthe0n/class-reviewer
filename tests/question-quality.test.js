@@ -20,6 +20,12 @@ var prompt = fs.readFileSync(promptPath, 'utf8');
 [
   'ANSWER-CHOICE QUALITY',
   'balanced set of answers',
+  'type: "match"',
+  'analyze the notes',
+  'coherent group',
+  'counterpart',
+  'supported by the supplied notes',
+  'do not force',
   'Balance the options, not the question stem',
   'short, direct questions',
   'systematically be the longest or shortest',
@@ -101,15 +107,25 @@ payloads.forEach(function (payload) {
       }
     }
 
-    if (question.type === 'command_match') {
-      assert.ok(question.command && Array.isArray(question.pairs));
-      assert.ok(question.pairs.length >= 2, 'command matches need at least two pairs');
-      var options = question.pairs.map(function (pair) { return pair.option; });
-      var descriptions = question.pairs.map(function (pair) { return pair.description; });
-      assert.strictEqual(new Set(options).size, options.length);
-      assert.strictEqual(new Set(descriptions).size, descriptions.length);
+    if (question.type === 'match' || question.type === 'command_match') {
+      var legacyMatch = question.type === 'command_match';
+      if (legacyMatch) assert.ok(question.command, 'legacy command matches need a command context');
+      assert.ok(Array.isArray(question.pairs));
+      assert.ok(question.pairs.length >= 2, 'matching questions need at least two pairs');
+      var items = question.pairs.map(function (pair) {
+        return String(pair.item != null ? pair.item : pair.option).trim().toLowerCase();
+      });
+      var counterparts = question.pairs.map(function (pair) {
+        return String(pair.match != null ? pair.match : pair.description).trim().toLowerCase();
+      });
+      assert.strictEqual(new Set(items).size, items.length);
+      assert.strictEqual(new Set(counterparts).size, counterparts.length);
       question.pairs.forEach(function (pair) {
-        assert.ok(String(pair.option).trim() && String(pair.description).trim());
+        assert.ok(String(pair.item != null ? pair.item : pair.option).trim());
+        assert.ok(String(pair.match != null ? pair.match : pair.description).trim());
+        if (!legacyMatch) {
+          assert.ok(pair.item != null && pair.match != null, 'generic matches use item/match pairs');
+        }
       });
     }
   });
@@ -158,6 +174,68 @@ var shuffleUtils = {
 global.window = { ReviewApp: { core: { utils: shuffleUtils } } };
 require('../app/js/quiz.js');
 var quiz = global.window.ReviewApp.quiz;
+
+[
+  {
+    context: 'Command flags',
+    pairs: [{ item: '-i', match: 'Ignore case' }, { item: '-n', match: 'Show line numbers' }]
+  },
+  {
+    context: 'Shell symbols',
+    pairs: [{ item: '*', match: 'Match multiple characters' }, { item: '?', match: 'Match one character' }]
+  },
+  {
+    context: 'File extensions',
+    pairs: [{ item: '.py', match: 'Python source file' }, { item: '.json', match: 'JSON data' }]
+  },
+  {
+    context: 'Process concepts',
+    pairs: [{ item: 'Process', match: 'Running instance of a program' }, { item: 'Thread', match: 'Execution unit within a process' }]
+  },
+  {
+    context: 'Network protocols',
+    pairs: [{ item: 'SSH', match: 'Secure remote shell access' }, { item: 'DNS', match: 'Resolves domain names' }]
+  },
+  {
+    context: 'Redirection syntax',
+    pairs: [{ item: '>', match: 'Redirect standard output' }, { item: '2>', match: 'Redirect standard error' }]
+  }
+].forEach(function (fixture) {
+  var prepared = quiz.prepareQuestion({ q: 'Match the related items.', type: 'match', context: fixture.context, pairs: fixture.pairs });
+  assert.strictEqual(prepared._invalid, undefined);
+  assert.strictEqual(prepared._shuffledPairs.length, fixture.pairs.length);
+  assert.strictEqual(prepared._matchContext, fixture.context);
+  assert.strictEqual(quiz.checkAnswer(prepared, prepared._correctMatchIdx.slice()), true);
+});
+
+var legacyPrepared = quiz.prepareQuestion({
+  q: 'Match flags.',
+  type: 'command_match',
+  command: 'grep',
+  pairs: [{ option: '-i', description: 'Ignore case' }, { option: '-n', description: 'Show line numbers' }]
+});
+assert.strictEqual(legacyPrepared._invalid, undefined);
+assert.strictEqual(quiz.checkAnswer(legacyPrepared, legacyPrepared._correctDescIdx.slice()), true);
+assert.deepStrictEqual(quiz.sanitizeMatch({
+  type: 'match',
+  pairs: [{ item: 'A', match: 'Alpha' }, { item: 'B', match: 'Beta' }]
+}), [
+  { item: 'A', match: 'Alpha' },
+  { item: 'B', match: 'Beta' }
+]);
+assert.strictEqual(quiz.sanitizeMatch({
+  type: 'match',
+  pairs: [{ item: 'A', match: 'Alpha' }, { item: 'A', match: 'Another meaning' }]
+}), null);
+assert.deepStrictEqual(quiz.sanitizeCommandMatch({
+  type: 'command_match',
+  command: 'grep',
+  pairs: [{ option: '-i', description: 'Ignore case' }, { option: '-n', description: 'Show line numbers' }]
+}), [
+  { option: '-i', description: 'Ignore case' },
+  { option: '-n', description: 'Show line numbers' }
+]);
+
 var raw = {
   q: 'Which option is correct?',
   type: 'mcq',

@@ -154,6 +154,19 @@ window.ReviewApp.content.register({
       ],
       explain: "grep options refine pattern matching: -i makes it case-insensitive, -r descends into directories, -n shows where matches occur, and -v inverts the match.",
       tags: ["grep", "options"]
+    },
+    {
+      q: "Match each Linux system component with its role.",
+      type: "match",
+      context: "Linux system components",
+      pairs: [
+        { item: "Linux kernel", match: "Manages CPU, memory, and devices" },
+        { item: "GNU utilities", match: "Provides command-line management programs" },
+        { item: "User interface", match: "Offers a graphical desktop or command-line shell" },
+        { item: "Application software", match: "Runs desktop and server programs" }
+      ],
+      explain: "The notes describe these four parts as the components of a complete Linux system and identify each part's role.",
+      tags: ["linux-concepts", "components"]
     }
   ]
 });

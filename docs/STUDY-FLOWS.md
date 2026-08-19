@@ -39,7 +39,7 @@ questions move the selection when you press a different key).
 - **Enter / Space** — submit the current answer, then advance to the next
 question. In the fill-in-the-blank answer box, Enter submits.
 - **`?`** — show the keyboard shortcut reference panel.
-- Command-matching questions validate all rows before submitting.
+- Matching questions validate all rows before submitting; this includes generic item-to-counterpart questions and legacy command matching.
 
 ## Exam Simulation
 
