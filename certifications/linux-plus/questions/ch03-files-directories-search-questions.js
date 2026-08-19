@@ -46,7 +46,7 @@ tags: ["paths", "cd", "metacharacters"]
 {
 q: "What is a relative pathname?",
 type: "mcq",
-options: ["A pathname that always begins with `/`", "A pathname interpreted relative to the current directory", "A pathname containing only filenames", "A pathname stored in `/etc`"],
+options: ["A pathname interpreted from the root directory regardless of the current working directory.", "A pathname interpreted from the current working directory rather than from the root directory.", "A pathname that contains only a filename and never includes a directory component.", "A pathname stored in a system configuration file such as `/etc`, not in the directory tree."],
 answer: 1,
 explain: "A relative pathname is interpreted from the current working directory. An absolute pathname starts at `/`.",
 tags: ["paths", "relative"]
@@ -54,7 +54,7 @@ tags: ["paths", "relative"]
 {
 q: "In the Linux directory tree, what is the parent directory?",
 type: "mcq",
-options: ["The directory closest to `/dev`", "The directory one level closer to the root than the current directory", "The user's home directory", "The directory containing `/root`"],
+options: ["The directory closest to `/dev` in the filesystem tree, regardless of the current path.", "The directory one level closer to the root than the current directory in the tree.", "The home directory assigned to the current user rather than the current path's parent.", "The directory that contains the system administrator's home directory in every case."],
 answer: 1,
 explain: "The parent directory is one level closer to the root than the current directory.",
 tags: ["paths", "directories"]
@@ -262,7 +262,7 @@ tags: ["wildcards", "metacharacters"]
 {
 q: "Which shell metacharacter is used for a range wildcard?",
 type: "mcq",
-options: ["[ ]", "( )", "{ }", "", ""],
+options: ["[ ]", "*", "?", "{ }", "~"],
 answer: 0,
 explain: "`[ ]` is identified in the notes as the range wildcard.",
 tags: ["wildcards", "metacharacters"]
@@ -406,7 +406,7 @@ tags: ["touch", "files"]
 {
 q: "Which command creates a directory?",
 type: "mcq",
-options: ["mkdir", "rmdir", "mkfile", "touch"],
+options: ["mkdir", "rmdir", "touch", "cp"],
 answer: 0,
 explain: "`mkdir` creates directories. `rmdir` removes empty directories.",
 tags: ["mkdir", "directories"]
@@ -414,7 +414,7 @@ tags: ["mkdir", "directories"]
 {
 q: "Which `mkdir` option creates missing parent directories automatically?",
 type: "mcq",
-options: ["-v", "-p", "-R", "-a"],
+options: ["-v", "-p", "-m", "-Z"],
 answer: 1,
 explain: "`mkdir -p` creates any missing parent directories needed for the full path.",
 tags: ["mkdir", "options"]
@@ -422,7 +422,7 @@ tags: ["mkdir", "options"]
 {
 q: "Which `mkdir` option prints a message for each directory created?",
 type: "mcq",
-options: ["-p", "-v", "-F", "-i"],
+options: ["-p", "-v", "-m", "-Z"],
 answer: 1,
 explain: "`-v` is verbose and reports each directory created.",
 tags: ["mkdir", "options"]
@@ -470,7 +470,7 @@ tags: ["cp", "recursive"]
 {
 q: "What does `cp` do when asked to copy a directory without `-R` or `-r`?",
 type: "mcq",
-options: ["Copies only the directory entry", "Refuses and reports that it is omitting the directory", "Deletes the directory", "Converts it into a regular file"],
+options: ["Copies only the directory entry and skips its contents.", "Refuses the directory and reports that it is omitting the directory.", "Deletes the directory before copying its contents as a regular file.", "Converts the directory into a regular file at the destination."],
 answer: 1,
 explain: "Without recursive mode, `cp` refuses to copy a directory and reports `cp: omitting directory`.",
 tags: ["cp", "recursive"]
@@ -540,9 +540,9 @@ explain: "`-a` is archive mode and is shorthand for `-rlptgoD`.",
 tags: ["rsync", "archive"]
 },
 {
-q: "Which command removes files?",
+q: "Which command is the main utility for removing files and directory trees?",
 type: "mcq",
-options: ["rm", "rmdir", "del", "unlinkall"],
+options: ["rm", "rmdir", "mv", "cp"],
 answer: 0,
 explain: "`rm` is the main deletion utility. `rmdir` specifically removes empty directories.",
 tags: ["rm", "deletion"]
@@ -582,7 +582,7 @@ tags: ["rm", "recursive"]
 {
 q: "Which command removes empty directories only?",
 type: "mcq",
-options: ["rm", "rmdir", "unlink", "erase"],
+options: ["rm", "rmdir", "mkdir", "mv"],
 answer: 1,
 explain: "`rmdir` removes empty directories only. Non-empty directories require recursive `rm`.",
 tags: ["rmdir", "directories"]
@@ -606,7 +606,7 @@ tags: ["links", "inode"]
 {
 q: "Which command creates a hard link?",
 type: "mcq",
-options: ["ln", "ln -s", "link -s", "hardlink"],
+options: ["ln", "ln -s", "readlink", "cp -a"],
 answer: 0,
 explain: "`ln original linked` creates a hard link. `ln -s` creates a symbolic link.",
 tags: ["links", "ln"]
@@ -614,7 +614,7 @@ tags: ["links", "ln"]
 {
 q: "What must be true before creating a hard link?",
 type: "mcq",
-options: ["The original may be missing", "The new filename must already exist", "The original file must exist and both links must be on the same filesystem", "The files must be on different filesystems"],
+options: ["The original may be absent if the destination name is created first.", "The destination name must already exist, and both paths may use different filesystems.", "The original must exist, the new name must be unused, and both paths must use one filesystem.", "The two link names must use different filesystems so their inodes remain separate."],
 answer: 2,
 explain: "The original must exist, the new name must not already exist, and hard links must reside on the same filesystem.",
 tags: ["links", "hardlink"]
@@ -622,7 +622,7 @@ tags: ["links", "hardlink"]
 {
 q: "Which command creates a symbolic link?",
 type: "mcq",
-options: ["ln -s", "ln -h", "link -p", "symlink"],
+options: ["ln -s", "ln -P", "readlink", "cp -a"],
 answer: 0,
 explain: "`ln -s` or `ln --symbolic` creates a symbolic link.",
 tags: ["links", "symlink"]
@@ -638,7 +638,7 @@ tags: ["links", "symlink"]
 {
 q: "What command can resolve a chain of symbolic links to its final target?",
 type: "mcq",
-options: ["readlink -f", "ls -i", "which -a", "link -r"],
+options: ["readlink -f", "stat", "ls -i", "which -a"],
 answer: 0,
 explain: "`readlink -f <file>` resolves a chain of symbolic links to the final target name and directory location.",
 tags: ["links", "readlink"]
@@ -646,7 +646,7 @@ tags: ["links", "readlink"]
 {
 q: "What is a stale symbolic link?",
 type: "mcq",
-options: ["A hard link with two names", "A symbolic link whose target was deleted or moved", "A file with an old timestamp", "A link on a read-only filesystem"],
+options: ["A hard link with two directory entries that refer to the same inode.", "A symbolic link whose target was moved or deleted, so the link no longer resolves.", "A file whose timestamp no longer matches the metadata in its directory entry.", "A link that cannot be changed because its filesystem is mounted read-only."],
 answer: 1,
 explain: "A stale or dead link points to a target that has been deleted or moved. The link itself is not automatically updated or removed.",
 tags: ["links", "security"]
@@ -886,7 +886,7 @@ tags: ["find", "inode"]
 {
 q: "Which `find` criterion searches by file type?",
 type: "mcq",
-options: ["-type", "-class", "-file", "-kind"],
+options: ["-type", "-name", "-user", "-size"],
 answer: 0,
 explain: "`-type` searches by type, such as `f` for regular file, `d` for directory, or `l` for symbolic link.",
 tags: ["find", "filetypes"]
@@ -894,7 +894,7 @@ tags: ["find", "filetypes"]
 {
 q: "Which `find` option limits how many levels down the directory tree are searched?",
 type: "mcq",
-options: ["-maxdepth", "-depth", "-limit", "-levels"],
+options: ["-maxdepth", "-depth", "-mindepth", "-size"],
 answer: 0,
 explain: "`-maxdepth` limits the depth of the recursive search.",
 tags: ["find", "maxdepth"]
@@ -910,7 +910,7 @@ tags: ["find", "suid", "permissions"]
 {
 q: "Which command can recursively search a directory tree for text patterns?",
 type: "mcq",
-options: ["grep -R", "cat -R", "which -R", "file -R"],
+options: ["grep -R", "find . -type f", "locate", "file"],
 answer: 0,
 explain: "`grep -R` or `grep -r` recursively searches a directory tree for matching text.",
 tags: ["grep", "recursive"]
@@ -918,7 +918,7 @@ tags: ["grep", "recursive"]
 {
 q: "Which `grep` option in the notes causes directories encountered while searching to be skipped?",
 type: "mcq",
-options: ["-d skip", "-d ignore", "-R skip", "-v dir"],
+options: ["-d skip", "-r", "-R", "-v"],
 answer: 0,
 explain: "`grep -d skip` tells `grep` to skip directories instead of producing errors for them in the described search.",
 tags: ["grep", "directories"]

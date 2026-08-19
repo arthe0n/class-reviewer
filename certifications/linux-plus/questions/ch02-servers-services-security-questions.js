@@ -7,10 +7,10 @@ window.ReviewApp.content.register({
       q: "What is the primary functional difference between a Linux desktop and a Linux server?",
       type: "mcq",
       options: [
-        "Servers cannot run a GUI at all",
-        "Servers are designed to provide services to other systems with little direct human interaction, while desktops are designed for interactive human use",
-        "Desktops use a different kernel than servers",
-        "Servers cannot be managed via SSH"
+        "Servers cannot run a GUI at all, while desktops are built around direct graphical interaction with users.",
+        "Servers provide network services for other systems with little direct interaction, while desktops support interactive local use.",
+        "Servers use a different kernel and process model from desktops, even on the same Linux distribution.",
+        "Servers cannot be managed remotely, while desktops rely on local administration through graphical tools."
       ],
       answer: 1,
       explain: "Both use the same kernel and shell; the distinction is usage — servers provide network services with minimal direct interaction, while desktops are used interactively.",
@@ -28,8 +28,8 @@ window.ReviewApp.content.register({
       type: "mcq",
       options: [
         "ps ax | grep mysql",
-        "cat /etc/mysql.conf",
-        "systemctl list-daemons mysql",
+        "ps ax | grep apache",
+        "grep mysql /etc/services",
         "ls /var/log/mysql"
       ],
       answer: 0,
@@ -47,12 +47,12 @@ window.ReviewApp.content.register({
       q: "What is the main advantage of using a super-server like inetd or xinetd instead of running many individual daemons?",
       type: "mcq",
       options: [
-        "It encrypts all network traffic automatically",
-        "It listens on behalf of multiple services and launches the appropriate program only when a request arrives, saving memory",
-        "It replaces the need for a firewall",
-        "It only works with Systemd"
+        "It reduces memory use by launching each service only when a matching request arrives.",
+        "It encrypts each service connection before handing the request to the target daemon.",
+        "It replaces firewall rules by filtering each packet before a service receives it.",
+        "It converts every network service into a Systemd unit before starting it."
       ],
-      answer: 1,
+      answer: 0,
       explain: "Super-servers reduce the number of daemons that must sit resident in memory by launching service programs on demand when requests come in.",
       tags: ["super-server", "inetd", "xinetd"]
     },
@@ -67,10 +67,10 @@ window.ReviewApp.content.register({
       q: "Which features does xinetd add over the original inetd? (Select all that apply.)",
       type: "multi",
       options: [
-        "Access control lists (ACLs)",
-        "Advanced logging",
-        "Automatic certificate generation",
-        "Service scheduling"
+        "Access-control rules that restrict which clients may use a service",
+        "Detailed logging of service requests and connection activity",
+        "Automatic certificate generation for each network service",
+        "Scheduling rules that enable or disable services at selected times"
       ],
       answer: [0, 1, 3],
       explain: "xinetd adds ACLs, advanced logging, and service scheduling over inetd. It does not handle certificate generation — that's a CA/OpenSSL function.",
@@ -165,10 +165,10 @@ window.ReviewApp.content.register({
       q: "Apache HTTP Server's key architectural advantage is its:",
       type: "mcq",
       options: [
-        "Event-driven, non-blocking core",
-        "Modular architecture using loadable modules for advanced features",
-        "Built-in NoSQL database engine",
-        "Requirement that all features be compiled into the core binary"
+        "An event-driven core that handles connections without blocking.",
+        "A modular core that adds advanced features through loadable modules.",
+        "A built-in database engine that stores application data.",
+        "A monolithic core that requires every feature to be compiled in."
       ],
       answer: 1,
       explain: "Apache relies on a modular design where advanced functionality (SSL/TLS, PHP, etc.) is added via loadable modules, unlike Nginx's event-driven core design.",
@@ -213,10 +213,10 @@ window.ReviewApp.content.register({
       q: "A company deploys Nginx in front of several Apache servers. What is the most likely reason for this architecture?",
       type: "mcq",
       options: [
-        "To let Nginx handle incoming connections and load balancing while Apache processes dynamic content using its module ecosystem",
-        "Because Apache cannot serve static files",
-        "Because Nginx requires Apache to function at all",
-        "To replace the need for a database server"
+        "Nginx handles many incoming connections and load balancing, while Apache serves dynamic content through its modules.",
+        "Nginx serves static content and Apache handles connections, while a database provides the load-balancing layer.",
+        "Nginx requires Apache to serve any content, because it cannot operate as a standalone web server.",
+        "The two servers replace a database service by sharing all application state through their web modules."
       ],
       answer: 0,
       explain: "This combines Nginx's efficient handling of high connection volume with Apache's flexibility and rich module ecosystem for dynamic content.",
@@ -292,10 +292,10 @@ window.ReviewApp.content.register({
       q: "What was MySQL's original core design focus?",
       type: "mcq",
       options: [
-        "Maximum extensibility through custom data types",
-        "Lightweight, high-performance operation with speed and simplicity",
-        "Full compliance with NoSQL document standards",
-        "Built-in load balancing across nodes"
+        "Maximum extensibility through user-defined data types, plugins, and custom storage engines.",
+        "Lightweight, high-performance operation with an emphasis on speed, simplicity, and easy administration.",
+        "Full compliance with NoSQL document standards, flexible schemas, and document-based storage models.",
+        "Built-in load balancing across database nodes without external tools or a separate proxy layer."
       ],
       answer: 1,
       explain: "MySQL was originally built for speed, simplicity, and ease of use, though it has since added advanced features like transactions and stored procedures.",
@@ -305,10 +305,10 @@ window.ReviewApp.content.register({
       q: "Which type of database is MongoDB?",
       type: "mcq",
       options: [
-        "Relational database using SQL tables",
-        "Document-oriented NoSQL database using JSON-like BSON documents",
-        "Hierarchical directory database",
-        "In-memory key-value cache only"
+        "A relational database that stores application records in SQL tables.",
+        "A document-oriented NoSQL database that stores data as JSON-like BSON documents.",
+        "A hierarchical database that stores application data as directory-style records.",
+        "An in-memory key-value cache intended only for temporary application data."
       ],
       answer: 1,
       explain: "MongoDB stores data as BSON (Binary JSON) documents rather than in relational tables, making it a document-oriented NoSQL database.",
@@ -325,10 +325,10 @@ window.ReviewApp.content.register({
       q: "An administrator installs an old version of MongoDB and notices anyone on the network can connect and read/modify data without a password. What is the most likely cause?",
       type: "mcq",
       options: [
-        "MongoDB has no authentication mechanism at all, ever",
-        "Older MongoDB versions installed with authentication disabled by default",
-        "The firewall is misconfigured to allow only MongoDB traffic",
-        "MongoDB requires Kerberos to function at all"
+        "MongoDB has never provided an authentication mechanism, so every release accepts unauthenticated connections.",
+        "Older versions shipped with authentication disabled by default, so administrators had to enable it.",
+        "The firewall permits MongoDB traffic and therefore makes database authentication unnecessary for clients.",
+        "MongoDB requires Kerberos authentication before any database instance can start or accept connections."
       ],
       answer: 1,
       explain: "The notes specifically caution that older MongoDB versions shipped with authentication disabled by default, a known security risk that must be manually remediated.",
@@ -361,10 +361,10 @@ window.ReviewApp.content.register({
       q: "Where does the Mail User Agent (MUA) typically run?",
       type: "mcq",
       options: [
-        "On the mail server, alongside the MTA",
-        "On the client machine, since it's the only component users interact with directly",
-        "Inside the DNS server",
-        "It runs as a kernel module"
+        "On the mail server, alongside the MTA, because users connect there directly to read messages.",
+        "On the client machine, because users interact with it directly to read and compose messages.",
+        "Inside the DNS server, where messages are converted into delivery records before routing.",
+        "As a kernel module, where it can intercept messages before network delivery begins."
       ],
       answer: 1,
       explain: "Because users interact with the MUA directly to read/compose mail, it typically runs on the client machine rather than the server.",
@@ -382,10 +382,10 @@ window.ReviewApp.content.register({
       q: "An administrator needs to change sendmail's behavior. What is the correct procedure?",
       type: "mcq",
       options: [
-        "Edit /etc/mail/sendmail.cf directly and reload",
-        "Edit /etc/mail/sendmail.mc, then restart sendmail so sendmail.cf is auto-regenerated",
-        "Edit /etc/postfix/main.cf and restart sendmail",
-        "There is no supported way to reconfigure sendmail"
+        "Edit /etc/mail/sendmail.cf directly, then reload the service to apply the configuration.",
+        "Edit /etc/mail/sendmail.mc, then restart sendmail so sendmail.cf is regenerated.",
+        "Edit /etc/postfix/main.cf and restart sendmail to import the Postfix settings.",
+        "Use a package-manager command because sendmail has no editable configuration file."
       ],
       answer: 1,
       explain: "sendmail.cf should not be edited directly; instead, admins edit the shorthand sendmail.mc file and restart the service so sendmail.cf regenerates automatically.",
@@ -694,10 +694,10 @@ window.ReviewApp.content.register({
       q: "Why might clustering actually reduce performance for a database application?",
       type: "mcq",
       options: [
-        "Clusters cannot run database software at all",
-        "Concurrent database instances require special locking/coordination, which can slow response times and throughput",
-        "Clustering disables SQL support",
-        "Clusters always use slower hardware"
+        "They cannot run database software because clustering supports only stateless services and web workloads.",
+        "Concurrent instances need coordination and locking, which can reduce throughput and increase response time.",
+        "They disable SQL support when more than one database node is active, forcing applications to use key-value APIs.",
+        "They always use slower hardware than a standalone database server because traffic crosses multiple cluster nodes."
       ],
       answer: 1,
       explain: "The notes caution that database clustering can introduce locking overhead when multiple instances execute queries concurrently, sometimes reducing performance.",
@@ -707,10 +707,10 @@ window.ReviewApp.content.register({
       q: "How does load balancing differ from general clustering as described in the notes?",
       type: "mcq",
       options: [
-        "Load balancing redirects entire client requests to one server in a cluster, distributing overall client load across multiple servers",
-        "Load balancing only works with database clusters",
-        "Load balancing eliminates the need for multiple servers",
-        "Load balancing and clustering are unrelated concepts"
+        "It routes each client request to one server while distributing total demand across the cluster.",
+        "It applies only to database clusters and cannot be used with web services.",
+        "It removes the need for multiple servers by concentrating all requests on one host.",
+        "It is unrelated to clustering because it operates only at the network perimeter."
       ],
       answer: 0,
       explain: "Load balancing is described as a special application of clustering, where a load balancer directs each full client request to a specific server while distributing overall load.",
@@ -728,10 +728,10 @@ window.ReviewApp.content.register({
       q: "What key problem do Linux containers solve for application developers?",
       type: "mcq",
       options: [
-        "They eliminate the need for any operating system",
-        "They package an app's files, libraries, and OS dependencies into a portable bundle, ensuring consistent behavior across environments",
-        "They replace the need for network services entirely",
-        "They automatically encrypt all application data"
+        "They remove the need for a host operating system by running applications directly on hardware.",
+        "They bundle application files, libraries, and dependencies so behavior stays consistent across environments.",
+        "They replace network services by keeping every application on one isolated local machine.",
+        "They encrypt application data automatically without requiring application or host configuration."
       ],
       answer: 1,
       explain: "Containers bundle everything an application needs so it behaves the same whether run on a developer workstation, physical server, VM, or in the cloud.",
@@ -771,10 +771,10 @@ window.ReviewApp.content.register({
       q: "Which of the following statements about MUAs is correct?",
       type: "mcq",
       options: [
-        "MUAs like Evolution, KMail, and Thunderbird are examples of Linux desktop email clients",
-        "MUAs run exclusively on mail servers",
-        "MUAs handle SMTP routing between servers",
-        "MUAs replace the need for an MDA"
+        "They are desktop email clients such as Evolution, KMail, and Thunderbird used directly by end users.",
+        "They are mail-server daemons such as Postfix, Exim, and sendmail used for SMTP routing.",
+        "They are directory clients such as LDAP tools used to resolve mail-server identities.",
+        "They are delivery agents such as Procmail and Binmail used to store incoming mail."
       ],
       answer: 0,
       explain: "Evolution, KMail, and Thunderbird are named in the notes as popular Linux desktop MUAs used directly by end users.",

@@ -60,7 +60,7 @@ window.ReviewApp.content.register({
     {
       q: "Which CPU architectures are explicitly stressed for the CompTIA Linux+ exam? (Choose all that apply.)",
       type: "multi",
-      options: ["Intel/AMD x86 and x86_64", "SPARC", "ARM (aarch64)", "IBM Z (s390x)", "RISC-V"],
+      options: ["Intel/AMD x86 and x86_64", "SPARC (sparc64)", "ARM (aarch64)", "IBM Z (s390x)", "RISC-V"],
       answer: [0, 2, 3, 4],
       explain: "The Linux+ exam stresses Intel/AMD x86 and x86_64, AMD64, ARM (aarch64), IBM Z (s390x), and RISC-V. SPARC is not mentioned in the exam objectives.",
       tags: ["hardware", "architecture"]
@@ -91,10 +91,10 @@ window.ReviewApp.content.register({
       q: "Which statement best describes the fundamental difference between copyleft and permissive open source licenses?",
       type: "mcq",
       options: [
-        "Copyleft licenses are always free, while permissive licenses require payment.",
-        "Copyleft licenses require derivative work to use the same license, while permissive licenses do not.",
-        "Copyleft licenses allow closed-source derivatives, while permissive licenses prohibit them.",
-        "Copyleft licenses are issued by the GNU project only, while permissive licenses are issued by Apache only."
+        "Copyleft licenses determine whether software may be used only for commercial purposes.",
+        "Copyleft licenses require derivative works to retain the same license, while permissive licenses generally do not.",
+        "Copyleft licenses prohibit users from modifying software, while permissive licenses encourage modification.",
+        "Copyleft licenses are issued only by GNU projects, while permissive licenses are issued only by Apache projects."
       ],
       answer: 1,
       explain: "Copyleft licenses such as GPL require that any derivative work be released under the same license terms, ensuring the code remains open. Permissive licenses such as Apache and MIT impose no such restriction, allowing derivatives to use different licenses or remain closed source.",
@@ -118,7 +118,12 @@ window.ReviewApp.content.register({
     {
       q: "An organization wants to deploy Linux virtual machines but lacks local hardware with sufficient resources. Which of the following is a valid cloud provider for running Linux VMs?",
       type: "mcq",
-      options: ["Oracle VirtualBox", "Microsoft Hyper-V", "DigitalOcean", "QEMU"],
+      options: [
+        "Oracle VirtualBox, a desktop hypervisor that runs VMs on the local workstation.",
+        "Microsoft Hyper-V, a host hypervisor that runs VMs on the organization's own servers.",
+        "DigitalOcean, a hosted cloud platform that provisions Linux VMs on remote infrastructure.",
+        "QEMU, a processor emulator that runs VMs on the local computer."
+      ],
       answer: 2,
       explain: "DigitalOcean is a cloud service provider that offers Linux virtual machines. Oracle VirtualBox, Microsoft Hyper-V, and QEMU are local hypervisors or emulators that run on existing hardware, not cloud providers.",
       tags: ["cloud", "virtualization"]

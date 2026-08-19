@@ -87,6 +87,12 @@ window.ReviewApp.content.register({
 | `fill` | String; matched case-insensitively with inner whitespace collapsed. An answer written as `"Full Name (ACR)"` also accepts `"Full Name"` alone and `"ACR"` alone. Extra legitimate equivalents go in `accepts` |
 | `command_match` | No `answer` field — the correct matching **is** the `pairs` array |
 
+### Choice-authoring guidance
+
+The AI prompt generator emits exactly five options for every `mcq` and `multi` question. Legacy content may contain four or another supported option count, but every option must be non-empty, distinct, and plausible; `answer` must point only to valid options. The generator's balance review requires choices to be comparable in length, detail, specificity, grammar, tone, and technical sophistication, without making the correct choice the longest, shortest, most qualified, or only fully explained option. Distractors should represent realistic misconceptions or closely related concepts rather than random filler.
+
+The quiz engine shuffles `mcq` and `multi` options before displaying them and remaps the stored answer index, so the authored index is not a fixed learner-facing A/B/C/D position. Authors should still vary source answer indices and multi-answer combinations because source files, exports, and review workflows can expose authored order. Use natural variation rather than a rigid position rotation or exact character counts.
+
 ### Command matching (`command_match`)
 
 The student must match each of a command's options/flags with its description. The command is shown as context, the options are listed in shuffled order, and each option has a dropdown of (shuffled) descriptions to pick from.

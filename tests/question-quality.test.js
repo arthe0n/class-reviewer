@@ -1,0 +1,185 @@
+/* ReviewApp · question-quality.test.js
+ *
+ * The LLM prompt is the generator in this project, so its output cannot be
+ * tested deterministically. These checks cover the prompt contract, the
+ * schema of the checked-in question banks, and the runtime's answer remapping
+ * when choices are shuffled.
+ *
+ * Run with: node tests/question-quality.test.js
+ */
+'use strict';
+
+var assert = require('assert');
+var fs = require('fs');
+var path = require('path');
+var vm = require('vm');
+
+var promptPath = path.join(__dirname, '..', 'docs', 'prompt-generator.md');
+var prompt = fs.readFileSync(promptPath, 'utf8');
+
+[
+  'ANSWER-CHOICE QUALITY',
+  'balanced set of answers',
+  'systematically be the longest or shortest',
+  'not the longest',
+  'not make it the shortest',
+  'plausible',
+  'blind clue review',
+  'source order',
+  'exactly 5 options for every mcq and multi question',
+  '1, 2, 3, or 4 correct choices'
+].forEach(function (requiredText) {
+  assert.ok(prompt.toLowerCase().indexOf(requiredText.toLowerCase()) >= 0,
+    'questions prompt should contain: ' + requiredText);
+});
+
+function loadQuestionPayloads() {
+  var files = [
+    'ch01-exploring-linux-questions.js',
+    'ch02-servers-services-security-questions.js',
+    'ch03-files-directories-search-questions.js'
+  ];
+  var payloads = [];
+  files.forEach(function (file) {
+    var source = fs.readFileSync(path.join(__dirname, '..', 'certifications', 'linux-plus', 'questions', file), 'utf8');
+    var context = {
+      window: {
+        ReviewApp: {
+          content: {
+            register: function (payload) { payloads.push(payload); }
+          }
+        }
+      }
+    };
+    vm.runInNewContext(source, context, { filename: file });
+  });
+  return payloads;
+}
+
+var payloads = loadQuestionPayloads();
+assert.strictEqual(payloads.length, 3, 'all checked-in question banks should register');
+
+var questionCount = 0;
+payloads.forEach(function (payload) {
+  assert.strictEqual(payload.type, 'questions');
+  assert.ok(Array.isArray(payload.items) && payload.items.length > 0);
+
+  payload.items.forEach(function (question) {
+    questionCount++;
+    assert.ok(question.q && question.type, 'every question needs text and a type');
+
+    if (question.type === 'mcq' || question.type === 'multi') {
+      assert.ok(Array.isArray(question.options), 'choice question needs an options array');
+      assert.ok(question.options.length >= 4, 'legacy choice questions still need at least four options');
+
+      var normalized = question.options.map(function (option) {
+        assert.strictEqual(typeof option, 'string');
+        assert.ok(option.trim(), 'choices must not be blank');
+        return option.trim().toLowerCase();
+      });
+      assert.strictEqual(new Set(normalized).size, normalized.length,
+        'choices must be distinct: ' + question.q);
+
+      if (question.type === 'mcq') {
+        assert.ok(Number.isInteger(question.answer));
+        assert.ok(question.answer >= 0 && question.answer < question.options.length,
+          'mcq answer index must point to an option: ' + question.q);
+      } else {
+        assert.ok(Array.isArray(question.answer));
+        assert.ok(question.answer.length >= 1 && question.answer.length <= 4,
+          'multi questions should have 1–4 correct choices: ' + question.q);
+        assert.strictEqual(new Set(question.answer).size, question.answer.length,
+          'multi answer indices must be distinct: ' + question.q);
+        question.answer.forEach(function (index) {
+          assert.ok(Number.isInteger(index) && index >= 0 && index < question.options.length,
+            'multi answer index must point to an option: ' + question.q);
+        });
+        assert.ok(question.answer.length < question.options.length,
+          'multi questions need at least one distractor: ' + question.q);
+      }
+    }
+
+    if (question.type === 'command_match') {
+      assert.ok(question.command && Array.isArray(question.pairs));
+      assert.ok(question.pairs.length >= 2, 'command matches need at least two pairs');
+      var options = question.pairs.map(function (pair) { return pair.option; });
+      var descriptions = question.pairs.map(function (pair) { return pair.description; });
+      assert.strictEqual(new Set(options).size, options.length);
+      assert.strictEqual(new Set(descriptions).size, descriptions.length);
+      question.pairs.forEach(function (pair) {
+        assert.ok(String(pair.option).trim() && String(pair.description).trim());
+      });
+    }
+  });
+});
+
+assert.ok(questionCount >= 100, 'checked-in question banks should contain a meaningful sample');
+
+// Deterministic regression for the anti-length rule used by the prompt: a
+// clearly outlying correct choice is detectable, while natural variation is
+// accepted. This intentionally tests a quality criterion without requiring an
+// arbitrary exact character count for every generated option.
+function hasLengthClue(options, correctIndices) {
+  var incorrect = options.filter(function (_, index) {
+    return correctIndices.indexOf(index) < 0;
+  });
+  var correctLengths = correctIndices.map(function (index) { return options[index].length; });
+  var incorrectLengths = incorrect.map(function (option) { return option.length; });
+  var correctMax = Math.max.apply(Math, correctLengths);
+  var correctMin = Math.min.apply(Math, correctLengths);
+  var incorrectMax = Math.max.apply(Math, incorrectLengths);
+  var incorrectMin = Math.min.apply(Math, incorrectLengths);
+  return correctMax > incorrectMax * 1.35 || correctMin < incorrectMin * 0.65;
+}
+
+assert.strictEqual(hasLengthClue([
+  'A short protocol.',
+  'A related service.',
+  'A network service that translates domain names into addresses used by clients.',
+  'A type of cache.'
+], [2]), true);
+assert.strictEqual(hasLengthClue([
+  'A service that maps names to addresses.',
+  'A service that maps addresses to names.',
+  'A service that routes traffic between hosts.',
+  'A service that stores local host records.',
+  'A service that discovers nearby systems.'
+], [0]), false);
+
+// The quiz engine must remap the correct answer after different option orders;
+// this is what prevents authored A/B/C/D placement from becoming a learner-
+// facing position clue. Use controlled shuffles so the test is not probabilistic.
+var shuffleUtils = {
+  el: function () {},
+  shuffle: function (items) { return items.slice().reverse(); }
+};
+global.window = { ReviewApp: { core: { utils: shuffleUtils } } };
+require('../app/js/quiz.js');
+var quiz = global.window.ReviewApp.quiz;
+var raw = {
+  q: 'Which option is correct?',
+  type: 'mcq',
+  options: ['Correct', 'Distractor one', 'Distractor two', 'Distractor three', 'Distractor four'],
+  answer: 0
+};
+var reversed = quiz.prepareQuestion(raw);
+assert.strictEqual(reversed._correctShuffled, 4);
+assert.strictEqual(quiz.checkAnswer(reversed, 4), true);
+
+shuffleUtils.shuffle = function (items) {
+  return [items[4], items[0], items[1], items[2], items[3]];
+};
+var rotated = quiz.prepareQuestion(raw);
+assert.strictEqual(rotated._correctShuffled, 1);
+assert.strictEqual(quiz.checkAnswer(rotated, 1), true);
+
+var multi = quiz.prepareQuestion({
+  q: 'Which options are correct?',
+  type: 'multi',
+  options: ['Correct one', 'Distractor', 'Correct two', 'Distractor two', 'Distractor three'],
+  answer: [0, 2]
+});
+assert.deepStrictEqual(multi._correctShuffled, [1, 3]);
+assert.strictEqual(quiz.checkAnswer(multi, [3, 1]), true);
+
+console.log(questionCount + ' questions checked; prompt and choice-quality checks passed');
