@@ -9,10 +9,15 @@
 
   var App = window.ReviewApp;
   var utils = App.core.utils;
-  var BACKUP_VERSION = 1;
-  var USER_KEYS = [
+  var BACKUP_VERSION = 2;
+  var LEGACY_BACKUP_VERSION = 1;
+  var LEGACY_USER_KEYS = [
     'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews',
     'flashSessions', 'flashSession', 'personalNotes', 'timeOnTask'
+  ];
+  var USER_KEYS = [
+    'currentCert', 'settings', 'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews',
+    'flashSessions', 'flashSession', 'quizSession', 'examSession', 'personalNotes', 'timeOnTask'
   ];
   var USER_ARRAY_KEYS = ['answers', 'exams', 'cardReviews', 'flashSessions', 'personalNotes'];
   var MATERIAL_TYPES = ['questions', 'flashcards', 'labs', 'notes'];
@@ -93,13 +98,21 @@
     Object.keys(data.labStepsDone || {}).forEach(function (key) { add(key.split(':')[0]); });
     Object.keys(data.leitner || {}).forEach(function (key) { add(key.split(':')[0]); });
     if (data.flashSession) add(data.flashSession.cert || data.flashSession._cert);
+    if (data.quizSession) add(data.quizSession.cert || data.quizSession._cert);
+    if (data.examSession) add(data.examSession.cert || data.examSession._cert);
+    add(data.currentCert);
     return unique(ids);
   }
 
   function collectUserData() {
     var data = {};
     USER_KEYS.forEach(function (name) {
-      var fallback = name === 'labsDone' || name === 'labStepsDone' || name === 'leitner' ? {} : (name === 'timeOnTask' ? 0 : []);
+      var fallback;
+      if (name === 'currentCert' || name === 'flashSession' || name === 'quizSession' || name === 'examSession') fallback = null;
+      else if (name === 'settings') fallback = {};
+      else if (name === 'labsDone' || name === 'labStepsDone' || name === 'leitner') fallback = {};
+      else if (name === 'timeOnTask') fallback = 0;
+      else fallback = [];
       data[name] = clone(App.store.get(name, fallback));
     });
     data.certifications = certIdsFromUserData(data);
@@ -398,6 +411,10 @@
 
   /* ── Package creation and validation ───────────────────── */
   function buildPackage(type, certIds, report) {
+    return App.store.flush().then(function () { return buildPackageNow(type, certIds, report); });
+  }
+
+  function buildPackageNow(type, certIds, report) {
     if (['user', 'material', 'everything'].indexOf(type) < 0) return Promise.reject(new Error('Choose a valid export type.'));
     var includeUser = type === 'user' || type === 'everything';
     var includeMaterial = type === 'material' || type === 'everything';
@@ -465,8 +482,8 @@
   }
 
   function validateManifest(manifest, entries) {
-    if (!manifest || manifest.format !== 'reviewapp-backup' || manifest.version !== BACKUP_VERSION) {
-      throw new Error('This is not a supported ReviewApp backup (format version ' + BACKUP_VERSION + ').');
+    if (!manifest || manifest.format !== 'reviewapp-backup' || [LEGACY_BACKUP_VERSION, BACKUP_VERSION].indexOf(manifest.version) < 0) {
+      throw new Error('This is not a supported ReviewApp backup (format versions ' + LEGACY_BACKUP_VERSION + '–' + BACKUP_VERSION + ').');
     }
     if (['user', 'material', 'everything'].indexOf(manifest.exportType) < 0) throw new Error('The backup has an unknown export type.');
     if (typeof manifest.createdAt !== 'string' || isNaN(new Date(manifest.createdAt).getTime())) throw new Error('The backup date is invalid.');
@@ -481,7 +498,8 @@
     if (manifest.includesStudyMaterial && !ids.length) throw new Error('The backup contains no certifications.');
     if (manifest.includesUserData) {
       parseJSON(entries, 'user-data/index.json', true);
-      USER_KEYS.forEach(function (key) { parseJSON(entries, 'user-data/' + key + '.json', true); });
+      var expectedUserKeys = manifest.version >= BACKUP_VERSION ? USER_KEYS : LEGACY_USER_KEYS;
+      expectedUserKeys.forEach(function (key) { parseJSON(entries, 'user-data/' + key + '.json', true); });
     }
     var snapshot = null;
     if (manifest.includesStudyMaterial) {
@@ -532,14 +550,28 @@
   function applyUserData(pkg) {
     var index = parseJSON(pkg.entries, 'user-data/index.json', true) || {};
     var data = {};
-    USER_KEYS.forEach(function (key) { data[key] = parseJSON(pkg.entries, 'user-data/' + key + '.json', true); });
+    var expectedUserKeys = pkg.manifest.version >= BACKUP_VERSION ? USER_KEYS : LEGACY_USER_KEYS;
+    expectedUserKeys.forEach(function (key) { data[key] = parseJSON(pkg.entries, 'user-data/' + key + '.json', true); });
     var scope = unique((index.certifications || []).filter(safeId));
     USER_ARRAY_KEYS.forEach(function (key) { mergeArray(key, data[key], scope); });
     mergeObject('labsDone', data.labsDone, scope);
+    mergeObject('labStepsDone', data.labStepsDone, scope);
     mergeObject('leitner', data.leitner, scope);
     if (data.streak) App.store.set('streak', clone(data.streak));
     if (data.timeOnTask != null) App.store.set('timeOnTask', data.timeOnTask);
-    if (data.flashSession && (!data.flashSession.cert || scope.indexOf(data.flashSession.cert) >= 0 || !scope.length)) App.store.set('flashSession', clone(data.flashSession));
+    if (data.currentCert !== undefined) App.store.set('currentCert', clone(data.currentCert));
+    if (data.settings !== undefined) App.store.set('settings', clone(data.settings));
+    // Version-2 backups always include active-session fields, including null
+    // when no session was active. Apply that null explicitly so restoring a
+    // clean backup cannot leave a stale IndexedDB session in place. Legacy
+    // version-1 backups omit these fields and therefore remain merge-safe.
+    ['flashSession', 'quizSession', 'examSession'].forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(data, key)) return;
+      var state = data[key];
+      if (state == null || !state.cert || scope.indexOf(state.cert) >= 0 || !scope.length) {
+        App.store.set(key, clone(state));
+      }
+    });
     return scope;
   }
 
@@ -585,9 +617,19 @@
   function importPackage(pkg, choices, report) {
     choices = choices || {};
     var userScope = pkg.manifest.includesUserData ? applyUserData(pkg) : [];
-    var materialPromise = pkg.manifest.includesStudyMaterial ? importMaterial(pkg, choices, report) : Promise.resolve({ imported: 0, replaced: 0, kept: 0 });
-    return materialPromise.then(function (material) {
-      return { userCertifications: userScope, material: material, manifest: pkg.manifest };
+    return App.store.flush().then(function () {
+      var materialPromise = pkg.manifest.includesStudyMaterial ? importMaterial(pkg, choices, report) : Promise.resolve({ imported: 0, replaced: 0, kept: 0 });
+      return materialPromise.then(function (material) {
+        // Import can change the persisted current certification. Reconcile the
+        // core context after material loading so the picker and every scoped
+        // view use the restored certification immediately, without requiring
+        // a reload.
+        if (App.core && App.core.restoreCurrentCert) App.core.restoreCurrentCert();
+        if (App.core && App.core.updateCertSelector) App.core.updateCertSelector();
+        return App.store.flush().then(function () {
+          return { userCertifications: userScope, material: material, manifest: pkg.manifest };
+        });
+      });
     });
   }
 

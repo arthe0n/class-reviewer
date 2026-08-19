@@ -11,7 +11,7 @@ It follows a **one-certification-at-a-time** model. Choose the active
 certification from the **Current certification** picker in the top-right of the
 top bar, and every certification-scoped view stays inside that certification.
 Tools, Settings, and Global Search stay available independently, and all study
-data is kept in the browser's `localStorage`.
+data is kept privately in the browser's IndexedDB database.
 
 ---
 
@@ -40,7 +40,7 @@ data is kept in the browser's `localStorage`.
 2. Double-click **`ReviewApp.html`**.
 3. Use Chrome, Edge, Firefox, or Safari.
 
-All progress lives in the browser's `localStorage`.
+All progress lives in the browser's local IndexedDB database. Existing ReviewApp profiles are migrated from legacy localStorage automatically on first launch; the legacy data is not deleted automatically.
 
 > **Tip:** If content does not load in a strict `file://` environment, open
 > **Settings → Deep-scan folder…** and select the `certifications` directory.
@@ -50,11 +50,11 @@ All progress lives in the browser's `localStorage`.
 
 ## Main features
 
-- **Dashboard** — certification-scoped stats, recommendations, 14-day activity, and per-chapter progress with direct launch actions.
+- **Dashboard** — certification-scoped stats, recommendations, 14-day activity, and an ordered **Next action** for each chapter: **Flashcards → Quiz → Labs**. It advances to the next chapter when the current chapter is complete and resumes active sessions when available.
 - **Quiz** — Chapter Focus, Random Mix, Theme Attack, Weak Spots, and Speed Run modes, with keyboard shortcuts (`1-5` to select options, Enter/Space to submit and advance).
 - **Exam Simulation** — timed exam with question palette, flag-for-review, pass threshold, and keyboard answer selection.
 - **Flashcards** — flip cards with Again / Next, Shuffle, a retry queue, and saved-session resume or cancel.
-- **Labs** — hands-on scenarios grouped by chapter with objectives, hints, and solutions.
+- **Labs** — hands-on scenarios grouped by chapter with objectives, revealable hints, **Reveal solution**, one-line **Verify** guidance, and **View output** examples in a modal. Steps support **Done / Redo**, objective-based completion, and saved progress that can be resumed or cancelled.
 - **Notes** — one complete note per chapter with all source sections inside it.
 - **Stats** — accuracy, coverage, streaks, activity, weak areas, and exportable reports.
 - **Tools** — subnet calculator, number converter, common ports, a Linux command reference, and a permissions calculator.
@@ -67,7 +67,10 @@ All progress lives in the browser's `localStorage`.
 
 - Study one certification at a time; switch with the **Current certification** picker.
 - Certification-scoped views (Dashboard, Quiz, Exam Sim, Flashcards, Labs, Notes, Stats) always follow the active certification.
-- Everything is stored locally in `localStorage` — no data is sent anywhere.
+- The Dashboard chooses the first unfinished phase in chapter order: **Flashcards**, then **Quiz**, then **Labs**. After all available phases are complete, it moves to the next chapter; missing content types are skipped.
+- Active flashcard, quiz, or lab sessions take priority in **Next action** so you can resume the work already in progress.
+- User data is stored locally in IndexedDB — no data is sent anywhere. Certification content remains file-based under `certifications/`.
+- Existing localStorage data is migrated non-destructively on first launch.
 - Backup & Data creates a single dated ZIP for progress, study material, or both.
 
 ---
@@ -87,10 +90,17 @@ content file.
 
 ---
 
+## Lab workflow
+
+Open a lab from the Dashboard or Labs view and work through its steps. Use **Show hint** for guidance without revealing the answer, and use **Reveal solution** only when you need the exact command or action. The command remains hidden until the solution is revealed.
+
+Each step's bottom **Verify** row gives a concise expectation. When an example output is available, **View output** opens the complete formatted output in a modal instead of expanding it inline. Use **Done** to complete a step or **Redo** to revisit a completed step; progress is preserved when you leave the lab.
+
 ## Documentation
 
 - **[Documentation index](./docs/README.md)** — all guides at a glance
 - **[Backups & Data](./docs/BACKUPS.md)** — exporting and importing ZIP backups
+- **[Persistence Architecture](./docs/PERSISTENCE.md)** — IndexedDB storage, migration, and recovery
 - **[Adding Certifications & Content](./docs/CONTENT.md)** — how to add study material
 - **[Study Flows](./docs/STUDY-FLOWS.md)** — how the app is meant to be used
 - **[Content Format](./docs/CONTENT_FORMAT.md)** — full question/flashcard/lab/note schemas

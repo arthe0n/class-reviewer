@@ -286,7 +286,8 @@
     var sidebar = utils.$('#sidebar');
     var toggle = utils.$('#sidebar-toggle');
     var mobile = utils.$('#mobile-menu');
-    var collapsed = localStorage.getItem('reviewapp.v1.sidebar') === '1';
+    var settings = (App.store && App.store.getSettings) ? App.store.getSettings() : {};
+    var collapsed = settings.sidebarCollapsed === true;
     if (collapsed) sidebar.classList.add('collapsed');
 
     if (toggle) {
@@ -297,7 +298,9 @@
       setToggleLabel(collapsed);
       toggle.addEventListener('click', function () {
         var isCollapsed = sidebar.classList.toggle('collapsed');
-        localStorage.setItem('reviewapp.v1.sidebar', isCollapsed ? '1' : '0');
+        var currentSettings = (App.store && App.store.getSettings) ? App.store.getSettings() : {};
+        currentSettings.sidebarCollapsed = isCollapsed;
+        if (App.store && App.store.saveSettings) App.store.saveSettings(currentSettings);
         setToggleLabel(isCollapsed);
       });
     }
@@ -430,7 +433,6 @@
   function applyTheme(theme) {
     theme = normalizeTheme(theme);
     document.documentElement.setAttribute('data-theme', theme);
-    try { localStorage.setItem('reviewapp.v1.theme', theme); } catch (e) {}
     try {
       var s = App.store.getSettings();
       if (s.theme !== theme) {
@@ -441,13 +443,11 @@
   }
 
   function initTheme() {
-    // Legacy sources: the localStorage key and settings.theme ('dark' maps to
-    // the new default Monokai; 'light' and the retired themes still resolve).
-    var stored = null;
-    try { stored = localStorage.getItem('reviewapp.v1.theme'); } catch (e) {}
+    // Legacy theme values are reconciled by store migration. The active
+    // preference is now read from IndexedDB-backed settings.
     var s = (App.store && App.store.getSettings) ? App.store.getSettings() : {};
     var fromSettings = (s.theme && s.theme !== 'dark') ? s.theme : null;
-    applyTheme(stored || fromSettings || 'monokai');
+    applyTheme(fromSettings || 'monokai');
   }
 
   function applyTextSize(size) {
@@ -510,9 +510,17 @@
   function pauseActiveSessionTimers() {
     if (!App.quiz) return;
     var ex = App.quiz.getExamSession ? App.quiz.getExamSession() : null;
-    if (ex && ex.timer) { clearInterval(ex.timer); ex.timer = null; }
+    if (ex && ex.timer) {
+      clearInterval(ex.timer);
+      ex.timer = null;
+      if (App.store.saveExamSession) App.store.saveExamSession(ex);
+    }
     var q = App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
-    if (q && q.speedTimer) { clearInterval(q.speedTimer); q.speedTimer = null; }
+    if (q && q.speedTimer) {
+      clearInterval(q.speedTimer);
+      q.speedTimer = null;
+      if (App.store.saveQuizSession) App.store.saveQuizSession(q);
+    }
   }
 
   function setCurrentCert(id, opts) {

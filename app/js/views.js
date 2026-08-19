@@ -507,34 +507,63 @@
       streakCursor.setTime(streakCursor.getTime() - 86400000);
     }
 
-    function mostRecentChapter() {
-      for (var i = 0; i < activityEvents.length; i++) {
-        if (activityEvents[i].chapter) {
-          var resolved = resolveChapter('questions', activityEvents[i].chapter);
-          if (resolved && questionChapters[resolved]) return resolved;
-        }
+    function addChapterGroup(groups, chapter, type) {
+      if (!chapter) return;
+      var number = App.content.chapterNumber ? App.content.chapterNumber(chapter) : null;
+      var group = groups.find(function (item) {
+        return (number != null && item.number === number) || (number == null && item.chapter === chapter);
+      });
+      if (!group) {
+        group = { chapter: chapter, number: number, types: {} };
+        groups.push(group);
       }
-      return null;
+      // Question chapter names are preferred as the display label when a
+      // certification uses slightly different labels across content types.
+      group.types[type] = chapter;
+      if (type === 'questions') group.chapter = chapter;
     }
 
-    var chapterKeys = Object.keys(questionChapters);
-    if (!chapterKeys.length) chapterKeys = Object.keys(flashChapters);
-    var chapterRows = chapterKeys.map(function (chapter, index) {
-      var qItems = questionChapters[chapter] || [];
-      var flashChapter = resolveChapter('flashcards', chapter);
-      var labChapter = resolveChapter('labs', chapter);
+    // Build a single ordered chapter list from all three learning modes. The
+    // next-action workflow must not disappear when a chapter has only cards or
+    // labs and no question file.
+    var chapterGroups = [];
+    Object.keys(questionChapters).forEach(function (chapter) { addChapterGroup(chapterGroups, chapter, 'questions'); });
+    Object.keys(flashChapters).forEach(function (chapter) { addChapterGroup(chapterGroups, chapter, 'flashcards'); });
+    Object.keys(labChapters).forEach(function (chapter) { addChapterGroup(chapterGroups, chapter, 'labs'); });
+    chapterGroups.sort(function (a, b) {
+      if (a.number != null && b.number != null) return a.number - b.number;
+      if (a.number != null) return -1;
+      if (b.number != null) return 1;
+      return a.chapter.localeCompare(b.chapter);
+    });
+
+    var chapterRows = chapterGroups.map(function (group, index) {
+      var chapter = group.chapter;
+      var questionChapter = group.types.questions || resolveChapter('questions', chapter);
+      var flashChapter = group.types.flashcards || resolveChapter('flashcards', chapter);
+      var labChapter = group.types.labs || resolveChapter('labs', chapter);
+      var qItems = questionChapter ? (questionChapters[questionChapter] || []) : [];
       var cardItems = flashChapter ? (flashChapters[flashChapter] || []) : [];
       var labItems = labChapter ? (labChapters[labChapter] || []) : [];
       var seen = qItems.filter(function (q) { return !!seenQuestions[q.qId]; }).length;
-      var chapterReviews = reviews.filter(function (r) {
-        var resolved = resolveChapter('questions', r.chapter);
-        return resolved === chapter;
-      });
+      var chapterReviews = flashChapter ? reviews.filter(function (r) {
+        return resolveChapter('flashcards', r.chapter) === flashChapter;
+      }) : [];
+      var cardIds = {};
+      cardItems.forEach(function (card) { cardIds[card._key || card._id] = true; });
       var cardSeen = {};
-      chapterReviews.forEach(function (r) { if (r.cardId) cardSeen[r.cardId] = true; });
-      var denominator = qItems.length || cardItems.length;
-      var completed = qItems.length ? seen : Object.keys(cardSeen).length;
-      var pct = denominator ? Math.round((completed / denominator) * 100) : 0;
+      chapterReviews.forEach(function (r) {
+        if (r.cardId && cardIds[r.cardId]) cardSeen[r.cardId] = true;
+      });
+      var cardSeenCount = Object.keys(cardSeen).length;
+      var doneLabCount = labItems.filter(function (lab) { return !!doneLabs[lab._id]; }).length;
+      var phaseParts = [];
+      if (cardItems.length) phaseParts.push(cardSeenCount / cardItems.length);
+      if (qItems.length) phaseParts.push(seen / qItems.length);
+      if (labItems.length) phaseParts.push(doneLabCount / labItems.length);
+      var pct = phaseParts.length
+        ? Math.round((phaseParts.reduce(function (sum, value) { return sum + value; }, 0) / phaseParts.length) * 100)
+        : 0;
       return {
         chapter: chapter,
         number: chapterNumber(chapter, index),
@@ -543,64 +572,97 @@
         cards: cardItems.length,
         labs: labItems.length,
         pct: Math.min(100, pct),
-        accuracy: App.store.accuracyFor({ cert: certId, chapter: chapter }),
+        accuracy: App.store.accuracyFor({ cert: certId, chapter: questionChapter || chapter }),
+        questionChapter: questionChapter,
         flashChapter: flashChapter,
-        labChapter: labChapter
+        labChapter: labChapter,
+        quizSeen: seen,
+        cardSeen: cardSeenCount,
+        labDoneCount: doneLabCount,
+        flashComplete: !cardItems.length || cardSeenCount >= cardItems.length,
+        quizComplete: !qItems.length || seen >= qItems.length,
+        labsComplete: !labItems.length || doneLabCount >= labItems.length
       };
     });
 
-    var recentChapter = mostRecentChapter();
+    function pendingPhase(row) {
+      if (row.cards && !row.flashComplete) return { type: 'flashcards', completed: row.cardSeen, total: row.cards };
+      if (row.questions && !row.quizComplete) return { type: 'quiz', completed: row.quizSeen, total: row.questions };
+      if (row.labs && !row.labsComplete) return { type: 'labs', completed: row.labDoneCount, total: row.labs };
+      return null;
+    }
+
+    function findChapterRow(type, chapter) {
+      var resolved = resolveChapter(type, chapter);
+      if (!resolved) return null;
+      var field = type === 'questions' ? 'questionChapter' : type === 'flashcards' ? 'flashChapter' : 'labChapter';
+      return chapterRows.find(function (row) { return row[field] === resolved; }) || null;
+    }
+
+    var orderedAction = null;
+    for (var rowIndex = 0; rowIndex < chapterRows.length; rowIndex++) {
+      var phase = pendingPhase(chapterRows[rowIndex]);
+      if (phase) {
+        orderedAction = { row: chapterRows[rowIndex], phase: phase, resume: false };
+        break;
+      }
+    }
+
     var activeFlash = App.store.getFlashSession();
     if (activeFlash && (activeFlash.cert || certId) !== certId) activeFlash = null;
     var activeQuiz = App.quiz && App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
     if (activeQuiz && activeQuiz.cert !== certId) activeQuiz = null;
     var activeLab = activeLabSession(certId);
-    var continueType = 'quiz';
-    var continueChapter = null;
-    var continueMode = 'Start a chapter quiz';
-    var continueMeta = 'Begin with the first available chapter.';
-
+    var activeAction = null;
     if (activeFlash && !activeFlash.finished) {
-      continueType = 'flashcards';
-      continueChapter = resolveChapter('questions', activeFlash.chapter) || activeFlash.chapter;
-      continueMode = 'Resume Flashcards';
-      continueMeta = activeFlash.totalCards ? (Math.max(0, activeFlash.totalCards - activeFlash.completed) + ' cards remaining in this session') : 'Pick up your saved review session.';
+      var flashRow = findChapterRow('flashcards', activeFlash.chapter);
+      if (flashRow) activeAction = { row: flashRow, phase: { type: 'flashcards', completed: activeFlash.completed || 0, total: activeFlash.totalCards || flashRow.cards }, resume: true };
     } else if (activeQuiz && activeQuiz.questions && activeQuiz.questions[activeQuiz.index]) {
-      continueType = 'quiz';
-      continueChapter = resolveChapter('questions', activeQuiz.questions[activeQuiz.index]._chapter);
-      continueMode = 'Resume Quiz';
-      continueMeta = 'Question ' + (activeQuiz.index + 1) + ' of ' + activeQuiz.questions.length;
+      var quizRow = findChapterRow('questions', activeQuiz.questions[activeQuiz.index]._chapter);
+      if (quizRow) activeAction = { row: quizRow, phase: { type: 'quiz', completed: activeQuiz.index, total: activeQuiz.questions.length }, resume: true };
     } else if (activeLab) {
-      continueType = 'labs';
-      continueChapter = activeLab.lab._chapter;
-      continueMode = 'Resume Lab';
-      continueMeta = activeLab.lab.title + ' · ' + activeLab.doneCount + ' of ' + activeLab.total + ' steps done';
-    } else {
-      var incomplete = chapterRows.filter(function (row) { return row.pct < 100; });
-      continueChapter = recentChapter || (incomplete[0] && incomplete[0].chapter) || (chapterRows[0] && chapterRows[0].chapter);
-      var latest = activityEvents[0];
-      if (latest && latest.type === 'flashcards' && continueChapter) continueType = 'flashcards';
-      continueMode = activityEvents.length ? 'Continue studying' : 'Start your first chapter';
-      if (continueChapter) {
-        var target = chapterRows.find(function (row) { return row.chapter === continueChapter; });
-        continueMeta = target ? (target.pct + '% complete · ' + target.questions + ' questions') : 'Build your first progress in this chapter.';
+      var labRow = findChapterRow('labs', activeLab.lab._chapter);
+      if (labRow) activeAction = { row: labRow, phase: { type: 'labs', completed: activeLab.doneCount, total: activeLab.total }, resume: true };
+    }
+
+    // A live session is the most useful thing to resume. Without one, always
+    // choose the first unfinished phase in chapter order: Flashcards → Quiz → Labs.
+    var selectedAction = activeAction || orderedAction;
+    var continueRow = selectedAction ? selectedAction.row : null;
+    var continueType = selectedAction ? selectedAction.phase.type : null;
+    var continueChapter = continueRow ? continueRow.chapter : null;
+    var continueMode = 'All chapters complete';
+    var continueMeta = 'All flashcards, quizzes, and labs are complete.';
+    if (selectedAction) {
+      var phaseName = continueType === 'flashcards' ? 'Flashcards' : continueType === 'quiz' ? 'Quiz' : 'Labs';
+      if (selectedAction.resume) {
+        continueMode = 'Resume ' + (continueType === 'labs' ? 'Lab' : phaseName);
+        if (continueType === 'flashcards') {
+          continueMeta = Math.max(0, selectedAction.phase.total - selectedAction.phase.completed) + ' cards remaining in this session';
+        } else if (continueType === 'quiz') {
+          continueMeta = 'Question ' + (selectedAction.phase.completed + 1) + ' of ' + selectedAction.phase.total;
+        } else {
+          continueMeta = activeLab.lab.title + ' · ' + activeLab.doneCount + ' of ' + activeLab.total + ' steps done';
+        }
+      } else {
+        var hasProgress = selectedAction.phase.completed > 0;
+        continueMode = (hasProgress ? 'Continue ' : 'Start ') + phaseName;
+        var progressLabel = selectedAction.phase.completed + ' / ' + selectedAction.phase.total;
+        continueMeta = phaseName + ' · ' + progressLabel + (continueType === 'flashcards' ? ' cards reviewed' : continueType === 'quiz' ? ' questions explored' : ' labs completed');
       }
     }
 
-    var continueRow = chapterRows.find(function (row) { return row.chapter === continueChapter; }) || null;
-    var firstChapter = chapterRows[0] || null;
-    var actionChapter = continueChapter || (firstChapter && firstChapter.chapter);
-
     function continueAction() {
-      if ((activeFlash && continueType === 'flashcards') || (activeQuiz && continueType === 'quiz')) {
-        App.core.navigate('#/' + continueType);
-      } else if (activeLab && continueType === 'labs') {
-        App.core.navigate('#/labs/' + encodeURIComponent(activeLab.lab._id));
-      } else if (actionChapter) {
-        launchChapter(continueType, actionChapter);
-      } else {
-        App.core.navigate('#/quiz');
+      if (!selectedAction) {
+        App.toast('All chapters complete', 'success', 2200);
+        return;
       }
+      if (selectedAction.resume) {
+        if (continueType === 'labs') App.core.navigate('#/labs/' + encodeURIComponent(activeLab.lab._id));
+        else App.core.navigate('#/' + continueType);
+        return;
+      }
+      launchChapter(continueType, continueChapter);
     }
 
     var page = el('div', { className: 'dashboard-page' });
@@ -655,7 +717,7 @@
     var continuePanel = el('section', { className: 'dashboard-continue' });
     var continueHeader = el('div', { className: 'dashboard-section-header' });
     continueHeader.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Next action' }), el('h2', { text: 'Continue studying' })]));
-    continueHeader.appendChild(el('span', { className: 'dashboard-section-hint', text: continueRow ? continueRow.pct + '% chapter progress' : 'Your next useful step' }));
+    continueHeader.appendChild(el('span', { className: 'dashboard-section-hint', text: continueRow ? continueRow.pct + '% chapter progress' : 'All chapters complete' }));
     continuePanel.appendChild(continueHeader);
     var continueBody = el('div', { className: 'dashboard-continue-body' });
     var continueText = el('div', { className: 'dashboard-continue-copy' });
@@ -670,8 +732,9 @@
     continueBody.appendChild(continueText);
     var continueButtons = el('div', { className: 'dashboard-action-group' });
     continueButtons.appendChild(el('button', { className: 'btn btn-primary', text: continueMode, onClick: continueAction }));
-    if (continueRow && continueRow.cards) continueButtons.appendChild(el('button', { className: 'btn btn-secondary', text: 'Flashcards', onClick: function () { launchChapter('flashcards', continueRow.chapter); } }));
-    if (continueRow && continueRow.labs) continueButtons.appendChild(el('button', { className: 'btn btn-secondary', text: 'Labs', onClick: function () { launchChapter('labs', continueRow.chapter); } }));
+    // Keep the Next action focused on the current ordered phase. The chapter
+    // row below still offers direct reference buttons when a learner needs them.
+
     continueBody.appendChild(continueButtons);
     continuePanel.appendChild(continueBody);
     page.appendChild(continuePanel);
@@ -698,8 +761,8 @@
       track.appendChild(el('span', { style: { width: row.pct + '%', background: certColor } }));
       rowEl.appendChild(track);
       var rowActions = el('div', { className: 'dashboard-chapter-actions' });
-      if (row.questions) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Quiz', onClick: function () { launchChapter('quiz', row.chapter); } }));
       if (row.cards) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Flashcards', onClick: function () { launchChapter('flashcards', row.chapter); } }));
+      if (row.questions) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Quiz', onClick: function () { launchChapter('quiz', row.chapter); } }));
       if (row.labs) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Labs', onClick: function () { launchChapter('labs', row.chapter); } }));
       rowEl.appendChild(rowActions);
       chapterList.appendChild(rowEl);
@@ -1244,9 +1307,10 @@
       obs.observe(root, { childList: true });
     }, 50);
     if (sess.speedLimit) {
-      sess.speedRemaining = sess.speedLimit;
+      if (sess.speedRemaining == null || sess.speedRemaining <= 0) sess.speedRemaining = sess.speedLimit;
       sess.speedTimer = setInterval(function () {
         sess.speedRemaining--;
+        if (App.store.saveQuizSession) App.store.saveQuizSession(sess);
         if (timerEl) timerEl.textContent = sess.speedRemaining + 's';
         if (sess.speedRemaining <= 0) {
           clearInterval(sess.speedTimer);
@@ -1524,6 +1588,7 @@
     if (sess.timer) clearInterval(sess.timer);
     sess.timer = setInterval(function () {
       sess.remaining--;
+      if (App.store.saveExamSession) App.store.saveExamSession(sess);
       if (timerEl) {
         timerEl.textContent = utils.formatTime(Math.max(0, sess.remaining));
         if (sess.remaining <= 300) timerEl.classList.add('warning');
@@ -2098,6 +2163,50 @@
       stepWraps.forEach(function (w, j) { w.classList.toggle('open', j === k); });
     }
 
+    // Expected output is kept out of the step body. The Verify row provides
+    // one compact entry point to the full output modal, so multiline output
+    // never creates a second inline section.
+
+    function expectedOutputInfo(step) {
+      if (step.expectedOutput == null) return null;
+      var value = step.expectedOutput;
+      var dynamic = !!step.expectedOutputDynamic;
+      if (typeof value === 'object') {
+        dynamic = dynamic || !!value.dynamic;
+        value = value.text != null ? value.text : (value.value != null ? value.value : '');
+      }
+      var text = String(value);
+      return { text: text === '' ? '(no output)' : text, dynamic: dynamic };
+    }
+
+    function appendExpectedOutputButton(parent, step) {
+      var info = expectedOutputInfo(step);
+      if (!info || info.text === '(no output)') return false;
+      parent.appendChild(el('button', {
+        className: 'btn btn-secondary btn-sm lab-output-view-btn',
+        type: 'button',
+        text: 'View output',
+        title: info.dynamic ? 'View expected output (may vary by system or run)' : 'View expected output',
+        'aria-label': info.dynamic ? 'View expected output; values may vary by system or run' : 'View expected output',
+        onClick: function (e) {
+          e.stopPropagation();
+          App.core.openModal(el('div', {
+            className: 'code-block lab-expected-output-modal',
+            role: 'document',
+            text: info.text
+          }), { title: 'Expected Output' });
+          var modal = document.querySelector('#modal-root .modal');
+          var title = modal && modal.querySelector('.modal-header h2');
+          if (modal && title) {
+            var titleId = utils.uid();
+            title.id = titleId;
+            modal.setAttribute('aria-labelledby', titleId);
+          }
+        }
+      }));
+      return true;
+    }
+
     // Idempotent: completing an already-completed step is a no-op and never
     // re-advances, so the Done button, Redo, and objective checks cannot
     // double-fire or skip ahead. The final step never advances past the end.
@@ -2210,11 +2319,17 @@
         actions.appendChild(doneBtn);
         body.appendChild(actions);
         reveals.forEach(function (r) { body.appendChild(r); });
-        if (step.check) {
-          body.appendChild(el('div', { className: 'mt-1', style: { fontSize: '0.88rem' } }, [
-            el('strong', { text: 'Verify: ' }), document.createTextNode(step.check)
-          ]));
-        }
+        // Keep one Verify block at the bottom of the step. The structured
+        // command metadata is intentionally not rendered here: the exact
+        // command remains available only through Reveal solution.
+        var verify = el('div', { className: 'lab-step-verify' });
+        var verifyRow = el('div', { className: 'lab-step-verify-row' });
+        verifyRow.appendChild(el('div', { className: 'lab-step-check' }, [
+          el('strong', { text: 'Verify: ' }), document.createTextNode(step.check || 'Review the expected result for this step.')
+        ]));
+        appendExpectedOutputButton(verifyRow, step);
+        verify.appendChild(verifyRow);
+        if (step.expectedOutput != null || step.check) body.appendChild(verify);
         wrap.appendChild(body);
         root.appendChild(wrap);
         stepWraps.push(wrap);
@@ -4260,7 +4375,7 @@
     var fileInp = el('input', { type: 'file', webkitdirectory: 'true', multiple: 'true', style: { display: 'none' }, id: 'deep-scan-input' });
     var saveSnap = el('input', { type: 'checkbox', id: 'save-snap' });
     contentPanel.appendChild(el('label', { style: { display: 'flex', gap: '0.4rem', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.88rem' } }, [
-      saveSnap, document.createTextNode('Save snapshot to localStorage (survives refresh)')
+      saveSnap, document.createTextNode('Save snapshot to IndexedDB (survives refresh)')
     ]));
     contentPanel.appendChild(fileInp);
     contentPanel.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Deep-scan folder…', onClick: function () { fileInp.click(); } }));

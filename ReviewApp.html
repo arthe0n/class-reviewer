@@ -7,7 +7,7 @@
   <title>ReviewApp</title>
   <link rel="icon" type="image/svg+xml" href="app/favicon.svg" />
   <link rel="icon" type="image/x-icon" href="app/shortcut-icon.ico" />
-  <link rel="stylesheet" href="app/css/styles.css?v=22" />
+  <link rel="stylesheet" href="app/css/styles.css?v=26" />
 </head>
 <body>
   <div id="app" class="app-shell" role="application" aria-label="ReviewApp study interface">
@@ -108,22 +108,35 @@
 
   <!-- Scripts: classic, ordered, no modules. ?v= busts the browser cache so
        updated app files are never served stale (content files already do this). -->
-  <script src="app/js/core.js?v=7"></script>
-  <script src="app/js/store.js?v=6"></script>
+  <script src="app/js/core.js?v=8"></script>
+  <script src="app/js/persistence.js?v=3"></script>
+  <script src="app/js/store.js?v=10"></script>
   <script src="app/js/markdown.js?v=6"></script>
   <script src="app/js/content.js?v=6"></script>
-  <script src="app/js/quiz.js?v=9"></script>
+  <script src="app/js/quiz.js?v=10"></script>
   <script src="app/js/flashcards.js?v=10"></script>
   <script src="app/js/tools.js?v=6"></script>
-  <script src="app/js/backup.js?v=1"></script>
-  <script src="app/js/views.js?v=30"></script>
+  <script src="app/js/backup.js?v=4"></script>
+  <script src="app/js/views.js?v=38"></script>
   <script>
     // Boot
     (function () {
       'use strict';
       if (!window.ReviewApp) window.ReviewApp = {};
       document.addEventListener('DOMContentLoaded', function () {
-        ReviewApp.core.init();
+        var root = document.getElementById('view-root');
+        if (root) root.textContent = 'Loading local study data…';
+        ReviewApp.store.init().then(function (result) {
+          ReviewApp.core.init();
+          if (result && result.notice && ReviewApp.toast) {
+            setTimeout(function () { ReviewApp.toast(result.notice, result.available ? 'info' : 'error', 7000); }, 0);
+          }
+        }).catch(function (err) {
+          if (root) {
+            root.innerHTML = '<div class="empty-state"><h3>Local data could not be opened</h3><p>Please close other ReviewApp tabs and reload. Your legacy local data was not deleted.</p></div>';
+          }
+          console.error('ReviewApp storage initialization failed:', err);
+        });
       });
     })();
   </script>

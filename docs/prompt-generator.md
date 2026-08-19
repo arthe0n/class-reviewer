@@ -164,9 +164,12 @@ notes and send it — the AI replies with a complete `.js` file.
 >       steps: [
 >         {
 >           do: "What the student should do (clear instruction)",
+>           command: "Internal exact command metadata for the step (required for command-based steps; never rendered in the learner UI; omit for non-command/manual steps)",
 >           hint: "Specific conceptual guidance that points toward the approach without revealing the answer",
 >           solution: "Exact command(s) or actions that solve the step (copy-pasteable)",
->           check: "How to verify the step succeeded"
+>           expectedOutput: "Concrete representative example of the output the learner should see in the View output modal; preserve line breaks and whitespace",
+>           expectedOutputDynamic: false, // optional; set true when values or formatting vary by system/run
+>           check: "One concise, single-line statement of what the learner should expect to see"
 >         }
 >       ],
 >       tags: ["tag1", "tag2"]
@@ -182,10 +185,17 @@ notes and send it — the AI replies with a complete `.js` file.
 > - difficulty: 1 = guided intro, 2 = intermediate, 3 = multi-skill.
 > - minutes: honest estimate (15–40 typical).
 > - Solutions must be real Linux commands that work on a standard distro.
+> - For every command-based step, include the exact command in the internal `command` field and a concrete representative result in `expectedOutput`; do not make the frontend infer output from `solution`. The `command` field is metadata for validation/content tooling, not learner-facing text.
+> - Treat `expectedOutput` as the example the learner should see after selecting **View output**. Use realistic mock values even when the real result varies: write `Local Address:Port 192.0.2.10:119`, not `<port>` or another placeholder. Set `expectedOutputDynamic: true` when values or formatting can vary, but still provide concrete example values and use the one-line `check` to state what may vary.
+> - For deterministic output, use the actual result when it is stable. For variable output, use a short, meaningful representative sample rather than a generic description, a truncation marker, or a fabricated success message.
+> - If a command legitimately produces no output, set `expectedOutput` to `(no output)` rather than inventing a success message.
+> - Preserve output line breaks, indentation, whitespace, symbols, and special characters in `expectedOutput`; multiline examples belong in the View output modal and must remain complete and unmodified.
+> - `check` is the learner-facing Verify text. It must be one concise line describing what the learner should expect to see, not a procedure, command, multi-step instruction, or second output block. Do not repeat exact command syntax in `do`, `hint`, or `check`; the complete command belongs only in `solution` and the internal `command` metadata.
+> - Non-command/manual steps may omit `command`, but should still provide `expectedOutput` when there is a meaningful observable result.
 > - Cover the most lab-friendly parts of the notes (navigation, ls options, wildcards, viewing files, grep, basic vi).
 > - Tags: short lowercase keywords.
 > - Chapter title: invent a concise title that matches the notes.
-> - No placeholders. No “TODO”.
+> - Do not use placeholders or “TODO” in titles, scenarios, instructions, hints, solutions, checks, or other prose. In `expectedOutput`, never use angle-bracket placeholders, unresolved variables, or truncation markers; use concrete representative mock data instead. Literal symbols that are part of real command output are allowed. Use `expectedOutputDynamic: true` to mark variability, not to justify placeholder text.
 >
 > HINT / REVEAL ANSWER RULES (strict):
 > - `hint` and `solution` have different responsibilities. The hint is guidance; the solution is the answer exposed by **Reveal Answer** (the app may label this **Reveal Solution**).
@@ -194,8 +204,19 @@ notes and send it — the AI replies with a complete `.js` file.
 > - Do not put the exact answer in a hint using a different format, wording, placeholder, example, partial command, flag, path, filename, value, or sequence of actions. A hint must provide direction, not completion.
 > - Do not give a complete procedure that makes the step mechanically solvable. Describe what to look for or how to reason, not every action to perform.
 > - If mentioning a tool or technique is useful, describe its purpose or capability rather than naming the exact tool, option, argument, path, or syntax the student is expected to discover.
-> - **Reveal Answer** is the only place allowed to provide the exact command, code, configuration, value, required action sequence, expected result, and complete explanation. Keep those details in `solution`, never in `hint`.
+> - **Reveal Answer** is the only place allowed to provide the complete solution: the exact command, code, configuration, value, required action sequence, and explanation. `expectedOutput` is separate Verify metadata; the Verify row's output button opens it in a modal, but it must never replace `solution` or put solution steps in `hint`.
 > - Before finalizing each step, compare its hint with its solution and remove any detail that would make Reveal Answer redundant. When in doubt, make the hint less specific rather than more revealing.
+>
+> VERIFY / EXPECTED OUTPUT RULES (strict):
+> - Render exactly one compact `Verify` row at the bottom of each step. Do not render a separate `Expected Output` section, an inline output block, or a second Verify heading.
+> - The Verify text (`check`) must be one concise line describing the expected result. The row should not contain a second explanation or a multiline output preview.
+> - Keep `command`, `expectedOutput`, and `check` separate in the data model: `command` is internal metadata, `expectedOutput` is the concrete example opened by the modal, and `check` is the one-line learner-facing expectation.
+> - Never render the `command` field in the learner UI. Do not repeat exact command syntax in `do`, `hint`, or `check`; the exact command may appear only in `solution`, which is shown through **Reveal solution**.
+> - When a meaningful `expectedOutput` exists, place a compact **View output** button at the far right of the same Verify row. The button opens a modal containing the example output; multiline output must not expand inline.
+> - The modal must contain the complete, unmodified example output, preserving line breaks, indentation, whitespace, symbols, and special characters. Never truncate the stored output to make it fit.
+> - If the command legitimately produces no output, use `(no output)` and do not add an output button for it.
+> - For dynamic output, use concrete mock values in `expectedOutput` and set `expectedOutputDynamic: true`; explain the variable portion or environment-dependent condition in the one-line `check`. Never use `<port>`, `<pid>`, `<value>`, or similar placeholders in the modal example.
+> - Keep output data safe to render: it is plain text, not HTML, and must preserve formatting without executing embedded content.
 >
 > UNIT NOTES:
 >

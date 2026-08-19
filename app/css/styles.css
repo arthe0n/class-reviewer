@@ -1698,7 +1698,33 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .lab-step.is-complete .lab-step-header {
   color: var(--text-muted);
 }
-
+.lab-step-verify {
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-subtle);
+}
+.lab-step-verify-row {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.lab-step-check {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.lab-output-view-btn {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.lab-expected-output-modal {
+  max-height: 60vh;
+  overflow: auto;
+  margin: 0;
+}
 /* ── Labs: chapter accordion ─────────────────────────────── */
 .lab-chapter {
   border: 1px solid var(--border);

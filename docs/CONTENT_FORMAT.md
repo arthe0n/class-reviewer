@@ -136,7 +136,7 @@ window.ReviewApp.content.register({
 | `back` | string | yes | Answer side |
 | `tags` | string[] | no | Filtering & search |
 
-Leitner state (box 1–5, due dates) is stored in `localStorage` and is independent of the content file.
+Leitner state (box 1–5, due dates) is stored in the local IndexedDB database and is independent of the content file.
 
 ---
 
@@ -225,7 +225,7 @@ Supported markdown: headings (`#`–`###`), bold, italic, inline code, fenced co
 4. Open the app and click the **reload** button (top bar) or use Settings → Reload.
 5. Confirm the toast shows the new counts.
 
-Alternatively use **Settings → Deep-scan folder** to load files without editing the manifest (optional snapshot to `localStorage`).
+Alternatively use **Settings → Deep-scan folder** to load files without editing the manifest (the optional refresh snapshot is cached in IndexedDB).
 
 ---
 

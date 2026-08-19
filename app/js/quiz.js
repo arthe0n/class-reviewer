@@ -120,6 +120,7 @@
       speedRemaining: null
     };
     App.store.setLastStudy({ type: 'quiz', mode: session.mode, cert: session.cert, ts: Date.now() });
+    App.store.saveQuizSession(session);
     return session;
   }
 
@@ -145,6 +146,7 @@
       clearInterval(session.speedTimer);
       session.speedTimer = null;
     }
+    App.store.saveQuizSession(session);
     return { correct: correct, q: q };
   }
 
@@ -152,6 +154,7 @@
     if (!session) return false;
     if (session.index < session.questions.length - 1) {
       session.index++;
+      App.store.saveQuizSession(session);
       return true;
     }
     return false;
@@ -161,6 +164,7 @@
     if (!session) return;
     var q = currentQ();
     session.answers.push({ qId: q._id, correct: false, userAnswer: null, skipped: true, question: q });
+    App.store.saveQuizSession(session);
     return nextQuestion();
   }
 
@@ -205,6 +209,7 @@
     });
 
     App.store.addTimeOnTask(result.timeMs);
+    App.store.clearQuizSession();
     session = null;
     return result;
   }
@@ -468,17 +473,20 @@
       timer: null,
       submitted: false
     };
+    App.store.saveExamSession(examSession);
     return examSession;
   }
 
   function examAnswer(idx, answer) {
     if (!examSession || examSession.submitted) return;
     examSession.answers[idx] = answer;
+    App.store.saveExamSession(examSession);
   }
 
   function examFlag(idx) {
     if (!examSession) return;
     examSession.flagged[idx] = !examSession.flagged[idx];
+    App.store.saveExamSession(examSession);
   }
 
   function submitExam() {
@@ -524,6 +532,7 @@
     });
 
     App.store.addTimeOnTask(attempt.timeMs);
+    App.store.clearExamSession();
 
     var tagMap = {};
     results.forEach(function (r) {
@@ -550,16 +559,24 @@
   // in-memory session leaves statistics untouched.
   function discardQuiz() {
     if (session && session.speedTimer) clearInterval(session.speedTimer);
+    App.store.clearQuizSession();
     session = null;
   }
 
   function discardExam() {
     if (examSession && examSession.timer) clearInterval(examSession.timer);
+    App.store.clearExamSession();
     examSession = null;
   }
 
-  function getExamSession() { return examSession; }
-  function getQuizSession() { return session; }
+  function getExamSession() {
+    if (!examSession && App.store.getExamSession) examSession = App.store.getExamSession();
+    return examSession;
+  }
+  function getQuizSession() {
+    if (!session && App.store.getQuizSession) session = App.store.getQuizSession();
+    return session;
+  }
 
   App.quiz = {
     startQuiz: startQuiz,
