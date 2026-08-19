@@ -35,7 +35,8 @@ var prompt = fs.readFileSync(promptPath, 'utf8');
   'blind clue review',
   'source order',
   'exactly 5 options for every mcq and multi question',
-  '1, 2, 3, or 4 correct choices'
+  '1, 2, 3, or 4 correct choices',
+  '45% mcq, 20% multi, 10% tf, 10% fill, and 15% match'
 ].forEach(function (requiredText) {
   assert.ok(prompt.toLowerCase().indexOf(requiredText.toLowerCase()) >= 0,
     'questions prompt should contain: ' + requiredText);
