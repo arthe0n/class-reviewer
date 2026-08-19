@@ -183,6 +183,34 @@
     return !!done[labId];
   }
 
+  /* ── Lab step completion ────────────────────────────────── */
+  // Single source of truth for per-step completion, kept in sync with the
+  // same persistence pattern as `labsDone`. Key format: '<labId>:<stepIndex>'.
+  function stepKey(labId, stepIndex) {
+    return labId + ':' + stepIndex;
+  }
+
+  function markStepDone(labId, stepIndex) {
+    var done = get('labStepsDone', {});
+    done[stepKey(labId, stepIndex)] = Date.now();
+    set('labStepsDone', done);
+  }
+
+  function isStepDone(labId, stepIndex) {
+    var done = get('labStepsDone', {});
+    return !!done[stepKey(labId, stepIndex)];
+  }
+
+  // Idempotent: removing a step that was never completed is a no-op.
+  function unmarkStepDone(labId, stepIndex) {
+    var done = get('labStepsDone', {});
+    var k = stepKey(labId, stepIndex);
+    if (done[k]) {
+      delete done[k];
+      set('labStepsDone', done);
+    }
+  }
+
   function labsCompletedCount(cert) {
     var keys = Object.keys(get('labsDone', {}));
     if (!cert) return keys.length;
@@ -446,6 +474,7 @@
       streak: get('streak', {}),
       exams: get('exams', []),
       labsDone: get('labsDone', {}),
+      labStepsDone: get('labStepsDone', {}),
       leitner: get('leitner', {}),
       cardReviews: get('cardReviews', []),
       flashSessions: get('flashSessions', []),
@@ -463,6 +492,7 @@
     if (data.streak) set('streak', data.streak);
     if (data.exams) set('exams', data.exams);
     if (data.labsDone) set('labsDone', data.labsDone);
+    if (data.labStepsDone) set('labStepsDone', data.labStepsDone);
     if (data.leitner) set('leitner', data.leitner);
     if (data.cardReviews) set('cardReviews', data.cardReviews);
     if (data.flashSessions) set('flashSessions', data.flashSessions);
@@ -472,7 +502,7 @@
   }
 
   function wipeProgress() {
-    ['answers', 'streak', 'exams', 'labsDone', 'leitner', 'cardReviews', 'flashSessions', 'flashSession', 'timeOnTask'].forEach(remove);
+    ['answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews', 'flashSessions', 'flashSession', 'timeOnTask'].forEach(remove);
   }
 
   function exportAnswersCSV(cert) {
@@ -530,6 +560,9 @@
     markLabComplete: markLabComplete,
     isLabDone: isLabDone,
     labsCompletedCount: labsCompletedCount,
+    markStepDone: markStepDone,
+    isStepDone: isStepDone,
+    unmarkStepDone: unmarkStepDone,
     getCardState: getCardState,
     setCardState: setCardState,
     gradeCard: gradeCard,

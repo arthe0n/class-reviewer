@@ -11,7 +11,7 @@
   var utils = App.core.utils;
   var BACKUP_VERSION = 1;
   var USER_KEYS = [
-    'answers', 'streak', 'exams', 'labsDone', 'leitner', 'cardReviews',
+    'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews',
     'flashSessions', 'flashSession', 'personalNotes', 'timeOnTask'
   ];
   var USER_ARRAY_KEYS = ['answers', 'exams', 'cardReviews', 'flashSessions', 'personalNotes'];
@@ -90,6 +90,7 @@
     addArray(data.flashSessions, function (item) { return item.cert || item._cert; });
     addArray(data.personalNotes, function (item) { return item.cert || item._cert; });
     Object.keys(data.labsDone || {}).forEach(function (key) { add(key.split(':')[0]); });
+    Object.keys(data.labStepsDone || {}).forEach(function (key) { add(key.split(':')[0]); });
     Object.keys(data.leitner || {}).forEach(function (key) { add(key.split(':')[0]); });
     if (data.flashSession) add(data.flashSession.cert || data.flashSession._cert);
     return unique(ids);
@@ -98,7 +99,7 @@
   function collectUserData() {
     var data = {};
     USER_KEYS.forEach(function (name) {
-      var fallback = name === 'labsDone' || name === 'leitner' ? {} : (name === 'timeOnTask' ? 0 : []);
+      var fallback = name === 'labsDone' || name === 'labStepsDone' || name === 'leitner' ? {} : (name === 'timeOnTask' ? 0 : []);
       data[name] = clone(App.store.get(name, fallback));
     });
     data.certifications = certIdsFromUserData(data);

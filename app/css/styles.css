@@ -1672,6 +1672,32 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   display: block;
   animation: rise-in var(--motion-normal) var(--ease);
 }
+/* Step action row: [Show hint] [Reveal solution] ... [Done]. The left group
+   stays together and Done is pushed to the far right; wrapping on narrow
+   screens is intentional (Done drops to its own line, right-aligned). */
+.lab-step-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+.lab-step-action-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.lab-step-done-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.lab-step.is-complete {
+  border-color: color-mix(in srgb, var(--accent-green) 32%, var(--border));
+}
+.lab-step.is-complete .lab-step-header {
+  color: var(--text-muted);
+}
 
 /* ── Labs: chapter accordion ─────────────────────────────── */
 .lab-chapter {
@@ -3067,10 +3093,10 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .stats-insight-copy p { margin: 0.22rem 0 0; color: var(--text-muted); font-size: 0.74rem; line-height: 1.35; }
 .stats-insight .btn { grid-column: 2; justify-self: start; }
 .stats-chart-wrap { min-width: 0; overflow: hidden; }
-.stats-line-chart { display: block; width: 100%; min-height: 15rem; overflow: visible; }
+.stats-line-chart { display: block; width: 100%; height: auto; aspect-ratio: 19 / 6; overflow: visible; }
 .stats-gridline { stroke: var(--border-subtle); stroke-width: 1; }
 .stats-axis-label { fill: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
-.stats-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: stroke-dashoffset 0.8s var(--ease); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--stats-accent) 34%, transparent)); }
+.stats-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; transition: stroke-dashoffset 0.8s var(--ease); }
 .stats-area { pointer-events: none; }
 .stats-point { stroke: var(--bg-panel); stroke-width: 2; cursor: pointer; transition: r var(--motion-fast) var(--ease), stroke-width var(--motion-fast) var(--ease); }
 .stats-point:hover, .stats-point:focus-visible { r: 6; stroke-width: 3; outline: none; }
@@ -3082,7 +3108,6 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .stats-ring-wrap { position: relative; width: clamp(9rem, 20vw, 11rem); aspect-ratio: 1; }
 .stats-ring-svg { display: block; width: 100%; height: 100%; }
 .stats-ring-svg .progress-ring-fg { transition: stroke-dashoffset 0.85s var(--ease); }
-.stats-ring-svg { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--stats-accent) 38%, transparent)); }
 .stats-ring-center { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; pointer-events: none; text-align: center; }
 .stats-ring-center strong { color: var(--text-primary); font-family: var(--font-mono); font-size: clamp(1.35rem, 3vw, 2rem); line-height: 1; }
 .stats-ring-center span { max-width: 6rem; margin-top: 0.4rem; color: var(--text-muted); font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.07em; text-transform: uppercase; }
@@ -3141,7 +3166,7 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .stats-donut-layout { display: grid; grid-template-columns: 9rem minmax(0, 1fr); align-items: center; gap: 1rem; }
 .stats-donut { display: block; width: 9rem; height: 9rem; max-width: 100%; }
 .stats-donut-bg { stroke: var(--border); }
-.stats-donut-fg { stroke-linecap: round; transition: stroke-dashoffset 0.8s var(--ease); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--stats-accent) 30%, transparent)); }
+.stats-donut-fg { stroke-linecap: round; transition: stroke-dashoffset 0.8s var(--ease); }
 .stats-donut-value { fill: var(--text-primary); font-family: var(--font-mono); font-size: 14px; font-weight: 700; }
 .stats-donut-label { fill: var(--text-muted); font-family: var(--font-mono); font-size: 6px; letter-spacing: 0.05em; text-transform: uppercase; }
 .stats-legend { display: grid; gap: 0.65rem; color: var(--text-secondary); font-size: 0.76rem; }

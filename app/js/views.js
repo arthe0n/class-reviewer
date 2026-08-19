@@ -554,6 +554,7 @@
     if (activeFlash && (activeFlash.cert || certId) !== certId) activeFlash = null;
     var activeQuiz = App.quiz && App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
     if (activeQuiz && activeQuiz.cert !== certId) activeQuiz = null;
+    var activeLab = activeLabSession(certId);
     var continueType = 'quiz';
     var continueChapter = null;
     var continueMode = 'Start a chapter quiz';
@@ -569,6 +570,11 @@
       continueChapter = resolveChapter('questions', activeQuiz.questions[activeQuiz.index]._chapter);
       continueMode = 'Resume Quiz';
       continueMeta = 'Question ' + (activeQuiz.index + 1) + ' of ' + activeQuiz.questions.length;
+    } else if (activeLab) {
+      continueType = 'labs';
+      continueChapter = activeLab.lab._chapter;
+      continueMode = 'Resume Lab';
+      continueMeta = activeLab.lab.title + ' · ' + activeLab.doneCount + ' of ' + activeLab.total + ' steps done';
     } else {
       var incomplete = chapterRows.filter(function (row) { return row.pct < 100; });
       continueChapter = recentChapter || (incomplete[0] && incomplete[0].chapter) || (chapterRows[0] && chapterRows[0].chapter);
@@ -588,6 +594,8 @@
     function continueAction() {
       if ((activeFlash && continueType === 'flashcards') || (activeQuiz && continueType === 'quiz')) {
         App.core.navigate('#/' + continueType);
+      } else if (activeLab && continueType === 'labs') {
+        App.core.navigate('#/labs/' + encodeURIComponent(activeLab.lab._id));
       } else if (actionChapter) {
         launchChapter(continueType, actionChapter);
       } else {
@@ -1800,6 +1808,36 @@
     }));
   }
 
+  // A lab has an in-progress session when some (but not all) of its steps are
+  // complete and the lab itself is not marked done. Returns the most recently
+  // active one, mirroring the single saved-session behavior of quiz/flashcards.
+  function activeLabSession(certId) {
+    var labs = App.content.getByCert('labs', certId);
+    var stepsDone = App.store.get('labStepsDone', {});
+    var best = null;
+    labs.forEach(function (lab) {
+      if (!lab.steps || !lab.steps.length || App.store.isLabDone(lab._id)) return;
+      var doneCount = 0, lastTs = 0;
+      lab.steps.forEach(function (step, i) {
+        var ts = stepsDone[lab._id + ':' + i];
+        if (ts) { doneCount++; if (ts > lastTs) lastTs = ts; }
+      });
+      if (doneCount > 0 && doneCount < lab.steps.length && (!best || lastTs > best.lastTs)) {
+        best = { lab: lab, doneCount: doneCount, total: lab.steps.length, lastTs: lastTs };
+      }
+    });
+    return best;
+  }
+
+  function resetLabSession(labId) {
+    var done = App.store.get('labStepsDone', {});
+    var prefix = labId + ':';
+    Object.keys(done).forEach(function (key) {
+      if (key.indexOf(prefix) === 0) delete done[key];
+    });
+    App.store.set('labStepsDone', done);
+  }
+
   function labRow(lab, num) {
     var done = App.store.isLabDone(lab._id);
     var row = el('div', {
@@ -1871,6 +1909,31 @@
     controls.appendChild(el('div', { className: 'form-group' }, [el('label', { text: 'Find a lab' }), filter]));
     root.appendChild(controls);
 
+    // Leaving a lab keeps its step progress (like a saved quiz session); the
+    // labs page offers Resume or Cancel so the user can pick it up or restart.
+    var activeSession = activeLabSession(certId);
+    if (activeSession) {
+      var resumePanel = el('div', { className: 'quiz-resume-panel mb-3' });
+      resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
+      resumePanel.appendChild(el('p', { className: 'text-muted', text: activeSession.lab.title + ' · ' + activeSession.doneCount + ' of ' + activeSession.total + ' steps done' }));
+      var resumeRow = el('div', { className: 'flex gap-sm' });
+      resumeRow.appendChild(el('button', {
+        className: 'btn btn-secondary btn-sm', text: 'Resume lab',
+        onClick: function () { App.core.navigate('#/labs/' + encodeURIComponent(activeSession.lab._id)); }
+      }));
+      resumeRow.appendChild(el('button', {
+        className: 'btn btn-danger btn-sm', text: 'Cancel session',
+        title: 'Discard this lab\u2019s step progress and start it fresh',
+        onClick: function () {
+          if (!confirm('Cancel this lab session? Its step progress will be discarded.')) return;
+          resetLabSession(activeSession.lab._id);
+          App.core.handleRoute();
+        }
+      }));
+      resumePanel.appendChild(resumeRow);
+      root.appendChild(resumePanel);
+    }
+
     var content = el('div', { id: 'labs-content' });
     root.appendChild(content);
 
@@ -1938,14 +2001,158 @@
     scen.appendChild(el('div', { className: 'label-upper mb-1', text: 'Scenario' }));
     scen.appendChild(el('div', { html: App.markdown.render(lab.scenario || '') }));
     root.appendChild(scen);
+    // Per-step completion helpers. The Done button, the Redo button, and the
+    // objective checkboxes all route through completeStep()/redoStep(), so
+    // manual and automatic completion share one idempotent flow.
+    var stepWraps = [], stepChips = [], stepDoneBtns = [], btnActions = [], objectiveCbs = [];
+
+    // Explicit objective→steps mapping (optional). Without lab.objectiveSteps
+    // we fall back to the 1:1 convention: objective i satisfies step i.
+    function objectiveStepList(i) {
+      if (lab.objectiveSteps && lab.objectiveSteps[i] != null) {
+        var raw = lab.objectiveSteps[i];
+        return Array.isArray(raw) ? raw.slice() : [raw];
+      }
+      return [i];
+    }
+
+    // Objectives that list step `j` among the steps satisfying them.
+    function objectivesForStep(j) {
+      var out = [];
+      (lab.objectives || []).forEach(function (o, i) {
+        if (objectiveStepList(i).indexOf(j) >= 0) out.push(i);
+      });
+      return out;
+    }
+
+    // True when every step of objective i is complete.
+    function objectiveSatisfied(i) {
+      return objectiveStepList(i).every(function (k) {
+        return k >= 0 && k < lab.steps.length && App.store.isStepDone(lab._id, k);
+      });
+    }
+
+    // Keep an objective's checkbox in sync with its steps' completion state.
+    // Setting .checked directly never fires change events, so this cannot
+    // create a feedback loop with the checkbox listener.
+    function syncObjectiveCheckbox(i) {
+      var cb = objectiveCbs[i];
+      if (!cb) return;
+      cb.checked = objectiveSatisfied(i);
+    }
+
+    function markStepUI(i) {
+      var wrap = stepWraps[i];
+      if (!wrap) return;
+      wrap.classList.add('is-complete');
+      var chip = stepChips[i];
+      if (chip) {
+        chip.className = 'chip chip-green';
+        chip.textContent = '✓';
+        chip.setAttribute('aria-label', 'Step ' + (i + 1) + ' complete');
+        chip.title = 'Step complete';
+      }
+      var btn = stepDoneBtns[i];
+      if (btn) {
+        btn.className = 'btn btn-secondary btn-sm lab-step-done-btn';
+        btn.disabled = false;
+        btn.textContent = '↺ Redo';
+        btn.setAttribute('aria-label', 'Redo step ' + (i + 1));
+        btn.title = 'Un-complete this step and work through it again';
+        btnActions[i] = function () { redoStep(i); };
+      }
+    }
+
+    function unmarkStepUI(i) {
+      var wrap = stepWraps[i];
+      if (!wrap) return;
+      wrap.classList.remove('is-complete');
+      var chip = stepChips[i];
+      if (chip) {
+        chip.className = 'chip chip-muted';
+        chip.textContent = String(i + 1);
+        chip.removeAttribute('aria-label');
+        chip.title = '';
+      }
+      var btn = stepDoneBtns[i];
+      if (btn) {
+        btn.className = 'btn btn-primary btn-sm lab-step-done-btn';
+        btn.disabled = false;
+        btn.textContent = 'Done';
+        btn.setAttribute('aria-label', 'Mark step ' + (i + 1) + ' done');
+        btn.title = '';
+        btnActions[i] = function () { completeStep(i); };
+      }
+    }
+
+    // First incomplete step at or after `from`; falls back to the earliest
+    // incomplete step so out-of-order completion still lands on a current step.
+    function nextActiveStep(from) {
+      var n = lab.steps.length;
+      for (var k = from; k < n; k++) if (!App.store.isStepDone(lab._id, k)) return k;
+      for (var j = 0; j < from && j < n; j++) if (!App.store.isStepDone(lab._id, j)) return j;
+      return null;
+    }
+
+    function openStepOnly(k) {
+      stepWraps.forEach(function (w, j) { w.classList.toggle('open', j === k); });
+    }
+
+    // Idempotent: completing an already-completed step is a no-op and never
+    // re-advances, so the Done button, Redo, and objective checks cannot
+    // double-fire or skip ahead. The final step never advances past the end.
+    // Returns true when the step was actually (newly) completed.
+    function completeStep(i) {
+      if (i < 0 || i >= lab.steps.length) return false;
+      if (App.store.isStepDone(lab._id, i)) return false;
+      App.store.markStepDone(lab._id, i);
+      markStepUI(i);
+      // Auto-check any objective that is now fully satisfied by its steps.
+      objectivesForStep(i).forEach(function (oi) {
+        if (objectiveSatisfied(oi)) syncObjectiveCheckbox(oi);
+      });
+      var next = nextActiveStep(i + 1);
+      if (next == null) {
+        App.toast('All steps complete — mark the lab done below', 'success', 2600);
+        return true;
+      }
+      openStepOnly(next);
+      stepWraps[next].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return true;
+    }
+
+    // Redo a completed step: un-complete it, reopen it as the current step,
+    // and un-check any objective that depended on it. Idempotent like
+    // completeStep — redoing a pending step is a no-op.
+    function redoStep(i) {
+      if (i < 0 || i >= lab.steps.length) return;
+      if (!App.store.isStepDone(lab._id, i)) return;
+      App.store.unmarkStepDone(lab._id, i);
+      unmarkStepUI(i);
+      objectivesForStep(i).forEach(function (oi) { syncObjectiveCheckbox(oi); });
+      openStepOnly(i);
+      stepWraps[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     if (lab.objectives && lab.objectives.length) {
       var obj = el('div', { className: 'panel mb-3' });
       obj.appendChild(el('div', { className: 'label-upper mb-1', text: 'Objectives' }));
       lab.objectives.forEach(function (o, i) {
         var labEl = el('label', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', cursor: 'pointer' } });
-        labEl.appendChild(el('input', { type: 'checkbox', id: 'obj-' + i }));
+        var cb = el('input', { type: 'checkbox', id: 'obj-' + i });
+        cb.addEventListener('change', function () {
+          if (!cb.checked) return; // unchecking never reverts completed steps; use Redo instead
+          var list = objectiveStepList(i);
+          var changed = false;
+          list.forEach(function (k) { if (completeStep(k)) changed = true; });
+          if (changed) {
+            App.toast('Objective met — ' + (list.length > 1 ? list.length + ' steps complete' : 'step ' + (list[0] + 1) + ' complete'), 'success', 2200);
+          }
+        });
+        labEl.appendChild(cb);
         labEl.appendChild(document.createTextNode(o));
         obj.appendChild(labEl);
+        objectiveCbs.push(cb);
       });
       root.appendChild(obj);
     }
@@ -1953,23 +2160,27 @@
       root.appendChild(el('h3', { className: 'mb-1', text: 'Steps' }));
       lab.steps.forEach(function (step, i) {
         var wrap = el('div', { className: 'lab-step' });
+        var chip = el('span', { className: 'chip chip-muted', text: String(i + 1) });
         wrap.appendChild(el('div', {
           className: 'lab-step-header',
           onClick: function () { wrap.classList.toggle('open'); }
         }, [
-          el('span', { className: 'chip chip-muted', text: String(i + 1) }),
+          chip,
           el('span', { text: step.do || 'Step ' + (i + 1) })
         ]));
         var body = el('div', { className: 'lab-step-body' });
+        var actions = el('div', { className: 'lab-step-actions' });
+        var group = el('div', { className: 'lab-step-action-group' });
+        var reveals = [];
         if (step.hint) {
-          var hintBtn = el('button', { className: 'btn btn-ghost btn-sm mb-1', text: 'Show hint' });
+          var hintBtn = el('button', { className: 'btn btn-ghost btn-sm', text: 'Show hint' });
           var hintEl = el('div', { className: 'text-muted mb-1', style: { display: 'none' }, text: step.hint });
           hintBtn.addEventListener('click', function (e) { e.stopPropagation(); hintEl.style.display = hintEl.style.display === 'none' ? 'block' : 'none'; });
-          body.appendChild(hintBtn);
-          body.appendChild(hintEl);
+          group.appendChild(hintBtn);
+          reveals.push(hintEl);
         }
         if (step.solution) {
-          var solBtn = el('button', { className: 'btn btn-secondary btn-sm mb-1', text: 'Reveal solution' });
+          var solBtn = el('button', { className: 'btn btn-secondary btn-sm', text: 'Reveal solution' });
           var solEl = el('div', { style: { display: 'none' } });
           var code = el('div', { className: 'code-block' });
           code.textContent = step.solution;
@@ -1982,9 +2193,23 @@
           }));
           solEl.appendChild(code);
           solBtn.addEventListener('click', function (e) { e.stopPropagation(); solEl.style.display = solEl.style.display === 'none' ? 'block' : 'none'; });
-          body.appendChild(solBtn);
-          body.appendChild(solEl);
+          group.appendChild(solBtn);
+          reveals.push(solEl);
         }
+        var doneBtn = el('button', {
+          className: 'btn btn-primary btn-sm lab-step-done-btn', type: 'button', text: 'Done',
+          'aria-label': 'Mark step ' + (i + 1) + ' done'
+        });
+        // One listener whose behavior is swapped by markStepUI/unmarkStepUI.
+        doneBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var act = btnActions[i];
+          if (act) act();
+        });
+        actions.appendChild(group);
+        actions.appendChild(doneBtn);
+        body.appendChild(actions);
+        reveals.forEach(function (r) { body.appendChild(r); });
         if (step.check) {
           body.appendChild(el('div', { className: 'mt-1', style: { fontSize: '0.88rem' } }, [
             el('strong', { text: 'Verify: ' }), document.createTextNode(step.check)
@@ -1992,7 +2217,17 @@
         }
         wrap.appendChild(body);
         root.appendChild(wrap);
+        stepWraps.push(wrap);
+        stepChips.push(chip);
+        stepDoneBtns.push(doneBtn);
+        btnActions.push(function () { completeStep(i); });
+        if (App.store.isStepDone(lab._id, i)) markStepUI(i);
       });
+      // The current step is the first incomplete one; show it on load.
+      var current = nextActiveStep(0);
+      if (current != null) openStepOnly(current);
+      // Reflect any previously completed steps in the objective checkboxes.
+      (lab.objectives || []).forEach(function (o, i) { syncObjectiveCheckbox(i); });
     }
     var done = App.store.isLabDone(lab._id);
     root.appendChild(el('button', {

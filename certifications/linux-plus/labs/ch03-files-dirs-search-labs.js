@@ -19,37 +19,37 @@ objectives: [
 steps: [
 {
 do: "Create a temporary workspace under `/tmp`, including an `incoming` directory and a nested `archive/reports` directory, then enter the workspace.",
-hint: "Use `mkdir -p` for nested directories and `cd` with an absolute pathname.",
+hint: "Create the workspace in a temporary location, including both levels of nested directories, then enter it using a full path so your starting directory is unambiguous.",
 solution: "mkdir -p /tmp/linuxplus-lab/incoming /tmp/linuxplus-lab/archive/reports && cd /tmp/linuxplus-lab",
 check: "Run `pwd` and confirm it reports `/tmp/linuxplus-lab`. Then run `ls -F` and confirm `incoming/` and `archive/` are present."
 },
 {
 do: "Create three report files, one log file, and one hidden file inside `incoming`. Put realistic text into the reports and log so they can be searched later.",
-hint: "Use `printf` with redirection to create text files. A filename beginning with `.` is hidden.",
+hint: "Use shell output redirection to write several lines into each text file; include a hidden entry and remember to verify it with a listing that includes hidden names.",
 solution: "printf 'Project42 status: complete\nOwner: Christine\nErrors: 0\n' > incoming/report42.txt\nprintf 'Project43 status: pending\nOwner: Alex\nErrors: 2\n' > incoming/report43.txt\nprintf 'Project44 status: complete\nOwner: Jordan\nErrors: 0\n' > incoming/report44.txt\nprintf 'INFO startup complete\nERROR database connection failed\nINFO retry scheduled\nERROR timeout detected\n' > incoming/server.log\nprintf 'Temporary shell settings\n' > incoming/.projectrc",
 check: "Run `ls -la incoming` and confirm that `report42.txt`, `report43.txt`, `report44.txt`, `server.log`, and `.projectrc` are listed."
 },
 {
 do: "Inspect the incoming directory using long format, including hidden files and human-readable sizes. Then identify which entries are regular files.",
-hint: "Combine `-a`, `-l`, and `-h`. The `-F` option can append a type indicator.",
+hint: "Use a detailed listing that includes hidden entries and readable sizes, then use its type markers to distinguish ordinary files from directories and other special entries.",
 solution: "ls -alhF incoming",
 check: "Confirm the hidden `.projectrc` appears. The regular files should have no trailing type indicator, while directories would show `/` and other file types can receive their own indicators."
 },
 {
 do: "Search the project reports for the word `status`, ignoring capitalization, and then inspect only the first two lines of the server log.",
-hint: "Use `grep -i` for a case-insensitive search and `head -n 2` for the first two lines.",
+hint: "Search the report group without treating letter case as significant, then limit the log inspection to its opening portion.",
 solution: "grep -i status incoming/report*.txt\nhead -n 2 incoming/server.log",
 check: "The `grep` command should return the status line from all three report files. `head` should display `INFO startup complete` followed by `ERROR database connection failed`."
 },
 {
 do: "Find every `.txt` report under the workspace and copy all reports into the archive's `reports` directory.",
-hint: "Use `find` with `-name` to locate the reports, then use a wildcard with `cp` to copy the matching files.",
+hint: "Use a recursive filename search to locate the report files, then use pattern-based file selection to copy that set into the archive location.",
 solution: "find . -name \"*.txt\"\ncp incoming/*.txt archive/reports/",
 check: "Run `ls -lh archive/reports` and confirm that `report42.txt`, `report43.txt`, and `report44.txt` are present."
 },
 {
 do: "Verify the final workspace structure and compare the original report directory with the archived report directory. Use `diff` to check whether the copied reports are identical.",
-hint: "Use `tree` if available for a visual overview; otherwise combine `find` or `ls -R`. `diff` can compare individual text files.",
+hint: "Produce a recursive view of the workspace, then compare matching originals and copies; identical files should leave the comparison tool with no differences to report.",
 solution: "ls -R /tmp/linuxplus-lab\nfind /tmp/linuxplus-lab -name \"*.txt\"\ndiff incoming/report42.txt archive/reports/report42.txt\ndiff incoming/report43.txt archive/reports/report43.txt\ndiff incoming/report44.txt archive/reports/report44.txt",
 check: "The final layout should contain `incoming/` with the original files and `archive/reports/` with the three copied reports. Each `diff` command should produce no output when the files are identical."
 }
@@ -70,25 +70,25 @@ objectives: [
 steps: [
 {
 do: "Create a temporary log file containing several informational and error messages.",
-hint: "Use `printf` with output redirection.",
+hint: "Use shell redirection to write multiple log entries into a temporary file; include both normal and error events so later searches have useful targets.",
 solution: "mkdir -p /tmp/linuxplus-loglab && cd /tmp/linuxplus-loglab && printf 'INFO service starting\nINFO configuration loaded\nERROR database unavailable\nINFO retrying connection\nERROR request timeout\nINFO service ready\n' > app.log",
 check: "Run `cat app.log` and confirm that all six log entries are displayed."
 },
 {
 do: "Find every log entry containing `ERROR` and display its line number.",
-hint: "Use `grep` with the line-number option.",
+hint: "Search for the error marker while asking the search utility to identify each match's line position.",
 solution: "grep -n ERROR app.log",
 check: "The output should contain the two error lines and show their line numbers."
 },
 {
 do: "Display only the first three lines of the log, then display only the last two lines.",
-hint: "Use `head -n` and `tail -n`.",
+hint: "Use one file-reading tool for the beginning and another for the end, limiting each view to the requested number of lines.",
 solution: "head -n 3 app.log\ntail -n 2 app.log",
 check: "The first command should show the startup, configuration, and first error entries. The second should show the final two entries."
 },
 {
 do: "Start following the log so that newly appended entries appear automatically.",
-hint: "Use the follow option for `tail`. Stop it with Ctrl+C after confirming the new entry appears.",
+hint: "Look for the mode that keeps a file view open as new content arrives; consider how to stop a long-running monitor cleanly after observing a change.",
 solution: "tail -f app.log",
 check: "While `tail -f` is running, open another shell and run `printf 'INFO health check passed\\n' >> /tmp/linuxplus-loglab/app.log`. The new line should appear in the monitoring terminal; press Ctrl+C to stop."
 }

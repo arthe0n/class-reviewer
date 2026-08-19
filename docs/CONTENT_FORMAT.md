@@ -157,6 +157,8 @@ window.ReviewApp.content.register({
         "Create a directory and set its owner and group",
         "Apply correct mode bits"
       ],
+      // Optional: step indices per objective. Omitted → objective i ↔ step i.
+      objectiveSteps: [[0], [1]],
       steps: [
         {
           do: "Create the project directory…",
@@ -178,6 +180,7 @@ window.ReviewApp.content.register({
 | `minutes` | number | no | Estimated time |
 | `scenario` | string (markdown) | yes | Context / story |
 | `objectives` | string[] | no | Checklist items |
+| `objectiveSteps` | (number\|number[])[] | no | Which step indices satisfy each objective (parallel to `objectives`). Defaults to objective *i* ↔ step *i* when omitted. Once all of an objective's steps are complete it is checked automatically, and checking an objective completes its steps. |
 | `steps` | array | yes | Step objects |
 | `steps[].do` | string | yes | Instruction |
 | `steps[].hint` | string | no | Revealable hint |

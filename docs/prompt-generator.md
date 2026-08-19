@@ -164,7 +164,7 @@ notes and send it — the AI replies with a complete `.js` file.
 >       steps: [
 >         {
 >           do: "What the student should do (clear instruction)",
->           hint: "Optional gentle hint without giving the full answer",
+>           hint: "Specific conceptual guidance that points toward the approach without revealing the answer",
 >           solution: "Exact command(s) or actions that solve the step (copy-pasteable)",
 >           check: "How to verify the step succeeded"
 >         }
@@ -186,6 +186,16 @@ notes and send it — the AI replies with a complete `.js` file.
 > - Tags: short lowercase keywords.
 > - Chapter title: invent a concise title that matches the notes.
 > - No placeholders. No “TODO”.
+>
+> HINT / REVEAL ANSWER RULES (strict):
+> - `hint` and `solution` have different responsibilities. The hint is guidance; the solution is the answer exposed by **Reveal Answer** (the app may label this **Reveal Solution**).
+> - A hint should help the student reason about the current step by pointing toward the relevant concept, action, observation, relationship, or direction. Make it specific enough to reduce difficulty slightly and encourage investigation or experimentation.
+> - A hint must stop short of solving the step. It must never state or closely paraphrase the required command, code, configuration, parameter, value, final action, required sequence, expected output, or result.
+> - Do not put the exact answer in a hint using a different format, wording, placeholder, example, partial command, flag, path, filename, value, or sequence of actions. A hint must provide direction, not completion.
+> - Do not give a complete procedure that makes the step mechanically solvable. Describe what to look for or how to reason, not every action to perform.
+> - If mentioning a tool or technique is useful, describe its purpose or capability rather than naming the exact tool, option, argument, path, or syntax the student is expected to discover.
+> - **Reveal Answer** is the only place allowed to provide the exact command, code, configuration, value, required action sequence, expected result, and complete explanation. Keep those details in `solution`, never in `hint`.
+> - Before finalizing each step, compare its hint with its solution and remove any detail that would make Reveal Answer redundant. When in doubt, make the hint less specific rather than more revealing.
 >
 > UNIT NOTES:
 >
