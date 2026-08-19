@@ -82,7 +82,7 @@ notes and send it — the AI replies with a complete `.js` file.
 > {
 >   q: "Clear, exam-style question text",
 >   type: "mcq" | "multi" | "tf" | "fill" | "command_match",
->   options: ["A", "B", "C", "D"],   // required for mcq and multi only
+>   options: ["A", "B", "C", "D", "E"],   // exactly 5 options for mcq and multi only
 >   answer: <see below>,
 >   explain: "1–3 sentences explaining why the answer is correct and why common wrong answers fail",
 >   tags: ["tag1", "tag2"]
@@ -91,7 +91,7 @@ notes and send it — the AI replies with a complete `.js` file.
 >
 > ANSWER FORMATS:
 > - mcq:   zero-based index (e.g. 0) — exactly 1 correct choice
-> - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — the correct-choice count must vary across questions, never default to 3
+> - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — 1 to 4 of the 5 options are correct; the correct-choice count must vary across questions, never default to 3
 > - tf:    true or false
 > - fill:  string (compared case-insensitive, trimmed)
 > - command_match: no answer field — the pairs array IS the answer (see below)
@@ -124,9 +124,12 @@ notes and send it — the AI replies with a complete `.js` file.
 > - The output must remain valid JavaScript matching the application's schema: q, type, command, pairs, explain, tags (all fields required except tags).
 >
 > CONTENT REQUIREMENTS:
-> - Produce EXACTLY 5 questions covering the most important exam-relevant material in the unit notes below. Do not produce more or fewer than 5.
-> - Mix types across the 5 questions: roughly 2 mcq, 1 multi, 1 tf, and 1 fill (adjust by one if a type does not fit the material).
-> - VARY THE NUMBER OF CORRECT ANSWERS in multi questions. A multi question may have 1, 2, 3, or 4 correct choices. Never default to 3, and never give every multi question the same number of correct choices. Across a set of questions, answer counts should be visibly varied (e.g. 1 / 2 / 3 / 4 / 1 or 2 / 4 / 1 / 3 / 2), never 3 / 3 / 3 / 3.
+> - Produce a minimum of 70 questions covering the entire unit notes below.
+> - Create more questions if the content contains enough important information.
+> - Prioritize complete coverage of the material over reaching a specific number.
+> - Mix types: roughly 50% mcq, 20% multi, 15% tf, 15% fill.
+> - Present EXACTLY 5 options for every mcq and multi question (no more, no fewer).
+> - VARY THE NUMBER OF CORRECT ANSWERS in multi questions. A multi question may have 1, 2, 3, or 4 correct choices out of its 5 options. Never default to 3, and never give every multi question the same number of correct choices. Across a set of questions, the correct-answer counts of consecutive multi questions should be visibly varied (e.g. 1 / 2 / 3 / 4 / 1 or 2 / 4 / 1 / 3 / 2), never 3 / 3 / 3 / 3.
 > - Choose the correct-answer count that fits the question: one correct choice when only one answer is right, more when several distinct choices legitimately qualify (e.g. selecting multiple commands, options, or true statements). Do not add fake correct answers to reach a target count, do not pad with choices that are duplicates or near-duplicates, and do not write questions where it is unclear which choices should be correct.
 > - Every multi question must include at least one plausible but incorrect distractor, and the `answer` array must exactly match the correct options.
 > - Questions must be technically accurate for CompTIA Linux+.
