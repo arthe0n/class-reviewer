@@ -20,6 +20,8 @@ var prompt = fs.readFileSync(promptPath, 'utf8');
 [
   'ANSWER-CHOICE QUALITY',
   'balanced set of answers',
+  'Balance the options, not the question stem',
+  'short, direct questions',
   'systematically be the longest or shortest',
   'not the longest',
   'not make it the shortest',
