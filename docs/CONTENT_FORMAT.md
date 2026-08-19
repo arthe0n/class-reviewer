@@ -81,7 +81,7 @@ window.ReviewApp.content.register({
 | Type | `answer` value |
 |------|----------------|
 | `mcq` | Zero-based index into `options` (e.g. `0`) |
-| `multi` | Array of zero-based indices (e.g. `[0, 2]`) |
+| `multi` | Array of 1–4 zero-based indices (e.g. `[0, 2]`); the correct-choice count should vary across questions and never default to 3 |
 | `tf` | `true` or `false` |
 | `fill` | String; compared case-insensitively after trim |
 | `command_match` | No `answer` field — the correct matching **is** the `pairs` array |

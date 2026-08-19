@@ -926,9 +926,9 @@ tags: ["grep", "directories"]
 {
 q: "Which of the following are valid file types described in the notes?",
 type: "multi",
-options: ["Text files", "Binary data files", "Executable program files", "Directory files", "Linked files", "Named pipes and sockets"],
-answer: [0, 1, 2, 3, 4, 5],
-explain: "The notes list all six categories: text, binary data, executable programs, directories, linked files, and named pipes/sockets.",
+options: ["Text files", "Binary data files", "Executable program files", "Directory files", "Encrypted files", "Compressed archive files"],
+answer: [0, 1, 2, 3],
+explain: "The notes categorize files as text, binary data, executable programs, directories, linked files, named pipes/sockets (and device files). Encryption and compression are file properties, not distinct file types.",
 tags: ["files", "filetypes"]
 },
 {
@@ -942,121 +942,121 @@ tags: ["filesystem", "paths"]
 {
 q: "Which statements about `ls -l` output are correct?",
 type: "multi",
-options: ["It shows permissions", "It shows the owner and group", "It shows the hard-link count", "It shows the modification time", "It shows the filename"],
-answer: [0, 1, 2, 3, 4],
-explain: "The long listing includes file type/permissions, hard-link count, owner, group, size, modification time, and filename.",
+options: ["It shows permissions", "It shows the owner and group", "It shows the hard-link count", "It shows the file's creation date", "It shows the file's inode number"],
+answer: [0, 1, 2],
+explain: "The long listing includes file type/permissions, hard-link count, owner, group, size, modification time, and filename — but neither a creation date nor an inode number; `ls -l` reports the modification time, and inode numbers require `ls -i`.",
 tags: ["ls", "metadata"]
 },
 {
 q: "Which `-F` indicators are supported by the notes?",
 type: "multi",
-options: ["/ for a directory", "* for an executable", "@ for a symbolic link", "= for a socket", "No indicator for a regular file"],
-answer: [0, 1, 2, 3, 4],
-explain: "The notes associate `/`, `*`, `@`, and `=` with directories, executables, symbolic links, and sockets; regular files have no indicator.",
+options: ["/ for a directory", "* for an executable", "@ for a symbolic link", "= for a socket", "# for a hidden file"],
+answer: [0, 1, 2, 3],
+explain: "The notes associate `/`, `*`, `@`, and `=` with directories, executables, symbolic links, and sockets; regular files (hidden or not) get no indicator, so `#` is never shown.",
 tags: ["ls", "filetypes"]
 },
 {
 q: "Which statements about `cp` are correct?",
 type: "multi",
-options: ["Both source and destination are required", "`-R` or `-r` copies directory trees", "`-n` prevents overwriting an existing destination", "`-i` asks before overwriting", "`-u` overwrites only when the source is newer"],
-answer: [0, 1, 2, 3, 4],
-explain: "Each statement matches the documented `cp` syntax and options in the notes.",
+options: ["Both source and destination are required", "`-R` or `-r` copies directory trees", "`-n` prevents overwriting an existing destination", "A directory can be copied without any special option", "`-a` does not copy directories recursively"],
+answer: [0, 1, 2],
+explain: "`cp` always needs a source and a destination, requires `-R`/`-r` (or `-a`, which is recursive) to copy directories, and uses `-n`, `-i`, `-u`, and `-f` to control overwriting; a plain `cp` cannot copy a directory.",
 tags: ["cp", "options"]
 },
 {
 q: "Which statements about `mv` are correct?",
 type: "multi",
-options: ["It can rename files", "It can rename directories", "It can move and rename in one command", "`-i` can ask before overwriting", "`-n` prevents overwriting"],
-answer: [0, 1, 2, 3, 4],
-explain: "`mv` supports both moving and renaming, including directories, and the listed options control overwrite behavior.",
+options: ["It can rename files", "It can rename directories", "It can move and rename in one command", "`-n` prevents overwriting", "`-r` is required to move directories"],
+answer: [0, 1, 2, 3],
+explain: "`mv` moves or renames files and directories in one step and supports `-i`, `-n`, `-f`, and `-u` for overwrite behavior; no `-r` flag is needed to move a directory.",
 tags: ["mv", "options"]
 },
 {
 q: "Which `rsync` behaviors are supported by the notes?",
 type: "multi",
-options: ["It can perform archive-mode copies", "It can preserve symbolic links as symbolic links", "It can preserve timestamps", "It can display progress", "It can display transfer statistics"],
-answer: [0, 1, 2, 3, 4],
-explain: "The notes document `-a`, `-l`, `-t`, `--progress`, and `--stats` for these purposes.",
+options: ["It can perform archive-mode copies", "It can preserve symbolic links as symbolic links", "It can preserve timestamps", "It can display progress", "It can only copy files on the same machine"],
+answer: [0, 1, 2, 3],
+explain: "The notes document `-a`, `-l`, `-t`, `--progress`, and `--stats` for these purposes; `rsync` also copies over a network through OpenSSH.",
 tags: ["rsync", "options"]
 },
 {
 q: "Which statements about `rm` are correct?",
 type: "multi",
-options: ["`-i` prompts before each file", "`-I` can ask once for bulk deletion", "`-R` recursively removes directory trees", "`-f` suppresses prompts", "`-d` removes empty directories"],
-answer: [0, 1, 2, 3, 4],
-explain: "All five behaviors are described in the notes.",
+options: ["`-i` prompts before each file", "`-I` can ask once for bulk deletion", "`-R` recursively removes directory trees", "`-u` restores deleted files", "`rmdir -r` removes non-empty directory trees"],
+answer: [0, 1, 2],
+explain: "The notes document `-i`, `-I`, `-R`/`-r`, `-f`, and `-d` for deletion and prompt behavior; there is no `-u` (undo/restore) option in `rm`, and `rmdir` removes only empty directories.",
 tags: ["rm", "options"]
 },
 {
 q: "Which statements correctly compare hard and symbolic links?",
 type: "multi",
-options: ["Hard links share an inode", "Symbolic links do not share an inode", "Hard links must be on the same filesystem", "Symbolic links can cross filesystems", "A stale symbolic link can remain after its target is moved or deleted"],
-answer: [0, 1, 2, 3, 4],
-explain: "These are the key distinctions and risks explicitly described in the notes.",
+options: ["Hard links share an inode", "Symbolic links do not share an inode", "Hard links must be on the same filesystem", "Symbolic links point to the same inode as their target", "A stale symbolic link can remain after its target is moved or deleted"],
+answer: [0, 1, 2, 4],
+explain: "Hard links share an inode and cannot cross filesystems; symbolic links have their own inode and point to the target's name rather than sharing its inode, so they go stale when the target is moved or deleted.",
 tags: ["links", "inode"]
 },
 {
 q: "Which commands are appropriate for reading portions of a text file?",
 type: "multi",
-options: ["head", "tail", "grep", "less", "more"],
-answer: [0, 1, 2, 3, 4],
-explain: "The notes identify `head`, `tail`, and `grep` for portions and `less`/`more` for paged reading.",
+options: ["head", "tail", "grep", "less", "dd"],
+answer: [0, 1, 2, 3],
+explain: "`head` and `tail` show the first and last lines and `grep` shows matching lines; `less` pages through a file. `dd` copies raw data and is not a text-reading tool.",
 tags: ["reading", "text"]
 },
 {
 q: "Which statements about `less` are correct?",
 type: "multi",
-options: ["Spacebar moves forward one page", "Arrow keys move up and down", "`.` is the documented forward-search key", "`/` starts a forward search", "`?` starts a backward search", "`q` exits"],
-answer: [0, 1, 3, 4, 5],
-explain: "The notes document Spacebar, arrow keys, `/`, `?`, and `q`; they do not list `.` as a navigation key.",
+options: ["Spacebar moves forward one page", "`Esc` + `V` moves forward one page", "`.` is the documented forward-search key", "`/` starts a forward search", "`?` starts a backward search", "`q` exits"],
+answer: [0, 3, 4, 5],
+explain: "The notes document Spacebar, `/`, `?`, and `q`, and `Esc`+`V` moves backward one page (not forward); `.` is not listed as a navigation key.",
 tags: ["less", "pager"]
 },
 {
 q: "Which commands can help locate a command or file according to the notes?",
 type: "multi",
-options: ["which", "whereis", "locate", "find"],
+options: ["which", "whereis", "locate", "find", "updatedb"],
 answer: [0, 1, 2, 3],
-explain: "All four are described as information or file-location utilities, with different search mechanisms.",
+explain: "`which`, `whereis`, `locate`, and `find` are described as information or file-location utilities with different mechanisms; `updatedb` only refreshes the locate database and does not locate anything itself.",
 tags: ["search", "which", "whereis", "locate", "find"]
 },
 {
 q: "Which `locate` behaviors are supported by the notes?",
 type: "multi",
-options: ["It normally searches a prebuilt database", "The database may be stale", "`-b` matches the basename", "`-i` ignores case", "`-c` counts matches"],
-answer: [0, 1, 2, 3, 4],
-explain: "These behaviors are directly described for `locate`.",
+options: ["It normally searches a prebuilt database", "The database may be stale", "`-b` matches the basename", "`-i` ignores case", "The database is rebuilt automatically before every search"],
+answer: [0, 1, 2, 3],
+explain: "`locate` searches a prebuilt database that can be stale (usually updated once per day) and supports `-b`, `-i`, `-c`, and other options; the database is not rebuilt on every search — `updatedb` does that.",
 tags: ["locate", "options"]
 },
 {
 q: "Which `find` criteria are supported by the notes?",
 type: "multi",
-options: ["-name", "-user", "-group", "-mtime", "-size", "-type"],
-answer: [0, 1, 2, 3, 4, 5],
-explain: "All six are listed as common `find` search criteria.",
+options: ["-name", "-user", "-group", "-mtime", "-owner", "-recent"],
+answer: [0, 1, 2, 3],
+explain: "`-name`, `-user`, `-group`, and `-mtime` are documented `find` criteria (along with `-size`, `-type`, `-empty`, `-regex`, and others). `-owner` and `-recent` are not real `find` options — ownership is tested with `-user`/`-group`.",
 tags: ["find", "criteria"]
 },
 {
 q: "Which `grep` behaviors are supported by the notes?",
 type: "multi",
-options: ["It is case-sensitive by default", "`-i` ignores case", "`-v` inverts the match", "`-n` displays line numbers", "`-c` counts matching lines"],
-answer: [0, 1, 2, 3, 4],
-explain: "Each statement matches the documented `grep` behavior.",
+options: ["It is case-sensitive by default", "`-i` ignores case", "`-v` inverts the match", "`-E` treats the pattern as a literal string", "`-v` displays only the matching lines"],
+answer: [0, 1, 2],
+explain: "`grep` is case-sensitive by default, and `-i` ignores case while `-v` shows non-matching lines; `-E` enables extended regular expressions (`-F` treats the pattern as a literal string), so the last two options are wrong.",
 tags: ["grep", "options"]
 },
 {
 q: "Which statements about `diff` are correct?",
 type: "multi",
-options: ["It compares text files line by line", "`-q` gives brief difference output", "`-y` shows side-by-side output", "`-e` can generate an `ed` script", "`-s` reports identical files"],
-answer: [0, 1, 2, 3, 4],
-explain: "All five behaviors are documented in the notes.",
+options: ["It compares text files line by line", "`-q` gives brief difference output", "`-y` shows side-by-side output", "It compares files byte by byte", "`-q` prints the complete contents of both files"],
+answer: [0, 1, 2],
+explain: "`diff` compares text files line by line; `-q` gives brief output and `-y` shows side-by-side output (`-e` generates an `ed` script). It does not compare byte by byte, and `-q` never prints whole files.",
 tags: ["diff", "comparison"]
 },
 {
 q: "Which statements about Linux filenames are correct?",
 type: "multi",
-options: ["Filenames can be up to 255 characters", "Filenames may contain periods", "Extensions are optional", "Names beginning with `.` are hidden", "Shell metacharacters should be avoided in filenames"],
-answer: [0, 1, 2, 3, 4],
-explain: "These points are explicitly covered in the filename section.",
+options: ["Filenames can be up to 255 characters", "Filenames may contain periods", "Extensions are optional", "Names beginning with `.` are hidden", "Filenames must include a file extension"],
+answer: [0, 1, 2, 3],
+explain: "Filenames can be up to 255 characters, may contain periods, do not require extensions, and are hidden when they start with `.`; extensions are never mandatory.",
 tags: ["filenames", "hidden"]
 },
 {
