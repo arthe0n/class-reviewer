@@ -2351,8 +2351,9 @@
       onClick: function () {
         App.store.markLabComplete(lab._id);
         App.toast('Lab marked complete', 'success');
-        root.innerHTML = '';
-        viewLabDetail(root, labId);
+        // All steps are done and the lab is marked complete, so leave the
+        // detail view automatically and return to the lab select menu.
+        App.core.navigate('#/labs');
       }
     }));
   }
