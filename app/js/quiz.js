@@ -63,6 +63,23 @@
     });
   }
 
+  // Multi questions are authored with a variable number of correct choices,
+  // but every question must leave at least one distractor. Reject malformed
+  // content instead of silently treating duplicate, out-of-range, or all-
+  // options answers as valid. This keeps a bad generated question from
+  // teaching the learner that selecting everything is a safe strategy.
+  function isValidMultiAnswer(q) {
+    var options = Array.isArray(q && q.options) ? q.options : [];
+    var answer = Array.isArray(q && q.answer) ? q.answer : [];
+    if (!options.length || answer.length < 1 || answer.length > 4 || answer.length >= options.length) return false;
+    var seen = {};
+    return answer.every(function (index) {
+      if (!Number.isInteger(index) || index < 0 || index >= options.length || seen[index]) return false;
+      seen[index] = true;
+      return true;
+    });
+  }
+
   function prepareQuestion(raw) {
     var q = Object.assign({}, raw);
     q._origAnswer = q.answer;
@@ -90,8 +107,14 @@
       if (q.type === 'mcq') {
         q._correctShuffled = opts.findIndex(function (o) { return o.origIdx === q.answer; });
       } else {
+        if (!isValidMultiAnswer(q)) {
+          q._invalid = true;
+          q._invalidReason = 'Multi questions need 1–4 distinct correct choices and at least one distractor.';
+          q._correctShuffled = [];
+          return q;
+        }
         var ansSet = {};
-        (Array.isArray(q.answer) ? q.answer : [q.answer]).forEach(function (i) { ansSet[i] = true; });
+        q.answer.forEach(function (i) { ansSet[i] = true; });
         q._correctShuffled = opts.reduce(function (acc, o, i) {
           if (ansSet[o.origIdx]) acc.push(i);
           return acc;
@@ -102,6 +125,7 @@
   }
 
   function checkAnswer(q, userAnswer) {
+    if (!q || q._invalid) return false;
     if (q.type === 'mcq') {
       return userAnswer === q._correctShuffled;
     }
@@ -176,7 +200,11 @@
       App.toast('No questions match your criteria', 'error');
       return null;
     }
-    questions = utils.shuffle(questions).map(prepareQuestion);
+    questions = utils.shuffle(questions).map(prepareQuestion).filter(function (q) { return !q._invalid; });
+    if (!questions.length) {
+      App.toast('No valid questions match your criteria', 'error');
+      return null;
+    }
     if (config.count && config.count < questions.length) {
       questions = questions.slice(0, config.count);
     }
@@ -439,7 +467,12 @@
       });
     }
 
-    if (q.type === 'mcq' || q.type === 'tf') {
+    if (q._invalid) {
+      optsWrap.appendChild(el('div', { className: 'empty-state', style: { padding: '1rem' } }, [
+        el('h3', { text: 'Question unavailable' }),
+        el('p', { text: q._invalidReason || 'This question has invalid answer data and was not shown.' })
+      ]));
+    } else if (q.type === 'mcq' || q.type === 'tf') {
       var options = q.type === 'tf'
         ? [{ text: 'True', origIdx: true }, { text: 'False', origIdx: false }]
         : q._shuffledOptions;
@@ -536,8 +569,13 @@
       App.toast('No questions for this cert', 'error');
       return null;
     }
-    var count = Math.min(config.count || 50, pool.length);
-    var questions = utils.shuffle(pool).slice(0, count).map(prepareQuestion);
+    var questions = utils.shuffle(pool).map(prepareQuestion).filter(function (q) { return !q._invalid; });
+    var count = Math.min(config.count || 50, questions.length);
+    questions = questions.slice(0, count);
+    if (!questions.length) {
+      App.toast('No valid questions for this certification', 'error');
+      return null;
+    }
     var timeLimit = config.timeLimit || (count * 75); // seconds
     examSession = {
       cert: config.cert,
@@ -665,6 +703,7 @@
     endQuiz: endQuiz,
     buildPool: buildPool,
     prepareQuestion: prepareQuestion,
+    isValidMultiAnswer: isValidMultiAnswer,
     checkAnswer: checkAnswer,
     normalizeAnswer: normalizeAnswer,
     splitAnswerAcronym: splitAnswerAcronym,

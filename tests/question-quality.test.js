@@ -38,6 +38,7 @@ var prompt = fs.readFileSync(promptPath, 'utf8');
   'source order',
   'exactly 5 options for every mcq and multi question',
   '1, 2, 3, or 4 correct choices',
+  'never mark all 5 options correct',
   '45% mcq, 20% multi, 10% tf, 10% fill, and 15% match'
 ].forEach(function (requiredText) {
   assert.ok(prompt.toLowerCase().indexOf(requiredText.toLowerCase()) >= 0,
@@ -71,6 +72,7 @@ var payloads = loadQuestionPayloads();
 assert.strictEqual(payloads.length, 3, 'all checked-in question banks should register');
 
 var questionCount = 0;
+var multiAnswerCounts = {};
 var sourceFraming = /\b(?:according to|based on|from|in|supported by)\s+(?:the\s+)?notes\b/i;
 payloads.forEach(function (payload) {
   assert.strictEqual(payload.type, 'questions');
@@ -102,6 +104,7 @@ payloads.forEach(function (payload) {
         assert.ok(Array.isArray(question.answer));
         assert.ok(question.answer.length >= 1 && question.answer.length <= 4,
           'multi questions should have 1–4 correct choices: ' + question.q);
+        multiAnswerCounts[question.answer.length] = (multiAnswerCounts[question.answer.length] || 0) + 1;
         assert.strictEqual(new Set(question.answer).size, question.answer.length,
           'multi answer indices must be distinct: ' + question.q);
         question.answer.forEach(function (index) {
@@ -138,6 +141,10 @@ payloads.forEach(function (payload) {
 });
 
 assert.ok(questionCount >= 100, 'checked-in question banks should contain a meaningful sample');
+assert.strictEqual(multiAnswerCounts[5] || 0, 0,
+  'multi questions must never mark all five options as correct');
+assert.ok([1, 2, 3, 4].filter(function (count) { return multiAnswerCounts[count]; }).length >= 3,
+  'multi questions should vary the number of correct choices');
 
 // Deterministic regression for the anti-length rule used by the prompt: a
 // clearly outlying correct choice is detectable, while natural variation is
@@ -267,5 +274,26 @@ var multi = quiz.prepareQuestion({
 });
 assert.deepStrictEqual(multi._correctShuffled, [1, 3]);
 assert.strictEqual(quiz.checkAnswer(multi, [3, 1]), true);
+
+var fourCorrect = quiz.prepareQuestion({
+  q: 'Which four options are correct?',
+  type: 'multi',
+  options: ['Correct one', 'Correct two', 'Correct three', 'Correct four', 'Distractor'],
+  answer: [0, 1, 2, 3]
+});
+assert.strictEqual(fourCorrect._invalid, undefined);
+assert.strictEqual(quiz.isValidMultiAnswer(fourCorrect), true);
+assert.strictEqual(fourCorrect._correctShuffled.length, 4);
+
+var allFiveCorrect = quiz.prepareQuestion({
+  q: 'Which options are correct?',
+  type: 'multi',
+  options: ['Correct one', 'Correct two', 'Correct three', 'Correct four', 'Correct five'],
+  answer: [0, 1, 2, 3, 4]
+});
+assert.strictEqual(allFiveCorrect._invalid, true,
+  'multi questions must reject an answer containing every option');
+assert.strictEqual(quiz.isValidMultiAnswer(allFiveCorrect), false);
+assert.strictEqual(quiz.checkAnswer(allFiveCorrect, [0, 1, 2, 3, 4]), false);
 
 console.log(questionCount + ' questions checked; prompt and choice-quality checks passed');

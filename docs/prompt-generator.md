@@ -98,7 +98,7 @@ notes and send it — the AI replies with a complete `.js` file.
 >
 > ANSWER FORMATS:
 > - mcq:   zero-based index (e.g. 0) — exactly 1 correct choice
-> - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — 1 to 4 of the 5 options are correct; the correct-choice count must vary across questions, never default to 3
+> - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — choose 1, 2, 3, or 4 correct choices across the question set; never mark all 5 options correct and always leave at least one plausible distractor
 > - tf:    true or false
 > - fill:  string — matched case-insensitively with inner whitespace collapsed; a parenthetical acronym in the answer (e.g. "Certificate Authority (CA)") also accepts the full name alone and the acronym alone; put extra legitimate equivalents in the optional `accepts` array
 > - match: no answer field — the pairs array IS the answer (see below)
@@ -170,7 +170,7 @@ notes and send it — the AI replies with a complete `.js` file.
 > - Present EXACTLY 5 options for every mcq and multi question (no more, no fewer).
 > - VARY THE NUMBER OF CORRECT ANSWERS in multi questions. A multi question may have 1, 2, 3, or 4 correct choices out of its 5 options. Never default to 3, and never give every multi question the same number of correct choices. Across a set of questions, the correct-answer counts of consecutive multi questions should be visibly varied (e.g. 1 / 2 / 3 / 4 / 1 or 2 / 4 / 1 / 3 / 2), never 3 / 3 / 3 / 3.
 > - Choose the correct-answer count that fits the question: one correct choice when only one answer is right, more when several distinct choices legitimately qualify (e.g. selecting multiple commands, options, or true statements). Do not add fake correct answers to reach a target count, do not pad with choices that are duplicates or near-duplicates, and do not write questions where it is unclear which choices should be correct.
-> - Every multi question must include at least one plausible but incorrect distractor, and the `answer` array must exactly match the correct options.
+> - Every multi question must include at least one plausible but incorrect distractor, and the `answer` array must exactly match the correct options. Never use an answer array containing all five option indices, even when several choices are related.
 > - Before finalizing every `mcq` or `multi`, run the blind clue review in **ANSWER-CHOICE QUALITY** and revise any option that is conspicuously longer, shorter, more detailed, more technical, more qualified, more complete, or more polished than the others. Do not solve a length problem by degrading the correct answer; strengthen the distractors instead.
 > - For `fill` answers, put the canonical answer in `answer` — answers are matched case-insensitively with whitespace collapsed, so do not rely on case or spacing to distinguish answers. When the answer has a standard acronym, write it in parentheses after the full name (e.g. `"Certificate Authority (CA)"`); the engine then accepts the full name, the acronym, and the parenthesized form. List any other genuinely equivalent forms (common synonyms, alternate spellings, full names of acronyms such as LAMP → `"Linux Apache MySQL PHP"`) in the optional `accepts` array. Never invent aliases, never add partial words or vague statements to `accepts`, and never treat substrings of the answer as valid — every accepted form must be a real, unambiguous equivalent of the canonical answer.
 > - Questions must be technically accurate for CompTIA Linux+.
