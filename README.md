@@ -51,7 +51,7 @@ All progress lives in the browser's local IndexedDB database. Existing ReviewApp
 ## Main features
 
 - **Dashboard** — certification-scoped stats, recommendations, 14-day activity, and an ordered **Next action** for each chapter: **Flashcards → Quiz → Labs**. It advances to the next chapter when the current chapter is complete and resumes active sessions when available.
-- **Quiz** — Chapter Focus, Random Mix, Theme Attack, Weak Spots, and Speed Run modes, with keyboard shortcuts (`1-5` to select options, Enter/Space to submit and advance).
+- **Quiz** — Chapter Focus, Random Mix, Theme Attack, Weak Spots, and Speed Run modes, with keyboard shortcuts (`1-5` to select options, Enter/Space to submit and advance). Questions answered wrong are shown again at the end (practice-only, so they never double-count toward your score or stats), and feedback color-codes multi-select choices — green for correct picks, amber for missed answers, red for wrong ones.
 - **Exam Simulation** — timed exam with question palette, flag-for-review, pass threshold, and keyboard answer selection.
 - **Flashcards** — flip cards with Again / Next, Shuffle, a retry queue, and saved-session resume or cancel.
 - **Labs** — hands-on scenarios grouped by chapter with objectives, revealable hints, **Reveal solution**, one-line **Verify** guidance, and **View output** examples in a modal. Steps support **Done / Redo**, objective-based completion, and saved progress that can be resumed or cancelled.

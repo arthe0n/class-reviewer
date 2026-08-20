@@ -1164,11 +1164,21 @@
     if (q._cert || q._chapter) {
       root.appendChild(makeContextHeader(q._cert, q._chapter, 'Quiz · ' + modeLabel));
     }
+    var total = Number.isInteger(sess.originalTotal) ? sess.originalTotal : sess.questions.length;
+    var retrying = sess.index >= total;
+    var retryCount = sess.questions.length - total;
     var header = el('div', { className: 'quiz-progress' });
-    header.appendChild(el('span', { className: 'mono text-muted', text: (sess.index + 1) + ' / ' + sess.questions.length }));
+    header.appendChild(el('span', { className: 'mono text-muted', text: retrying
+      ? 'Review · ' + (sess.index - total + 1) + ' / ' + retryCount
+      : (sess.index + 1) + ' / ' + total }));
     var bar = el('div', { className: 'progress-bar' });
-    bar.appendChild(el('div', { className: 'progress-fill', style: { width: ((sess.index) / sess.questions.length * 100) + '%' } }));
+    bar.appendChild(el('div', { className: 'progress-fill', style: { width: (retrying ? 100 : ((sess.index) / total * 100)) + '%' } }));
     header.appendChild(bar);
+    if (retrying) {
+      header.appendChild(el('span', { className: 'chip chip-amber', text: 'Missed · review' }));
+    } else if (retryCount > 0) {
+      header.appendChild(el('span', { className: 'chip chip-amber', text: retryCount + ' to retry' }));
+    }
     var timerEl = null;
     if (sess.speedLimit) {
       timerEl = el('span', { className: 'exam-timer', text: sess.speedLimit + 's' });
@@ -1204,14 +1214,22 @@
         });
       } else if (q.type === 'multi') {
         optsWrap.querySelectorAll('.option-btn').forEach(function (b, i) {
-          if ((q._correctShuffled || []).indexOf(i) >= 0) b.classList.add('correct');
-          else if (selectedMulti[i]) b.classList.add('wrong');
+          var isCorrectOption = (q._correctShuffled || []).indexOf(i) >= 0;
+          var isSelected = !!selectedMulti[i];
+          // Green = correct choices the learner made, amber = correct choices
+          // they missed, red = wrong choices they selected.
+          if (isCorrectOption && isSelected) b.classList.add('correct');
+          else if (isCorrectOption) b.classList.add('missed');
+          else if (isSelected) b.classList.add('wrong');
         });
       } else if (isMatchQuestion(q) && matchUI) {
         matchUI.lock();
       }
       card.appendChild(el('div', { className: 'explain-panel' }, [
-        el('strong', { text: result.correct ? '✓ Correct. ' : '✗ Incorrect. ' }),
+        el('span', { className: 'feedback-status ' + (result.correct ? 'feedback-correct' : 'feedback-incorrect') }, [
+          el('span', { className: 'feedback-icon', text: result.correct ? '✓' : '✗' }),
+          el('span', { className: 'feedback-label', text: result.correct ? 'Correct' : 'Incorrect' })
+        ]),
         el('span', { html: App.markdown.renderInline(q.explain || '') })
       ]));
       actions.innerHTML = '';
