@@ -29,6 +29,27 @@
     ]);
   }
 
+  // Keep large counts readable while preserving ordinary values as-is.
+  function compactNumber(value) {
+    var number = Number(value);
+    if (!isFinite(number)) return '—';
+    var sign = number < 0 ? '-' : '';
+    var absolute = Math.abs(number);
+    var units = ['', 'K', 'M', 'B', 'T'];
+    var unit = 0;
+    while (absolute >= 1000 && unit < units.length - 1) {
+      absolute /= 1000;
+      unit++;
+    }
+    var decimals = unit === 0 ? (absolute % 1 ? 1 : 0) : absolute >= 100 ? 0 : absolute >= 10 ? 1 : 2;
+    var rounded = Number(absolute.toFixed(decimals));
+    if (rounded >= 1000 && unit < units.length - 1) {
+      rounded = Number((rounded / 1000).toFixed(2));
+      unit++;
+    }
+    return sign + String(rounded).replace(/\.0+$|(\.\d*?)0+$/, '') + units[unit];
+  }
+
   // Compact contextual header showing what the user is currently studying.
   // certId/chapter come from live data (never hardcoded); activity/meta are
   // optional labels such as the activity type or a progress indicator.
@@ -141,8 +162,8 @@
     } : App.content.counts();
     var stats = App.store.getDashboardStats(certId);
 
-    var termText = 'reviewapp v1.0.1 — ' + (cert ? cert.name + ' · ' : '') + counts.questions + ' questions · ' +
-      counts.flashcards + ' cards · ' + counts.labs + ' labs — SYSTEM READY';
+    var termText = 'reviewapp v1.0.2 — ' + (cert ? cert.name + ' · ' : '') + compactNumber(counts.questions) + ' questions · ' +
+      compactNumber(counts.flashcards) + ' cards · ' + compactNumber(counts.labs) + ' labs — SYSTEM READY';
     var strip = el('div', { className: 'terminal-strip', 'aria-label': 'System status' });
     root.appendChild(strip);
     if (!App.core.motionEnabled()) {
@@ -176,7 +197,7 @@
       tile.appendChild(el('div', { className: 'stat-label', text: t.label }));
       grid.appendChild(tile);
       utils.countUp(val, t.value, 700);
-      if (t.suffix) setTimeout(function () { val.textContent = t.value + t.suffix; }, 750);
+      setTimeout(function () { val.textContent = compactNumber(t.value) + t.suffix; }, 750);
     });
     root.appendChild(grid);
 
@@ -186,7 +207,7 @@
     if (weekly.length) {
       var top = weekly[0];
       nextStep.appendChild(el('h3', { text: 'Review: ' + (top.chapter || top.cert || 'flashcards') + ' — ' + top.tag }));
-      nextStep.appendChild(el('p', { className: 'text-muted mb-2', text: 'You struggled with ' + top.cards + ' card' + (top.cards === 1 ? '' : 's') + ' (' + top.agains + ' again-mark' + (top.agains === 1 ? '' : 's') + ') this week.' }));
+      nextStep.appendChild(el('p', { className: 'text-muted mb-2', text: 'You struggled with ' + compactNumber(top.cards) + ' card' + (top.cards === 1 ? '' : 's') + ' (' + compactNumber(top.agains) + ' again-mark' + (top.agains === 1 ? '' : 's') + ') this week.' }));
       nextStep.appendChild(el('button', {
         className: 'btn btn-primary btn-sm', text: 'Review flashcards',
         onClick: function () {
@@ -195,7 +216,7 @@
         }
       }));
     } else if (stats.cardsDue) {
-      nextStep.appendChild(el('h3', { text: stats.cardsDue + ' flashcard' + (stats.cardsDue === 1 ? '' : 's') + ' due for review' }));
+      nextStep.appendChild(el('h3', { text: compactNumber(stats.cardsDue) + ' flashcard' + (stats.cardsDue === 1 ? '' : 's') + ' due for review' }));
       nextStep.appendChild(el('p', { className: 'text-muted mb-2', text: 'A short review now keeps older material fresh.' }));
       nextStep.appendChild(el('button', { className: 'btn btn-primary btn-sm', text: 'Review flashcards', onClick: function () { App.core.navigate('#/flashcards'); } }));
     } else {
@@ -650,17 +671,17 @@
       if (selectedAction.resume) {
         continueMode = 'Resume ' + (continueType === 'labs' ? 'Lab' : phaseName);
         if (continueType === 'flashcards') {
-          continueMeta = Math.max(0, selectedAction.phase.total - selectedAction.phase.completed) + ' cards remaining in this session';
+          continueMeta = compactNumber(Math.max(0, selectedAction.phase.total - selectedAction.phase.completed)) + ' cards remaining in this session';
         } else if (continueType === 'quiz') {
-          continueMeta = 'Question ' + (selectedAction.phase.completed + 1) + ' of ' + selectedAction.phase.total;
+          continueMeta = 'Question ' + compactNumber(selectedAction.phase.completed + 1) + ' of ' + compactNumber(selectedAction.phase.total);
         } else {
           continueMeta = activeLab.lab.title + ' · ' + activeLab.doneCount + ' of ' + activeLab.total + ' steps done';
         }
       } else {
         var hasProgress = selectedAction.phase.completed > 0;
         continueMode = (hasProgress ? 'Continue ' : 'Start ') + phaseName;
-        var progressLabel = selectedAction.phase.completed + ' / ' + selectedAction.phase.total;
-        continueMeta = phaseName + ' · ' + progressLabel + (continueType === 'flashcards' ? ' cards reviewed' : continueType === 'quiz' ? ' questions explored' : ' labs completed');
+        var compactProgressLabel = compactNumber(selectedAction.phase.completed) + ' / ' + compactNumber(selectedAction.phase.total);
+        continueMeta = phaseName + ' · ' + compactProgressLabel + (continueType === 'flashcards' ? ' cards reviewed' : continueType === 'quiz' ? ' questions explored' : ' labs completed');
       }
     }
 
@@ -686,7 +707,7 @@
     heroCopy.appendChild(el('div', { className: 'dashboard-kicker', text: 'Current certification · Study workspace' }));
     heroCopy.appendChild(el('h1', { className: 'dashboard-hero-title', style: { color: certColor }, text: cert.name }));
     heroCopy.appendChild(el('p', { className: 'dashboard-hero-subtitle', text: answers.length ? 'Keep building your certification readiness.' : 'Ready to start your certification journey?' }));
-    heroCopy.appendChild(el('p', { className: 'dashboard-hero-counts', text: chapterRows.length + ' chapters · ' + questions.length + ' questions · ' + cards.length + ' flashcards · ' + labs.length + ' labs' }));
+    heroCopy.appendChild(el('p', { className: 'dashboard-hero-counts', text: compactNumber(chapterRows.length) + ' chapters · ' + compactNumber(questions.length) + ' questions · ' + compactNumber(cards.length) + ' flashcards · ' + compactNumber(labs.length) + ' labs' }));
     var heroActions = el('div', { className: 'dashboard-hero-actions' });
     heroActions.appendChild(el('button', { className: 'btn btn-primary', text: continueMode, onClick: continueAction }));
     heroActions.appendChild(el('button', { className: 'btn btn-ghost', text: 'View stats', onClick: function () { App.core.navigate('#/stats'); } }));
@@ -701,7 +722,7 @@
       el('span', { text: 'Certification progress' })
     ]));
     progressVisual.appendChild(ring);
-    progressVisual.appendChild(el('div', { className: 'dashboard-progress-detail', text: questions.length ? Object.keys(seenQuestions).length + ' of ' + questions.length + ' questions explored' : 'Start studying to track progress' }));
+    progressVisual.appendChild(el('div', { className: 'dashboard-progress-detail', text: questions.length ? compactNumber(Object.keys(seenQuestions).length) + ' of ' + compactNumber(questions.length) + ' questions explored' : 'Start studying to track progress' }));
     hero.appendChild(progressVisual);
     page.appendChild(hero);
 
@@ -718,10 +739,10 @@
       node.appendChild(el('small', { text: detail }));
       return node;
     }
-    metrics.appendChild(metric('Quiz accuracy', answers.length ? stats.accuracy + '%' : '—', answers.length ? answers.length + ' answers' : 'Not started', '#/stats'));
-    metrics.appendChild(metric('Questions practiced', answers.length ? String(answers.length) : '—', answers.length ? Object.keys(seenQuestions).length + ' unique explored' : 'Start a quiz', '#/quiz'));
-    metrics.appendChild(metric('Flashcards reviewed', reviewedCardCount ? String(reviewedCardCount) : '—', reviews.length ? reviews.length + ' review events' : 'No reviews yet', '#/flashcards'));
-    metrics.appendChild(metric('Labs completed', labs.length ? completedLabs + ' / ' + labs.length : '—', labs.length ? 'Hands-on progress' : 'No labs loaded', '#/labs'));
+    metrics.appendChild(metric('Quiz accuracy', answers.length ? stats.accuracy + '%' : '—', answers.length ? compactNumber(answers.length) + ' answers' : 'Not started', '#/stats'));
+    metrics.appendChild(metric('Questions practiced', answers.length ? compactNumber(answers.length) : '—', answers.length ? compactNumber(Object.keys(seenQuestions).length) + ' unique explored' : 'Start a quiz', '#/quiz'));
+    metrics.appendChild(metric('Flashcards reviewed', reviewedCardCount ? compactNumber(reviewedCardCount) : '—', reviews.length ? compactNumber(reviews.length) + ' review events' : 'No reviews yet', '#/flashcards'));
+    metrics.appendChild(metric('Labs completed', labs.length ? compactNumber(completedLabs) + ' / ' + compactNumber(labs.length) : '—', labs.length ? 'Hands-on progress' : 'No labs loaded', '#/labs'));
     metrics.appendChild(metric('Study streak', activeStreak ? activeStreak + 'd' : '—', activeStreak ? 'Keep it going' : 'No streak yet', '#/stats'));
     page.appendChild(metrics);
 
@@ -785,7 +806,7 @@
       var rowEl = el('article', { className: 'dashboard-chapter-row' + (isCurrent ? ' is-current' : '') });
       var titleWrap = el('div', { className: 'dashboard-chapter-heading' });
       titleWrap.appendChild(el('span', { className: 'dashboard-chapter-number', style: { color: certColor }, text: row.number }));
-      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { text: row.title }), el('small', { text: (isCurrent ? 'Current · ' : '') + row.questions + ' questions · ' + row.cards + ' cards · ' + row.labs + ' labs' })]));
+      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { text: row.title }), el('small', { text: (isCurrent ? 'Current · ' : '') + compactNumber(row.questions) + ' questions · ' + compactNumber(row.cards) + ' cards · ' + compactNumber(row.labs) + ' labs' })]));
       titleWrap.appendChild(el('span', { className: 'dashboard-chapter-percent', text: row.pct + '%' }));
       rowEl.appendChild(titleWrap);
       var track = el('div', { className: 'dashboard-chapter-track', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(row.pct), 'aria-label': row.title + ' progress' });
@@ -876,7 +897,7 @@
     var activitySection = el('section', { className: 'dashboard-section dashboard-activity-section' });
     var activityHead = el('div', { className: 'dashboard-section-header' });
     activityHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Consistency' }), el('h2', { text: 'Study activity' })]));
-    activityHead.appendChild(el('span', { className: 'dashboard-section-hint', text: 'Last 14 days · ' + (activityEvents.length ? activityEvents.length + ' logged events' : 'No activity yet') }));
+    activityHead.appendChild(el('span', { className: 'dashboard-section-hint', text: 'Last 14 days · ' + (activityEvents.length ? compactNumber(activityEvents.length) + ' logged events' : 'No activity yet') }));
     activitySection.appendChild(activityHead);
     var activity = App.store.getActivity(14, certId);
     activity.forEach(function (day) { day.study = day.count; day.cards = 0; day.labs = 0; });
@@ -905,7 +926,7 @@
       rect.setAttribute('rx', '3');
       rect.setAttribute('fill', day.study ? (day.date === today.getTime() ? 'var(--accent-green)' : 'var(--accent-cyan)') : 'var(--border)');
       var title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      title.textContent = utils.formatDate(day.date) + ' — ' + day.study + ' activities (' + day.count + ' quiz, ' + day.cards + ' cards, ' + day.labs + ' labs)';
+      title.textContent = utils.formatDate(day.date) + ' — ' + compactNumber(day.study) + ' activities (' + compactNumber(day.count) + ' quiz, ' + compactNumber(day.cards) + ' cards, ' + compactNumber(day.labs) + ' labs)';
       rect.appendChild(title);
       activitySvg.appendChild(rect);
     });
@@ -2656,7 +2677,7 @@
     L.push('');
     L.push('---');
     L.push('');
-    L.push('_Generated by ReviewApp v1.0.1 — offline study analytics._');
+    L.push('_Generated by ReviewApp v1.0.2 — offline study analytics._');
     L.push('');
 
     return L.join('\n');
@@ -2677,13 +2698,13 @@
     App.store.getAnswers({ cert: certId }).forEach(function (answer) { seenQuestions[answer.qId] = true; });
     var coverage = questionTotal ? Math.round((Object.keys(seenQuestions).length / questionTotal) * 100) : 0;
     root.appendChild(el('div', { className: 'stat-grid' }, [
-      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.totalAnswered) }), el('div', { className: 'stat-label', text: 'Answered' })]),
+      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.totalAnswered) }), el('div', { className: 'stat-label', text: 'Answered' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: stats.accuracy + '%' }), el('div', { className: 'stat-label', text: 'Accuracy' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: coverage + '%' }), el('div', { className: 'stat-label', text: 'Question coverage' })]),
-      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.streakDays) }), el('div', { className: 'stat-label', text: 'Streak' })]),
+      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.streakDays) }), el('div', { className: 'stat-label', text: 'Streak' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: utils.formatTime(Math.round(stats.timeOnTask / 1000)) }), el('div', { className: 'stat-label', text: 'Time on task' })]),
-      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.labsDone) }), el('div', { className: 'stat-label', text: 'Labs done' })]),
-      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: String(stats.cardsDue) }), el('div', { className: 'stat-label', text: 'Cards due' })])
+      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.labsDone) }), el('div', { className: 'stat-label', text: 'Labs done' })]),
+      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.cardsDue) }), el('div', { className: 'stat-label', text: 'Cards due' })])
     ]));
     root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Accuracy by chapter' }));
     var chMap = App.content.getChapters(certId, 'questions');
@@ -2772,7 +2793,7 @@
         label.appendChild(el('span', { className: 'text-muted', style: { fontSize: '0.82rem' },
           text: (w.cert || '') + (w.chapter ? ' → ' + w.chapter : '') }));
         row.appendChild(label);
-        row.appendChild(el('span', { className: 'text-muted mono', text: w.agains + ' again · ' + w.cards + ' cards' }));
+        row.appendChild(el('span', { className: 'text-muted mono', text: compactNumber(w.agains) + ' again · ' + compactNumber(w.cards) + ' cards' }));
         root.appendChild(row);
       });
     }
@@ -2894,13 +2915,13 @@
     function animateMetric(node, value, suffix) {
       if (value == null) { node.textContent = '—'; return; }
       suffix = suffix || '';
-      if (!App.core.motionEnabled()) { node.textContent = String(value) + suffix; return; }
+      if (!App.core.motionEnabled()) { node.textContent = compactNumber(value) + suffix; return; }
       var start = null;
       function frame(ts) {
         if (!start) start = ts;
         var p = Math.min(1, (ts - start) / 700);
         var eased = 1 - Math.pow(1 - p, 3);
-        node.textContent = String(Math.round(value * eased)) + suffix;
+        node.textContent = compactNumber(value * eased) + suffix;
         if (p < 1) requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
@@ -3090,7 +3111,7 @@
         var circle = svgNode('circle', { cx: point.x, cy: point.y, r: 4, class: 'stats-point', fill: color, tabindex: '0' });
         circle.setAttribute('aria-label', point.p.label + ': ' + point.p.value + '%');
         var title = svgNode('title', {});
-        title.textContent = point.p.label + ' · ' + point.p.value + '% · ' + point.p.total + ' responses';
+        title.textContent = point.p.label + ' · ' + point.p.value + '% · ' + compactNumber(point.p.total) + ' responses';
         circle.appendChild(title); svg.appendChild(circle);
       });
       points.forEach(function (p, i) {
@@ -3122,7 +3143,7 @@
     function renderDonut(correct, total, color, title) {
       if (!total) return emptyPanel('No answer history yet', 'Complete a quiz or exam to see the answer distribution.');
       var pct = Math.round((correct / total) * 100);
-      var svg = svgNode('svg', { class: 'stats-donut', viewBox: '0 0 100 100', role: 'img', 'aria-label': title + ': ' + correct + ' correct of ' + total });
+      var svg = svgNode('svg', { class: 'stats-donut', viewBox: '0 0 100 100', role: 'img', 'aria-label': title + ': ' + compactNumber(correct) + ' correct of ' + compactNumber(total) });
       var r = 37, c = 2 * Math.PI * r;
       svg.appendChild(svgNode('circle', { cx: 50, cy: 50, r: r, class: 'stats-donut-bg', fill: 'none', 'stroke-width': 10 }));
       var fg = svgNode('circle', { cx: 50, cy: 50, r: r, class: 'stats-donut-fg', fill: 'none', 'stroke-width': 10, stroke: color, 'stroke-dasharray': c, 'stroke-dashoffset': c, transform: 'rotate(-90 50 50)' });
@@ -3242,10 +3263,10 @@
 
       var snapshot = section('Overview', 'Performance snapshot', selectedDays == null ? 'All recorded activity' : 'Current certification · selected period', 'stats-snapshot-section');
       var snapshotGrid = el('div', { className: 'stats-metric-grid' });
-      snapshotGrid.appendChild(metricTile('Overall accuracy', totalAccuracy == null ? '—' : totalAccuracy + '%', delta == null ? (allAnswers.length ? 'Based on ' + allAnswers.length + ' answers' : 'No quiz history yet') : (delta >= 0 ? '+' : '') + delta + ' pts vs previous ' + selectedDays + ' days', delta != null && delta >= 0 ? 'positive' : delta != null ? 'negative' : ''));
-      snapshotGrid.appendChild(metricTile('Certification coverage', coverage == null ? '—' : coverage + '%', questions.length ? Object.keys(seenQuestions).length + ' / ' + questions.length + ' questions explored' : 'No question content loaded', 'accent'));
-      snapshotGrid.appendChild(metricTile('Questions answered', allAnswers.length ? allAnswers.length : '—', allAnswers.length ? uniqueCount(allAnswers, 'qId') + ' unique questions' : 'Complete a quiz to begin'));
-      snapshotGrid.appendChild(metricTile('Flashcards reviewed', allReviews.length ? allReviews.length : '—', allReviews.length ? Object.keys(reviewedCards).length + ' unique cards' : 'No card reviews yet'));
+      snapshotGrid.appendChild(metricTile('Overall accuracy', totalAccuracy == null ? '—' : totalAccuracy + '%', delta == null ? (allAnswers.length ? 'Based on ' + compactNumber(allAnswers.length) + ' answers' : 'No quiz history yet') : (delta >= 0 ? '+' : '') + delta + ' pts vs previous ' + selectedDays + ' days', delta != null && delta >= 0 ? 'positive' : delta != null ? 'negative' : ''));
+      snapshotGrid.appendChild(metricTile('Certification coverage', coverage == null ? '—' : coverage + '%', questions.length ? compactNumber(Object.keys(seenQuestions).length) + ' / ' + compactNumber(questions.length) + ' questions explored' : 'No question content loaded', 'accent'));
+      snapshotGrid.appendChild(metricTile('Questions answered', allAnswers.length ? allAnswers.length : '—', allAnswers.length ? compactNumber(uniqueCount(allAnswers, 'qId')) + ' unique questions' : 'Complete a quiz to begin'));
+      snapshotGrid.appendChild(metricTile('Flashcards reviewed', allReviews.length ? allReviews.length : '—', allReviews.length ? compactNumber(Object.keys(reviewedCards).length) + ' unique cards' : 'No card reviews yet'));
       snapshotGrid.appendChild(metricTile('Study streak', streak.current ? streak.current + ' days' : '—', streak.longest ? 'Best: ' + streak.longest + ' days' : 'No active streak yet'));
       snapshotGrid.appendChild(metricTile('Active study days', studyDays ? studyDays : '—', studyDays ? 'Across all recorded activity' : 'No activity yet'));
       snapshot.appendChild(snapshotGrid);
@@ -3267,7 +3288,7 @@
         var threshold = (App.store.getSettings().passThreshold && App.store.getSettings().passThreshold[certId]) || 70;
         var recentExams = exams.slice(0, 3);
         var passedRecent = recentExams.filter(function (e) { return e.passed; }).length;
-        insightsData.push({ tone: passedRecent === recentExams.length ? 'good' : 'neutral', icon: passedRecent === recentExams.length ? '✓' : 'i', title: passedRecent === recentExams.length ? 'Exam trend is on target' : 'Exam practice still has room', text: passedRecent + ' of ' + recentExams.length + ' recent simulations passed the ' + threshold + '% threshold.', action: 'View exam analysis', fn: function () { var target = rootPage.querySelector('.stats-exam-section'); if (target) target.scrollIntoView({ behavior: App.core.motionEnabled() ? 'smooth' : 'auto' }); } });
+        insightsData.push({ tone: passedRecent === recentExams.length ? 'good' : 'neutral', icon: passedRecent === recentExams.length ? '✓' : 'i', title: passedRecent === recentExams.length ? 'Exam trend is on target' : 'Exam practice still has room', text: compactNumber(passedRecent) + ' of ' + compactNumber(recentExams.length) + ' recent simulations passed the ' + threshold + '% threshold.', action: 'View exam analysis', fn: function () { var target = rootPage.querySelector('.stats-exam-section'); if (target) target.scrollIntoView({ behavior: App.core.motionEnabled() ? 'smooth' : 'auto' }); } });
       }
       insightsData.slice(0, 4).forEach(function (item) {
         var card = el('article', { className: 'stats-insight ' + item.tone });
@@ -3299,13 +3320,13 @@
       var coverageGrid = el('div', { className: 'stats-coverage-grid' });
       var coverageVisual = el('div', { className: 'stats-coverage-visual' });
       coverageVisual.appendChild(animatedRing(coverage, 'Coverage'));
-      coverageVisual.appendChild(el('p', { className: 'stats-visual-caption', text: questions.length ? 'Question coverage · ' + Object.keys(seenQuestions).length + ' of ' + questions.length : 'Study content to build coverage' }));
+      coverageVisual.appendChild(el('p', { className: 'stats-visual-caption', text: questions.length ? 'Question coverage · ' + compactNumber(Object.keys(seenQuestions).length) + ' of ' + compactNumber(questions.length) : 'Study content to build coverage' }));
       coverageGrid.appendChild(coverageVisual);
       var coverageDetails = el('div', { className: 'stats-coverage-details' });
       function coverageRow(label, done, total, tone) {
         var row = el('div', { className: 'stats-coverage-row' });
         var pct = total ? Math.round(done / total * 100) : null;
-        row.appendChild(el('div', { className: 'stats-coverage-meta' }, [el('span', { text: label }), el('strong', { text: total ? done + ' / ' + total : '—' })]));
+        row.appendChild(el('div', { className: 'stats-coverage-meta' }, [el('span', { text: label }), el('strong', { text: total ? compactNumber(done) + ' / ' + compactNumber(total) : '—' })]));
         var track = el('div', { className: 'stats-bar-track' });
         track.appendChild(el('span', { className: 'stats-bar-fill', style: { width: '0%', backgroundColor: tone || certColor } }));
         row.appendChild(track);
@@ -3321,7 +3342,7 @@
       coverageDetails.appendChild(el('div', { className: 'stats-coverage-summary' }, [el('span', { text: inProgressChapters + ' chapters in progress' }), el('span', { text: Math.max(0, rows.length - completedChapters - inProgressChapters) + ' not started' })]));
       coverageGrid.appendChild(coverageDetails); coverageSection.appendChild(coverageGrid); body.appendChild(coverageSection);
 
-      var chapterSection = section('Structure', 'Chapter performance', rows.length ? rows.length + ' chapters · click a row for detail' : 'No chapter content loaded', 'stats-chapters-section');
+      var chapterSection = section('Structure', 'Chapter performance', rows.length ? compactNumber(rows.length) + ' chapters · click a row for detail' : 'No chapter content loaded', 'stats-chapters-section');
       if (!rows.length) chapterSection.appendChild(emptyPanel('No chapters available', 'Add certification content and reload the app.'));
       else {
         var chapterTable = el('div', { className: 'stats-chapter-table', role: 'table', 'aria-label': 'Chapter performance' });
@@ -3340,7 +3361,7 @@
           summary.appendChild(el('span', { className: 'stats-status ' + row.status.toLowerCase().replace(/\s/g, '-'), text: row.status }));
           details.appendChild(summary);
           var detail = el('div', { className: 'stats-chapter-detail' });
-          detail.appendChild(el('div', { className: 'stats-chapter-detail-copy' }, [el('strong', { text: row.title }), el('p', { className: 'text-muted', text: (row.qAnswers.length ? row.qAnswers.length + ' question attempts' : 'No quiz attempts') + (row.fReviews.length ? ' · ' + row.fReviews.length + ' flashcard reviews' : '') + (row.lastTs ? ' · Last studied ' + utils.formatDate(row.lastTs) : '') })]));
+          detail.appendChild(el('div', { className: 'stats-chapter-detail-copy' }, [el('strong', { text: row.title }), el('p', { className: 'text-muted', text: (row.qAnswers.length ? compactNumber(row.qAnswers.length) + ' question attempts' : 'No quiz attempts') + (row.fReviews.length ? ' · ' + compactNumber(row.fReviews.length) + ' flashcard reviews' : '') + (row.lastTs ? ' · Last studied ' + utils.formatDate(row.lastTs) : '') })]));
           var actions = el('div', { className: 'stats-action-row' });
           if (row.questions.length) actions.appendChild(el('button', { className: 'btn btn-primary btn-xs', text: 'Quiz', onClick: function (e) { e.preventDefault(); launchChapter('quiz', row); } }));
           if (row.cards.length) actions.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Flashcards', onClick: function (e) { e.preventDefault(); launchChapter('flashcards', row); } }));
@@ -3361,7 +3382,7 @@
       if (!weakAreas.length) weakPanel.appendChild(emptyPanel('No weak card areas yet', 'Again marks and repeated difficulty will appear here as you review.'));
       else weakAreas.forEach(function (area) {
         var item = el('div', { className: 'stats-area-item' });
-        item.appendChild(el('div', { className: 'stats-area-copy' }, [el('strong', { text: area.tag }), el('small', { text: (area.chapter || 'Certification-wide') + ' · ' + area.attempts + ' attempts · ' + area.agains + ' Again' + (area.agains === 1 ? '' : 's') + ' · ' + area.daysSince + 'd ago' })]));
+        item.appendChild(el('div', { className: 'stats-area-copy' }, [el('strong', { text: area.tag }), el('small', { text: (area.chapter || 'Certification-wide') + ' · ' + compactNumber(area.attempts) + ' attempts · ' + compactNumber(area.agains) + ' Again' + (area.agains === 1 ? '' : 's') + ' · ' + area.daysSince + 'd ago' })]));
         item.appendChild(el('span', { className: 'stats-area-score ' + (area.improving ? 'improving' : ''), text: area.ratio + '% Again' }));
         item.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Review', onClick: function () { sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: chapterKeyFor('flashcards', area.chapter) || null })); App.core.navigate('#/flashcards'); } }));
         weakPanel.appendChild(item);
@@ -3376,7 +3397,7 @@
       var strengths = tagList.slice(0, 6);
       if (!strengths.length) strongPanel.appendChild(emptyPanel('Strengths will appear here', 'Answer tagged questions to reveal your strongest topics.'));
       else strengths.forEach(function (area) {
-        strongPanel.appendChild(el('div', { className: 'stats-area-item strength' }, [el('div', { className: 'stats-area-copy' }, [el('strong', { text: area.tag }), el('small', { text: area.total + ' attempts' })]), el('span', { className: 'stats-area-score', text: area.accuracy + '%' })]));
+        strongPanel.appendChild(el('div', { className: 'stats-area-item strength' }, [el('div', { className: 'stats-area-copy' }, [el('strong', { text: area.tag }), el('small', { text: compactNumber(area.total) + ' attempts' })]), el('span', { className: 'stats-area-score', text: area.accuracy + '%' })]));
       });
       areasGrid.appendChild(strongPanel); areasSection.appendChild(areasGrid); body.appendChild(areasSection);
 
@@ -3386,8 +3407,8 @@
       var quizSummary = el('div', { className: 'stats-subpanel' });
       quizSummary.appendChild(el('h3', { text: 'Answer distribution' }));
       var quizTotal = quizAnswers.length, quizCorrect = quizAnswers.filter(function (a) { return a.correct; }).length;
-      quizSummary.appendChild(el('div', { className: 'stats-donut-layout' }, [renderDonut(quizCorrect, quizTotal, certColor, 'Correct'), el('div', { className: 'stats-legend' }, [el('div', {}, [el('span', { className: 'stats-legend-dot good' }), el('span', { text: 'Correct · ' + (quizTotal ? quizCorrect + ' (' + Math.round(quizCorrect / quizTotal * 100) + '%)' : '—') })]), el('div', {}, [el('span', { className: 'stats-legend-dot bad' }), el('span', { text: 'Incorrect · ' + (quizTotal ? (quizTotal - quizCorrect) + ' (' + Math.round((quizTotal - quizCorrect) / quizTotal * 100) + '%)' : '—') })])])]));
-      quizSummary.appendChild(el('div', { className: 'stats-mini-metrics' }, [metricTile('Quiz sessions', quizTotal ? '—' : '—', 'Session IDs are not stored for quiz history'), metricTile('Average score', quizTotal ? accuracy(quizAnswers) + '%' : '—', quizTotal ? quizTotal + ' answers' : 'No quiz history')]));
+      quizSummary.appendChild(el('div', { className: 'stats-donut-layout' }, [renderDonut(quizCorrect, quizTotal, certColor, 'Correct'), el('div', { className: 'stats-legend' }, [el('div', {}, [el('span', { className: 'stats-legend-dot good' }), el('span', { text: 'Correct · ' + (quizTotal ? compactNumber(quizCorrect) + ' (' + Math.round(quizCorrect / quizTotal * 100) + '%)' : '—') })]), el('div', {}, [el('span', { className: 'stats-legend-dot bad' }), el('span', { text: 'Incorrect · ' + (quizTotal ? compactNumber(quizTotal - quizCorrect) + ' (' + Math.round((quizTotal - quizCorrect) / quizTotal * 100) + '%)' : '—') })])])]));
+      quizSummary.appendChild(el('div', { className: 'stats-mini-metrics' }, [metricTile('Quiz sessions', '—', 'Session IDs are not stored for quiz history'), metricTile('Average score', quizTotal ? accuracy(quizAnswers) + '%' : '—', quizTotal ? compactNumber(quizTotal) + ' answers' : 'No quiz history')]));
       quizGrid.appendChild(quizSummary);
       var modeMap = {};
       quizAnswers.forEach(function (a) { var mode = (a.mode || 'random').replace(':skip', ''); if (!modeMap[mode]) modeMap[mode] = []; modeMap[mode].push(a); });
@@ -3412,10 +3433,10 @@
       flashGrid.appendChild(fcSummary);
       var fcTrend = el('div', { className: 'stats-subpanel' }); fcTrend.appendChild(el('h3', { text: 'Next rate over time' })); fcTrend.appendChild(renderOutcomeTrend(rangeReviews, selectedDays)); flashGrid.appendChild(fcTrend);
       flashSection.appendChild(flashGrid);
-      var fcFooter = el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: nextCount + ' Next · ' + againCount + ' Again · ' + (allReviews.length ? Math.round(againCount / allReviews.length * 100) : 0) + '% Again rate' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Flashcards', onClick: function () { App.core.navigate('#/flashcards'); } })]);
+      var fcFooter = el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: compactNumber(nextCount) + ' Next · ' + compactNumber(againCount) + ' Again · ' + (allReviews.length ? Math.round(againCount / allReviews.length * 100) : 0) + '% Again rate' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Flashcards', onClick: function () { App.core.navigate('#/flashcards'); } })]);
       flashSection.appendChild(fcFooter); body.appendChild(flashSection);
 
-      var examSection = section('Exam Simulation', 'Exam performance', exams.length ? exams.length + ' recorded simulations' : 'No simulations recorded yet', 'stats-exam-section');
+      var examSection = section('Exam Simulation', 'Exam performance', exams.length ? compactNumber(exams.length) + ' recorded simulations' : 'No simulations recorded yet', 'stats-exam-section');
       if (!exams.length) examSection.appendChild(emptyPanel('No exam history yet', 'Complete an Exam Simulation to see score trend, pass rate, and readiness.'));
       else {
         var threshold = (App.store.getSettings().passThreshold && App.store.getSettings().passThreshold[certId]) || 70;
@@ -3423,9 +3444,9 @@
         var bestScore = Math.max.apply(null, exams.map(function (e) { return e.score || 0; }));
         var passed = exams.filter(function (e) { return e.passed; }).length;
         var examMetrics = el('div', { className: 'stats-metric-grid stats-exam-metrics' });
-        examMetrics.appendChild(metricTile('Average score', avgScore + '%', 'Across ' + exams.length + ' exams'));
+        examMetrics.appendChild(metricTile('Average score', avgScore + '%', 'Across ' + compactNumber(exams.length) + ' exams'));
         examMetrics.appendChild(metricTile('Best score', bestScore + '%', 'Personal best'));
-        examMetrics.appendChild(metricTile('Pass rate', Math.round(passed / exams.length * 100) + '%', passed + ' of ' + exams.length + ' passed'));
+        examMetrics.appendChild(metricTile('Pass rate', Math.round(passed / exams.length * 100) + '%', compactNumber(passed) + ' of ' + compactNumber(exams.length) + ' passed'));
         examMetrics.appendChild(metricTile('Pass threshold', threshold + '%', 'From Settings'));
         examSection.appendChild(examMetrics);
         var examChart = el('div', { className: 'stats-exam-chart' });
@@ -3433,7 +3454,7 @@
         examChart.appendChild(renderLineChart(examPoints, certColor, 'Exam score trend'));
         examSection.appendChild(examChart);
         var readiness = avgScore >= threshold && passed >= Math.min(3, exams.length) ? 'Strong' : avgScore >= threshold ? 'On track' : 'Not ready yet';
-        examSection.appendChild(el('div', { className: 'stats-readiness ' + readiness.toLowerCase().replace(/\s/g, '-'), }, [el('strong', { text: 'Exam readiness · ' + readiness }), el('span', { text: passed + ' passing simulations · ' + avgScore + '% average against a ' + threshold + '% threshold' })]));
+        examSection.appendChild(el('div', { className: 'stats-readiness ' + readiness.toLowerCase().replace(/\s/g, '-'), }, [el('strong', { text: 'Exam readiness · ' + readiness }), el('span', { text: compactNumber(passed) + ' passing simulations · ' + avgScore + '% average against a ' + threshold + '% threshold' })]));
         var readinessTrack = el('div', { className: 'stats-readiness-track', 'aria-label': 'Average score vs pass threshold' });
         var readinessFill = el('span', { style: { width: '0%', backgroundColor: avgScore >= threshold ? 'var(--accent-green)' : 'var(--accent-amber)' } });
         readinessTrack.appendChild(readinessFill);
@@ -3443,12 +3464,12 @@
       }
       body.appendChild(examSection);
 
-      var labsSection = section('Hands-on practice', 'Labs progress', labs.length ? labs.filter(function (l) { return labsDone[l._id]; }).length + ' / ' + labs.length + ' completed' : 'No labs loaded', 'stats-labs-section');
+      var labsSection = section('Hands-on practice', 'Labs progress', labs.length ? compactNumber(labs.filter(function (l) { return labsDone[l._id]; }).length) + ' / ' + compactNumber(labs.length) + ' completed' : 'No labs loaded', 'stats-labs-section');
       if (!labs.length) labsSection.appendChild(emptyPanel('No labs available', 'This certification does not currently provide lab content.'));
       else {
         var labRows = rows.filter(function (r) { return r.labs.length; }).map(function (r) { return { label: r.number + ' · ' + r.title, value: Math.round(r.labsDone / r.labs.length * 100) }; });
         labsSection.appendChild(renderHorizontalBars(labRows, 'var(--accent-green)'));
-        labsSection.appendChild(el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: labs.filter(function (l) { return labsDone[l._id]; }).length + ' completed · ' + labs.filter(function (l) { return !labsDone[l._id]; }).length + ' remaining' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Labs', onClick: function () { App.core.navigate('#/labs'); } })]));
+        labsSection.appendChild(el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: compactNumber(labs.filter(function (l) { return labsDone[l._id]; }).length) + ' completed · ' + compactNumber(labs.filter(function (l) { return !labsDone[l._id]; }).length) + ' remaining' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Labs', onClick: function () { App.core.navigate('#/labs'); } })]));
       }
       body.appendChild(labsSection);
 
@@ -3466,7 +3487,7 @@
         var hts = heatStart + hi * 86400000;
         var count = byDay[hts] || 0;
         var level = count ? Math.min(4, Math.ceil(count / maxActivity * 4)) : 0;
-        var cell = el('span', { className: 'stats-heat-cell level-' + level, title: utils.formatDate(hts) + ' · ' + count + ' activities', 'aria-label': utils.formatDate(hts) + ': ' + count + ' activities', tabindex: '0' });
+        var cell = el('span', { className: 'stats-heat-cell level-' + level, title: utils.formatDate(hts) + ' · ' + compactNumber(count) + ' activities', 'aria-label': utils.formatDate(hts) + ': ' + compactNumber(count) + ' activities', tabindex: '0' });
         if (App.core.motionEnabled()) cell.style.animationDelay = Math.min(hi, 64) * 6 + 'ms';
         heatmap.appendChild(cell);
       }
@@ -4426,7 +4447,7 @@
     root.appendChild(el('div', { className: 'settings-section', text: 'About' }));
     var about = el('div', { className: 'panel' });
     about.appendChild(el('div', { className: 'label-upper mb-1', text: 'About' }));
-    about.appendChild(el('p', { text: 'ReviewApp v1.0.1 — offline study hub for CompTIA Linux+ and Network+.' }));
+    about.appendChild(el('p', { text: 'ReviewApp v1.0.2 — offline study hub for CompTIA Linux+ and Network+.' }));
     about.appendChild(el('p', { className: 'text-muted', style: { fontSize: '0.85rem' }, text: 'Vanilla HTML/CSS/JS. No network required. All data stays in your browser.' }));
     var c = App.content.counts();
     about.appendChild(el('p', { className: 'mono text-muted mt-1', style: { fontSize: '0.8rem' }, text: 'Loaded: ' + c.questions + 'Q · ' + c.flashcards + 'C · ' + c.labs + 'L · ' + c.notes + 'N' }));
