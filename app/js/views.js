@@ -998,7 +998,7 @@
 
   function quizQuestionTypeLabel(type) {
     return {
-      mcq: 'Multiple choice',
+      mcq: 'Single choice',
       multi: 'Multiple select',
       tf: 'True / false',
       fill: 'Fill in',
