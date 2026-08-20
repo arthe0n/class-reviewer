@@ -300,12 +300,12 @@ explain: "Files whose names begin with `.` are hidden files. `ls -a` displays th
 tags: ["filenames", "hidden"]
 },
 {
-q: "Which command lists hidden files in a directory?",
+q: "Which operator appends command output to an existing file without replacing its contents?",
 type: "mcq",
-options: ["ls -h", "ls -a", "ls -R", "ls -d", "ls -l"],
+options: [">", ">>", "<", "|", "&"],
 answer: 1,
-explain: "`ls -a` displays all file and subdirectory names, including hidden files.",
-tags: ["ls", "hidden"]
+explain: "`>>` appends standard output to a file. A single `>` replaces the file's previous contents, while the other operators serve different shell functions.",
+tags: ["shell", "redirection"]
 },
 {
 q: "Which statement about Linux file extensions is correct?",
@@ -356,28 +356,28 @@ explain: "`ls -i` displays each file's inode number.",
 tags: ["ls", "inode"]
 },
 {
-q: "Which `ls` option produces the long listing format?",
+q: "An `ls -l` line begins `-rw-r--r-- 2 alex staff 512 ...`. What does the `2` represent?",
 type: "mcq",
-options: ["-l", "-a", "-d", "-F", "-n"],
-answer: 0,
-explain: "`-l` displays file type, permissions, hard link count, owner, group, modification time, and filename.",
-tags: ["ls", "permissions"]
+options: ["The permission mask", "The hard-link count", "The file owner", "The file size", "The file type"],
+answer: 1,
+explain: "The number after the permission bits in long format is the count of directory entries referring to the file's inode.",
+tags: ["ls", "metadata", "hard-links"]
 },
 {
-q: "Which `ls` option recursively lists a directory tree?",
+q: "Which shell operator runs the second command after the first finishes regardless of the first command's exit status?",
 type: "mcq",
-options: ["-R", "-r", "-d", "-F", "-S"],
+options: [";", "|", "&", ">", "$"],
 answer: 0,
-explain: "`-R` recursively displays a directory and all subdirectories in its tree.",
-tags: ["ls", "recursive"]
+explain: "A semicolon separates commands so the next command runs after the first completes, regardless of whether it succeeded.",
+tags: ["shell", "command-separation"]
 },
 {
-q: "What does `ls -lh` add compared with `ls -l`?",
+q: "A script must select filenames ending in `.log` before passing them to a command. Which pattern is a shell wildcard rather than a regular expression?",
 type: "mcq",
-options: ["Hidden files", "Recursive output", "Human-readable file sizes", "Inode numbers", "Colorized file names"],
-answer: 2,
-explain: "`-h` makes sizes human-readable, such as `30K`, when used with long listing.",
-tags: ["ls", "human-readable"]
+options: ["`*.log`", "`^.*\\.log$`", "`log+`", "`[[:digit:]]`", "`\\b.log\\b`"],
+answer: 0,
+explain: "`*.log` is shell filename-expansion syntax. The other choices use regular-expression notation and are interpreted by tools such as `grep -E`.",
+tags: ["wildcards", "regex", "shell"]
 },
 {
 q: "In an `ls -l` entry, what does the first character `d` represent?",
@@ -428,12 +428,12 @@ explain: "`-v` is verbose and reports each directory created.",
 tags: ["mkdir", "options"]
 },
 {
-q: "What happens when `mkdir Projects/42/` is run and `Projects` does not exist?",
+q: "A command should read its standard input from `records.txt` instead of the keyboard. Which shell operator is used?",
 type: "mcq",
-options: ["Both directories are created automatically", "The command fails unless `-p` is used", "Only `42` is created", "The shell changes to `Projects`", "Only the parent directory is created"],
-answer: 1,
-explain: "Without `-p`, `mkdir` fails if required parent directories do not already exist.",
-tags: ["mkdir", "paths"]
+options: ["<", ">", ">>", "|", "&"],
+answer: 0,
+explain: "The `<` operator redirects a file into a command's standard input. The other operators redirect output, append output, pipe data, or background a command.",
+tags: ["shell", "redirection"]
 },
 {
 q: "Which command returns to the previous working directory?",
@@ -468,12 +468,12 @@ explain: "`-R` or `-r` recursively copies a directory and its contents.",
 tags: ["cp", "recursive"]
 },
 {
-q: "What does `cp` do when asked to copy a directory without `-R` or `-r`?",
+q: "Two backup copies exist and only source files that are newer should replace their destinations. Which `cp` option expresses this policy?",
 type: "mcq",
-options: ["Copies only the directory entry and skips its contents.", "Refuses the directory and reports that it is omitting the directory.", "Deletes the directory before copying its contents as a regular file.", "Converts the directory into a regular file at the destination.", "Creates an empty destination directory."],
-answer: 1,
-explain: "Without recursive mode, `cp` refuses to copy a directory and reports `cp: omitting directory`.",
-tags: ["cp", "recursive"]
+options: ["-u", "-n", "-i", "-a", "-v"],
+answer: 0,
+explain: "`cp -u` updates a destination only when the source is newer or the destination is missing, making it suitable for this update policy.",
+tags: ["cp", "update"]
 },
 {
 q: "Which `cp` option preserves permissions, ownership, and timestamps while copying recursively?",
@@ -668,28 +668,28 @@ explain: "`cat -n` numbers the lines of the displayed file.",
 tags: ["cat", "options"]
 },
 {
-q: "Which `grep` option makes the search case-insensitive?",
+q: "Which `grep` option enables extended regular expressions such as `+` without escaping it?",
 type: "mcq",
-options: ["-i", "-v", "-n", "-c", "-w"],
+options: ["-E", "-F", "-i", "-v", "-n"],
 answer: 0,
-explain: "`grep -i` ignores case. By default, `grep` is case-sensitive.",
-tags: ["grep", "options"]
+explain: "`grep -E` enables extended regular expressions. `-F` selects literal matching, while the remaining choices control other search behaviors.",
+tags: ["grep", "regex"]
 },
 {
-q: "What does `grep -v` display?",
+q: "An administrator needs literal matching for a pattern containing `.` and `*`, not regular-expression interpretation. Which `grep` option should be used?",
 type: "mcq",
-options: ["Only matching lines", "Lines that do not match the pattern", "Only line numbers", "A count of matches", "Whole-word matches only"],
-answer: 1,
-explain: "`-v` inverts the match, showing lines that do not match the pattern.",
-tags: ["grep", "options"]
+options: ["-F", "-E", "-i", "-R", "-c"],
+answer: 0,
+explain: "`grep -F` treats the pattern as fixed text, so characters such as `.` and `*` do not act as regular-expression operators.",
+tags: ["grep", "fixed-strings"]
 },
 {
-q: "Which `grep` option displays the line number for each match?",
+q: "A live filesystem search must match names using a regular expression rather than shell wildcard syntax. Which `find` criterion is appropriate?",
 type: "mcq",
-options: ["-n", "-c", "-v", "-i", "-H"],
+options: ["-regex", "-name", "-type", "-inum", "-maxdepth"],
 answer: 0,
-explain: "`grep -n` prefixes matching lines with their line numbers.",
-tags: ["grep", "options"]
+explain: "`find -regex` applies a regular expression to the pathname. `-name` uses filename-pattern matching instead.",
+tags: ["find", "regex"]
 },
 {
 q: "Which `grep` option displays the number of matching lines?",
@@ -908,12 +908,12 @@ explain: "The notes give `find /usr/bin -perm /4000`; the leading `/` causes the
 tags: ["find", "suid", "permissions"]
 },
 {
-q: "Which command can recursively search a directory tree for text patterns?",
+q: "To find files modified within the last day, which `find` criterion expresses age in days?",
 type: "mcq",
-options: ["grep -R", "find . -type f", "locate", "file", "grep -n"],
+options: ["-mtime", "-name", "-inum", "-type", "-maxdepth"],
 answer: 0,
-explain: "`grep -R` or `grep -r` recursively searches a directory tree for matching text.",
-tags: ["grep", "recursive"]
+explain: "`find -mtime` filters by the number of whole days since a file was modified. The other criteria test different metadata.",
+tags: ["find", "time"]
 },
 {
 q: "Which `grep` option causes directories encountered while searching to be skipped?",
@@ -940,116 +940,116 @@ explain: "Linux presents a single directory tree rooted at `/`, and different st
 tags: ["filesystem", "paths"]
 },
 {
-q: "Which statements about `ls -l` output are correct?",
-type: "multi",
-options: ["It shows the file's creation date", "It shows the owner and group", "It shows the hard-link count", "It shows permissions", "It shows the file's inode number"],
-answer: [1, 2, 3],
-explain: "The long listing includes file type/permissions, hard-link count, owner, group, size, modification time, and filename — but neither a creation date nor an inode number; `ls -l` reports the modification time, and inode numbers require `ls -i`.",
-tags: ["ls", "metadata"]
+q: "An `ls -l` entry begins with `c`. What kind of object does that identify?",
+type: "mcq",
+options: ["A character device", "A block device", "A named pipe", "A socket", "A regular file"],
+answer: 0,
+explain: "The leading `c` in an `ls -l` entry identifies a character device, such as a terminal device.",
+tags: ["ls", "filetypes", "devices"]
 },
 {
-q: "Which `-F` indicators does `ls` use?",
-type: "multi",
-options: ["# for a hidden file", "/ for a directory", "* for an executable", "@ for a symbolic link", "= for a socket"],
-answer: [1, 2, 3, 4],
-explain: "The notes associate `/`, `*`, `@`, and `=` with directories, executables, symbolic links, and sockets; regular files (hidden or not) get no indicator, so `#` is never shown.",
-tags: ["ls", "filetypes"]
+q: "`ls -F` displays a trailing backtick on an entry. Which file type does that indicator identify?",
+type: "mcq",
+options: ["A named pipe (FIFO)", "A socket", "A symbolic link", "An executable", "A directory"],
+answer: 0,
+explain: "The backtick indicator identifies a named pipe, also called a FIFO. The other choices use different `ls -F` indicators.",
+tags: ["ls", "filetypes", "pipes"]
 },
 {
-q: "Which statements about `cp` are correct?",
-type: "multi",
-options: ["A directory can be copied without any special option", "`-n` prevents overwriting an existing destination", "Both source and destination are required", "`-a` does not copy directories recursively", "`-R` or `-r` copies directory trees"],
-answer: [1, 2, 4],
-explain: "`cp` always needs a source and a destination, requires `-R`/`-r` (or `-a`, which is recursive) to copy directories, and uses `-n`, `-i`, `-u`, and `-f` to control overwriting; a plain `cp` cannot copy a directory.",
-tags: ["cp", "options"]
+q: "A backup job must transfer only changed file data to a remote host over SSH. Which utility best matches that job?",
+type: "mcq",
+options: ["rsync", "cp", "mv", "rmdir", "locate"],
+answer: 0,
+explain: "`rsync` is designed for efficient synchronization and can transfer files over a network through OpenSSH, unlike the local file-management commands listed here.",
+tags: ["rsync", "backup", "ssh"]
 },
 {
-q: "Which statements about `mv` are correct?",
-type: "multi",
-options: ["`-r` is required to move directories", "It can rename files", "`-n` prevents overwriting", "It can rename directories", "It can move and rename in one command"],
-answer: [1, 2, 3, 4],
-explain: "`mv` moves or renames files and directories in one step and supports `-i`, `-n`, `-f`, and `-u` for overwrite behavior; no `-r` flag is needed to move a directory.",
-tags: ["mv", "options"]
+q: "A deployment script should move a source only when it is newer than the destination. Which `mv` option expresses that policy?",
+type: "mcq",
+options: ["-u", "-n", "-i", "-f", "-v"],
+answer: 0,
+explain: "`mv -u` updates the destination only when the source is newer or the destination is missing.",
+tags: ["mv", "update"]
 },
 {
-q: "Which statements about `rsync` are correct?",
-type: "multi",
-options: ["It can only copy files on the same machine", "It can preserve symbolic links as symbolic links", "It can display progress", "It can perform archive-mode copies", "It can preserve timestamps"],
-answer: [1, 2, 3, 4],
-explain: "The notes document `-a`, `-l`, `-t`, `--progress`, and `--stats` for these purposes; `rsync` also copies over a network through OpenSSH.",
-tags: ["rsync", "options"]
+q: "Which directory is intended for programs installed locally by an administrator rather than files managed by the distribution?",
+type: "mcq",
+options: ["/usr/local", "/opt", "/srv", "/var/lib", "/home"],
+answer: 0,
+explain: "`/usr/local` is intended for locally installed programs and data, keeping them separate from distribution-managed files under `/usr`.",
+tags: ["filesystem", "usr-local"]
 },
 {
-q: "Which statements about `rm` are correct?",
-type: "multi",
-options: ["`-u` restores deleted files", "`-R` recursively removes directory trees", "`-i` prompts before each file", "`rmdir -r` removes non-empty directory trees", "`-I` can ask once for bulk deletion"],
-answer: [1, 2, 4],
-explain: "The notes document `-i`, `-I`, `-R`/`-r`, `-f`, and `-d` for deletion and prompt behavior; there is no `-u` (undo/restore) option in `rm`, and `rmdir` removes only empty directories.",
-tags: ["rm", "options"]
+q: "A directory contains a socket used for local interprocess communication. Which first character would `ls -l` show for that entry?",
+type: "mcq",
+options: ["s", "p", "b", "c", "l"],
+answer: 0,
+explain: "The leading `s` identifies a socket in `ls -l` output. The other characters identify a named pipe, block device, character device, or symbolic link.",
+tags: ["ls", "filetypes", "sockets"]
 },
 {
-q: "Which statements correctly compare hard and symbolic links?",
-type: "multi",
-options: ["Symbolic links do not share an inode", "Hard links must be on the same filesystem", "A stale symbolic link can remain after its target is moved or deleted", "Symbolic links point to the same inode as their target", "Hard links share an inode"],
-answer: [0, 1, 2, 4],
-explain: "Hard links share an inode and cannot cross filesystems; symbolic links have their own inode and point to the target's name rather than sharing its inode, so they go stale when the target is moved or deleted.",
-tags: ["links", "inode"]
+q: "Two reports need to be formatted in parallel columns for review. Which utility and option are intended for side-by-side formatted output?",
+type: "mcq",
+options: ["`pr -m`", "`diff -q`", "`cat -n`", "`head`", "`stat`"],
+answer: 0,
+explain: "`pr -m` formats files in parallel columns. `diff -y` compares files side by side, but it is a comparison tool rather than a report-formatting utility.",
+tags: ["pr", "formatting", "text"]
 },
 {
-q: "Which commands are appropriate for reading portions of a text file?",
-type: "multi",
-options: ["dd", "less", "head", "grep", "tail"],
-answer: [1, 2, 3, 4],
-explain: "`head` and `tail` show the first and last lines and `grep` shows matching lines; `less` pages through a file. `dd` copies raw data and is not a text-reading tool.",
-tags: ["reading", "text"]
+q: "While reviewing a man page in `less`, which key sequence starts a backward search?",
+type: "mcq",
+options: ["?", "/", "q", "Space", "Esc + V"],
+answer: 0,
+explain: "Pressing `?` starts a backward search in `less`; `/` searches forward, `q` exits, and `Esc + V` moves back one page.",
+tags: ["less", "search", "pager"]
 },
 {
-q: "Which statements about `less` are correct?",
-type: "multi",
-options: ["`Esc` + `V` moves forward one page", "`q` exits", "`?` starts a backward search", "Spacebar moves forward one page", "`/` starts a forward search"],
-answer: [1, 2, 3, 4],
-explain: "The notes document Spacebar, `/`, `?`, and `q`, and `Esc`+`V` moves backward one page (not forward); `.` is not listed as a navigation key.",
-tags: ["less", "pager"]
+q: "An executable runs when invoked with its full pathname but not by name alone. Which environment setting should be checked first?",
+type: "mcq",
+options: ["PATH", "HOME", "SHELL", "PWD", "TERM"],
+answer: 0,
+explain: "The shell searches the directories listed in `PATH` when a command is entered without a pathname. A missing directory there can prevent name-based execution.",
+tags: ["path", "environment", "troubleshooting"]
 },
 {
-q: "Which commands can help locate a command or file?",
-type: "multi",
-options: ["updatedb", "locate", "find", "which", "whereis"],
-answer: [1, 2, 3, 4],
-explain: "`which`, `whereis`, `locate`, and `find` are described as information or file-location utilities with different mechanisms; `updatedb` only refreshes the locate database and does not locate anything itself.",
-tags: ["search", "which", "whereis", "locate", "find"]
+q: "`locate` should report only how many database matches exist, not their paths. Which option is appropriate?",
+type: "mcq",
+options: ["-c", "-b", "-i", "-A", "-q"],
+answer: 0,
+explain: "`locate -c` prints a count of matching database entries instead of listing every pathname.",
+tags: ["locate", "options", "count"]
 },
 {
-q: "Which statements about `locate` are correct?",
-type: "multi",
-options: ["The database is rebuilt automatically before every search", "`-b` matches the basename", "`-i` ignores case", "It normally searches a prebuilt database", "The database may be stale"],
-answer: [1, 2, 3, 4],
-explain: "`locate` searches a prebuilt database that can be stale (usually updated once per day) and supports `-b`, `-i`, `-c`, and other options; the database is not rebuilt on every search — `updatedb` does that.",
-tags: ["locate", "options"]
+q: "An administrator wants to find zero-byte files and empty directories under `/var/tmp`. Which `find` criterion should be used?",
+type: "mcq",
+options: ["-empty", "-size", "-type", "-name", "-mtime"],
+answer: 0,
+explain: "`find -empty` selects empty regular files and directories. The other criteria filter by size, type, name, or modification age.",
+tags: ["find", "empty"]
 },
 {
-q: "Which `find` criteria are valid?",
-type: "multi",
-options: ["-owner", "-mtime", "-name", "-group", "-user"],
-answer: [1, 2, 3, 4],
-explain: "`-name`, `-user`, `-group`, and `-mtime` are documented `find` criteria (along with `-size`, `-type`, `-empty`, `-regex`, and others). `-owner` and `-recent` are not real `find` options — ownership is tested with `-user`/`-group`.",
-tags: ["find", "criteria"]
+q: "A troubleshooting task must locate regular files owned by `web` that were modified recently, not search their contents. Which tool should form the search?",
+type: "mcq",
+options: ["find", "grep", "locate", "which", "cat"],
+answer: 0,
+explain: "`find` searches live filesystem metadata such as ownership and modification time. `grep` searches file contents, while the other tools use different lookup mechanisms.",
+tags: ["find", "metadata", "troubleshooting"]
 },
 {
-q: "Which statements about `grep` are correct?",
-type: "multi",
-options: ["`-E` treats the pattern as a literal string", "`-v` displays only the matching lines", "`-i` ignores case", "It is case-sensitive by default", "`-v` inverts the match"],
-answer: [2, 3, 4],
-explain: "`grep` is case-sensitive by default, and `-i` ignores case while `-v` shows non-matching lines; `-E` enables extended regular expressions (`-F` treats the pattern as a literal string), so the last two options are wrong.",
-tags: ["grep", "options"]
+q: "A script needs an `ed` command sequence that transforms one text file into another. Which `diff` option produces it?",
+type: "mcq",
+options: ["-e", "-q", "-y", "-u", "-s"],
+answer: 0,
+explain: "`diff -e` generates an `ed` script that can transform the first file into the second. The other options report or format differences differently.",
+tags: ["diff", "options", "ed"]
 },
 {
-q: "Which statements about `diff` are correct?",
-type: "multi",
-options: ["`-q` prints the complete contents of both files", "It compares files byte by byte", "`-y` shows side-by-side output", "It compares text files line by line", "`-q` gives brief difference output"],
-answer: [2, 3, 4],
-explain: "`diff` compares text files line by line; `-q` gives brief output and `-y` shows side-by-side output (`-e` generates an `ed` script). It does not compare byte by byte, and `-q` never prints whole files.",
-tags: ["diff", "comparison"]
+q: "Which virtual filesystem exposes devices and kernel interfaces rather than ordinary user files?",
+type: "mcq",
+options: ["/sys", "/proc", "/dev", "/run", "/etc"],
+answer: 0,
+explain: "`/sys` exposes devices and kernel interfaces through a virtual filesystem. `/proc` focuses on process and kernel information, while `/dev` contains device files.",
+tags: ["filesystem", "sys", "devices"]
 },
 {
 q: "Which statements about Linux filenames are correct?",
@@ -1068,76 +1068,67 @@ explain: "Deleting one hard-link name does not remove the underlying data if ano
 tags: ["links", "hardlink"]
 },
 {
-q: "Symbolic links always share the same inode number as their target.",
+q: "The `/var/lib` directory is intended for persistent application state such as databases and package information.",
 type: "tf",
-options: ["True", "False"],
-answer: false,
-explain: "Symbolic links have their own inode and point to the target's name and location.",
-tags: ["links", "symlink", "inode"]
-},
-{
-q: "Hard links can exist on different filesystems.",
-type: "tf",
-options: ["True", "False"],
-answer: false,
-explain: "The notes require the original and hard links to exist on the same filesystem.",
-tags: ["links", "hardlink"]
-},
-{
-q: "`cd -` returns to the previous working directory.",
-type: "tf",
-options: ["True", "False"],
 answer: true,
-explain: "The notes explicitly identify `cd -` as the way to jump back to the previous working directory.",
-tags: ["cd", "paths"]
+explain: "`/var/lib` stores variable application state, including databases and package-management information.",
+tags: ["filesystem", "var", "application-state"]
 },
 {
-q: "`locate` searches the live filesystem every time it is run.",
+q: "The `/usr/share` directory is intended for architecture-independent shared data.",
 type: "tf",
-options: ["True", "False"],
-answer: false,
-explain: "`locate` searches a prebuilt database, which may not contain recently created files.",
-tags: ["locate", "search"]
-},
-{
-q: "`ls -a` includes hidden files in its output.",
-type: "tf",
-options: ["True", "False"],
 answer: true,
-explain: "`-a` means all and includes files whose names begin with a period.",
-tags: ["ls", "hidden"]
+explain: "`/usr/share` contains data that can be shared across architectures, such as documentation and other common resources.",
+tags: ["filesystem", "usr", "architecture-independent"]
 },
 {
-q: "`rm -r` can remove a directory tree containing files and subdirectories.",
+q: "In `ls -l` output, a leading `-` identifies a regular file.",
 type: "tf",
-options: ["True", "False"],
 answer: true,
-explain: "Recursive `rm` removes directory contents and then the directory itself.",
-tags: ["rm", "recursive"]
+explain: "The first character of a long listing identifies the file type; `-` means a regular file.",
+tags: ["ls", "filetypes"]
 },
 {
-q: "`rmdir` is used to remove non-empty directories.",
+q: "The `/var/cache` directory stores cached application or package data that can generally be regenerated.",
 type: "tf",
-options: ["True", "False"],
-answer: false,
-explain: "`rmdir` removes empty directories only. A non-empty directory requires recursive `rm`.",
-tags: ["rmdir", "directories"]
-},
-{
-q: "`grep` is case-insensitive by default.",
-type: "tf",
-options: ["True", "False"],
-answer: false,
-explain: "`grep` is case-sensitive by default; use `-i` to ignore case.",
-tags: ["grep", "case"]
-},
-{
-q: "`less` can move backward through a file.",
-type: "tf",
-options: ["True", "False"],
 answer: true,
-explain: "Unlike `more`, `less` supports backward navigation.",
-tags: ["less", "more"]
+explain: "`/var/cache` is intended for cached data rather than the primary persistent state of an application.",
+tags: ["filesystem", "var", "cache"]
+},
+{
+q: "In a shell script, text after an unquoted `#` is treated as a comment.",
+type: "tf",
+answer: true,
+explain: "An unquoted `#` begins a shell comment, so the shell ignores the remainder of that line.",
+tags: ["shell", "comments"]
+},
+{
+q: "In `ls -l` output, a leading `b` identifies a block device.",
+type: "tf",
+answer: true,
+explain: "The `b` file-type character identifies a block device, while `c` identifies a character device.",
+tags: ["ls", "filetypes", "devices"]
+},
+{
+q: "The `locate -i` option makes database searches case-insensitive.",
+type: "tf",
+answer: true,
+explain: "`locate -i` ignores case when comparing the search pattern with database entries.",
+tags: ["locate", "options", "case"]
+},
+{
+q: "`diff -s` can report when two files are identical.",
+type: "tf",
+answer: true,
+explain: "The `-s` option asks `diff` to report identical files instead of remaining silent when no differences exist.",
+tags: ["diff", "options"]
+},
+{
+q: "The `find -user` criterion can select files owned by a specified user or UID.",
+type: "tf",
+answer: true,
+explain: "`find -user` filters filesystem entries by user ownership; `-group` performs the analogous group check.",
+tags: ["find", "ownership"]
 },
 {
 q: "`which` can reveal an alias for a command.",
@@ -1148,76 +1139,74 @@ explain: "The notes show `which ls` reporting an alias before the actual binary 
 tags: ["which", "aliases"]
 },
 {
-q: "`find . -maxdepth 2` limits the search to the current directory and one level of subdirectories.",
+q: "The `rsync -l` option preserves symbolic links as links rather than copying their target contents.",
 type: "tf",
-options: ["True", "False"],
 answer: true,
-explain: "The notes explicitly state that `-maxdepth 2` limits the search to the current directory and one level below it.",
-tags: ["find", "maxdepth"]
+explain: "`rsync -l` preserves symbolic links during a transfer; archive mode includes this behavior as part of its preservation set.",
+tags: ["rsync", "links", "options"]
 },
 {
-q: "A symbolic link can become a security risk when its target is deleted and a malicious file is later placed at the old target path.",
+q: "The `find -size` criterion can filter filesystem entries by their file size.",
 type: "tf",
-options: ["True", "False"],
 answer: true,
-explain: "The notes describe this stale-link scenario and warn that the link can resolve to the malicious replacement.",
-tags: ["symlink", "security"]
+explain: "`find -size` selects entries according to size, complementing criteria such as `-name`, `-type`, and `-mtime`.",
+tags: ["find", "size"]
 },
 {
-q: "The shell metacharacter for the home directory is ___",
+q: "The shell metacharacters used to group commands in a subshell are ___",
 type: "fill",
-answer: "~",
-explain: "The tilde refers to the current user's home directory and can also be used with another username such as `~mary`.",
-tags: ["metacharacters", "home"]
+answer: "()",
+explain: "Parentheses group commands and run the group in a subshell.",
+tags: ["shell", "grouping"]
 },
 {
-q: "The command that prints the current working directory is ___",
+q: "The `rsync` option that displays transfer progress is ___",
 type: "fill",
-answer: "pwd",
-explain: "`pwd` prints the present working directory.",
-tags: ["pwd", "paths"]
+answer: "--progress",
+explain: "`rsync --progress` displays progress information while files are transferred.",
+tags: ["rsync", "options"]
 },
 {
-q: "The command used to create directories is ___",
+q: "The `find` criterion used to restrict a search to a filesystem type is ___",
 type: "fill",
-answer: "mkdir",
-explain: "`mkdir` creates directories.",
-tags: ["mkdir", "directories"]
+answer: "-fstype",
+explain: "`find -fstype` limits matches according to the filesystem type containing each entry.",
+tags: ["find", "filesystem"]
 },
 {
-q: "The `mkdir` option that creates missing parent directories is ___",
+q: "The `locate` option that requires every supplied pattern to match is ___",
 type: "fill",
-answer: "-p",
-explain: "`mkdir -p` creates the necessary parent directories along the requested path.",
-tags: ["mkdir", "options"]
+answer: "-A",
+explain: "`locate -A` returns entries that match all supplied search patterns.",
+tags: ["locate", "options"]
 },
 {
-q: "The command used to copy a file or directory locally is ___",
+q: "The shell redirection operator that sends standard error (file descriptor 2) to a file is ___",
 type: "fill",
-answer: "cp",
-explain: "`cp` performs local copies of files and directories.",
-tags: ["cp", "files"]
+answer: "2>",
+explain: "`2>` redirects standard error to a file, while ordinary `>` redirects standard output.",
+tags: ["shell", "redirection", "stderr"]
 },
 {
-q: "The command used to move or rename a file or directory is ___",
+q: "The `rsync` option that prints transfer statistics after a copy is ___",
 type: "fill",
-answer: "mv",
-explain: "`mv` can move items, rename them, or do both at once.",
-tags: ["mv", "files"]
+answer: "--stats",
+explain: "`rsync --stats` prints summary statistics about the transfer.",
+tags: ["rsync", "options"]
 },
 {
-q: "The command used to remove empty directories only is ___",
+q: "The `rsync` option that preserves modification times is ___",
 type: "fill",
-answer: "rmdir",
-explain: "`rmdir` specifically removes empty directories.",
-tags: ["rmdir", "directories"]
+answer: "-t",
+explain: "`rsync -t` preserves file modification times during a transfer.",
+tags: ["rsync", "options", "timestamps"]
 },
 {
-q: "The command used to create a symbolic link is ___",
+q: "The `find` criterion that filters entries by modification age in minutes is ___",
 type: "fill",
-answer: "ln -s",
-explain: "`ln -s` creates a symbolic link to the specified original file.",
-tags: ["links", "symlink"]
+answer: "-mmin",
+explain: "`find -mmin` filters entries according to how many minutes ago they were modified.",
+tags: ["find", "time"]
 },
 {
 q: "The command used to remove a linked filename without modifying the original link target is ___",
@@ -1227,120 +1216,86 @@ explain: "The notes specify `unlink` with the linked filename to remove that lin
 tags: ["links", "unlink"]
 },
 {
-q: "The command used to show the first 10 lines of a file by default is ___",
+q: "The `locate` option that matches the full pathname rather than only its basename is ___",
 type: "fill",
-answer: "head",
-explain: "`head` defaults to the first 10 lines.",
-tags: ["head", "reading"]
+answer: "-w",
+explain: "`locate -w` matches the full pathname; `-b` limits matching to the basename.",
+tags: ["locate", "options"]
 },
 {
-q: "The command used to monitor newly appended lines in a log file is ___",
+q: "The `locate` option that suppresses error messages is ___",
 type: "fill",
-answer: "tail -f",
-explain: "`tail -f` follows the file and displays lines as they are appended.",
-tags: ["tail", "logs"]
+answer: "-q",
+explain: "`locate -q` suppresses error messages while performing the database search.",
+tags: ["locate", "options"]
 },
 {
-q: "The command used to determine a file's basic type is ___",
+q: "The `find` criterion that filters by how many days ago a file was accessed is ___",
 type: "fill",
-answer: "file",
-explain: "`file` provides basic information about a file's type.",
-tags: ["file", "metadata"]
+answer: "-atime",
+explain: "`find -atime` filters entries by their access age in days.",
+tags: ["find", "time"]
 },
 {
-q: "The command used to display detailed metadata such as inode and timestamps is ___",
+q: "The `find` criterion that filters entries by group ownership is ___",
 type: "fill",
-answer: "stat",
-explain: "`stat` displays detailed metadata including inode, size, device, and timestamps.",
-tags: ["stat", "metadata"]
+answer: "-group",
+explain: "`find -group` searches for entries owned by a specified group or GID.",
+tags: ["find", "ownership"]
 },
 {
-q: "The command used to compare two text files line by line is ___",
+q: "The `locate` option that interprets a search pattern as a regular expression is ___",
 type: "fill",
-answer: "diff",
-explain: "`diff` compares text files line by line and reports required changes.",
-tags: ["diff", "comparison"]
+answer: "-r",
+explain: "`locate -r` treats the supplied pattern as a regular expression.",
+tags: ["locate", "regex"]
 },
 {
-q: "The environment variable containing the directories searched for command binaries is ___",
+q: "The `find` criterion that filters entries accessed within a specified number of minutes is ___",
 type: "fill",
-answer: "PATH",
-explain: "`PATH` contains the directories Linux searches for executable command binaries.",
-tags: ["path", "environment"]
+answer: "-amin",
+explain: "`find -amin` filters entries according to how many minutes ago they were accessed.",
+tags: ["find", "time"]
 },
 {
-q: "Match the `ls` options with their descriptions.",
-type: "command_match",
-command: "ls",
-pairs: [
-{ option: "-a", description: "Display all files, including hidden files" },
-{ option: "-d", description: "Show a directory's own metadata instead of its contents" },
-{ option: "-F", description: "Append indicators showing file types" },
-{ option: "-i", description: "Display inode numbers" },
-{ option: "-l", description: "Display long-format metadata" },
-{ option: "-h", description: "Display human-readable sizes" }
-],
-explain: "These `ls` options are the documented switches for controlling hidden-file display, directory handling, type indicators, inode output, long listings, and readable sizes.",
-tags: ["ls", "options"]
+q: "A support engineer receives a path that may contain a symbolic link and needs the final target before changing the file. Which command should be used?",
+type: "mcq",
+options: ["readlink -f", "which", "locate", "file", "pwd"],
+answer: 0,
+explain: "`readlink -f` resolves a chain of symbolic links to its final target. The other commands answer different path or file-information questions.",
+tags: ["links", "readlink", "troubleshooting"]
 },
 {
-q: "Match the `cp` options with their descriptions.",
-type: "command_match",
-command: "cp",
-pairs: [
-{ option: "-a", description: "Archive copy preserving permissions, ownership, and timestamps" },
-{ option: "-i", description: "Ask before overwriting an existing destination file" },
-{ option: "-n", description: "Never overwrite an existing destination file" },
-{ option: "-R", description: "Recursively copy a directory tree" },
-{ option: "-u", description: "Overwrite only when the source file is newer" },
-{ option: "-v", description: "Print detailed information while copying" }
-],
-explain: "These are the key `cp` options emphasized in the notes for fidelity, overwrite protection, recursion, update behavior, and output.",
-tags: ["cp", "options"]
+q: "A privileged script follows a symbolic link whose original target was deleted, and an attacker creates a replacement at that path. What risk does this create?",
+type: "mcq",
+options: ["The script may operate on an unintended attacker-controlled file", "The link automatically changes into a hard link", "The filesystem restores the deleted target from the inode", "The shell refuses to follow all symbolic links", "The target path becomes permanently unavailable"],
+answer: 0,
+explain: "A stale link can resolve to a replacement at the reused path, allowing a privileged operation to affect an unintended file.",
+tags: ["links", "symlink", "security"]
 },
 {
-q: "Match the `rm` options with their descriptions.",
-type: "command_match",
-command: "rm",
-pairs: [
-{ option: "-d", description: "Delete empty directories" },
-{ option: "-f", description: "Suppress prompts and continue when some targets do not exist" },
-{ option: "-i", description: "Ask for confirmation before deleting each file" },
-{ option: "-I", description: "Ask once before large or recursive deletions" },
-{ option: "-R", description: "Recursively delete a directory tree" },
-{ option: "-v", description: "Print detailed information while deleting" }
-],
-explain: "The notes distinguish `-i` from `-I`, document recursive deletion with `-R`, and identify `-f`, `-d`, and `-v` for their respective behaviors.",
-tags: ["rm", "options"]
+q: "A directory listing shows a symbolic link. Which suffix does `ls -F` append to identify it?",
+type: "mcq",
+options: ["@", "/", "*", "=", "`"],
+answer: 0,
+explain: "`ls -F` appends `@` to symbolic links. Directories, executables, sockets, and named pipes use different indicators.",
+tags: ["ls", "filetypes", "symlinks"]
 },
 {
-q: "Match the `find` criteria with their descriptions.",
-type: "command_match",
-command: "find",
-pairs: [
-{ option: "-name", description: "Search for a specified filename" },
-{ option: "-user", description: "Search for files owned by a specified user or UID" },
-{ option: "-group", description: "Search for files owned by a specified group or GID" },
-{ option: "-inum", description: "Search for a specified inode number" },
-{ option: "-type", description: "Search by file type" },
-{ option: "-maxdepth", description: "Limit how many levels of the directory tree are searched" }
-],
-explain: "These criteria are among the primary metadata-based searches described for `find`.",
-tags: ["find", "criteria"]
+q: "A second filesystem is mounted at `/data`. How does Linux expose its contents to applications?",
+type: "mcq",
+options: ["As a directory within the single system tree", "As a separate top-level root visible beside `/`", "Only through a device filename under `/dev`", "Only through a shell variable", "As files outside the directory hierarchy"],
+answer: 0,
+explain: "Linux mounts additional filesystems at directories within one virtual tree rooted at `/`, so applications access the mounted contents through that directory.",
+tags: ["filesystem", "mounts", "paths"]
 },
 {
-q: "Match each shell notation with its meaning.",
-type: "match",
-context: "Shell metacharacters",
-pairs: [
-{ item: "$", match: "Shell variable expansion" },
-{ item: "~", match: "Home-directory expansion" },
-{ item: "#", match: "Shell-script comment" },
-{ item: "&", match: "Background execution" },
-{ item: "*", match: "Wildcard for any number of characters" }
-],
-explain: "These symbols form a coherent metacharacter group in the notes: variable and home-directory expansion, comments, background execution, and filename wildcards.",
-tags: ["shell", "metacharacters", "wildcards"]
-}
+q: "A deployment script should run a reload only when its configuration test succeeds. Which shell operator should connect the two commands?",
+type: "mcq",
+options: ["&&", ";", "||", "|", "&"],
+answer: 0,
+explain: "`&&` runs the command on its right only when the command on its left exits successfully; the other operators have different sequencing behavior.",
+tags: ["shell", "conditionals", "deployment"]
+},
 ]
 });

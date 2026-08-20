@@ -146,11 +146,12 @@ window.ReviewApp.content.register({
       tags: ["ports", "nfs", "smb"]
     },
     {
-      q: "Which ports are used by SMB for Microsoft file and print sharing?",
-      type: "fill",
-      answer: "137-139",
-      explain: "SMB (Server Message Block) traditionally uses ports 137 through 139.",
-      tags: ["ports", "smb"]
+      q: "A firewall must permit standard unencrypted HTTP requests to a web server. Which destination port should it allow?",
+      type: "mcq",
+      options: ["80", "22", "53", "110", "443"],
+      answer: 0,
+      explain: "Port 80 is the traditional well-known port for unencrypted HTTP. Port 443 is used for HTTPS, while the other choices serve different protocols.",
+      tags: ["ports", "http", "firewalls"]
     },
     {
       q: "Which organization is responsible for publishing standardized service protocols as RFC documents?",
@@ -768,11 +769,12 @@ window.ReviewApp.content.register({
       tags: ["containers", "docker", "kubernetes"]
     },
     {
-      q: "A daemon that resolves hostnames to IP addresses and can query other DNS servers so a client only needs to know one local server to resolve any Internet address is which daemon?",
-      type: "fill",
-      answer: "named",
-      explain: "named is BIND's server daemon, responsible for resolving hostnames locally and querying remote DNS servers as needed.",
-      tags: ["dns", "named"]
+      q: "A mail server accepts traditional SMTP traffic from other mail systems. Which well-known destination port identifies that service?",
+      type: "mcq",
+      options: ["25", "22", "53", "143", "389"],
+      answer: 0,
+      explain: "Port 25 is the traditional SMTP port used for mail transfer between servers. The other ports identify SSH, DNS, IMAP, and LDAP.",
+      tags: ["ports", "smtp", "email"]
     },
     {
       q: "A Windows client needs to print to a printer physically attached to a Linux workstation. Which two Linux packages together make this possible?",
@@ -790,32 +792,20 @@ window.ReviewApp.content.register({
       tags: ["daemon", "memory"]
     },
     {
-      q: "Which of the following statements about MUAs is correct?",
+      q: "A database team wants to select among multiple storage engines for different workload requirements. Which database is associated with that design emphasis?",
       type: "mcq",
-      options: [
-        "They are desktop email clients such as Evolution, KMail, and Thunderbird used directly by end users.",
-        "They are mail-server daemons such as Postfix, Exim, and sendmail used for SMTP routing.",
-        "They are directory clients such as LDAP tools used to resolve mail-server identities.",
-        "They are delivery agents such as Procmail and Binmail used to store incoming mail.",
-        "They are kernel-level mail filters that run before a user logs in."
-      ],
+      options: ["MySQL", "PostgreSQL", "MongoDB", "Dovecot", "BIND"],
       answer: 0,
-      explain: "Evolution, KMail, and Thunderbird are named in the notes as popular Linux desktop MUAs used directly by end users.",
-      tags: ["mua", "email"]
+      explain: "MySQL is known for supporting multiple storage engines, allowing installations to choose behavior suited to different workloads. PostgreSQL and MongoDB use different database designs, while Dovecot and BIND are not database servers.",
+      tags: ["mysql", "database", "storage-engines"]
     },
     {
-      q: "Match each security technology with its primary purpose.",
-      type: "match",
-      context: "Linux security layers",
-      pairs: [
-        { item: "NIS", match: "Shared naming directory for user accounts and hostnames" },
-        { item: "Kerberos", match: "Symmetric-key encrypted authentication" },
-        { item: "LDAP", match: "Hierarchical directory authentication" },
-        { item: "OpenSSH", match: "Encrypted remote access with tunneling support" },
-        { item: "OpenVPN", match: "Secure point-to-point VPN tunnel for remote access" }
-      ],
-      explain: "The notes distinguish these security technologies by the authentication, directory, remote-access, and VPN roles they provide.",
-      tags: ["security", "authentication", "ssh", "vpn"]
+      q: "A legacy SysVinit server must forward local messages to a remote log collector. Which logging daemon is the relevant choice?",
+      type: "mcq",
+      options: ["rsyslogd", "journald", "auditd", "logrotate", "named"],
+      answer: 0,
+      explain: "rsyslogd is the traditional logging daemon associated with SysVinit or Upstart and can handle remote logging. journald is associated with systemd, while the other choices have different roles.",
+      tags: ["logging", "rsyslog", "remote-logging"]
     }
   ]
 });

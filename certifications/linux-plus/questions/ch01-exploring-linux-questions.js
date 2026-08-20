@@ -110,12 +110,12 @@ window.ReviewApp.content.register({
       tags: ["licensing", "copyleft"]
     },
     {
-      q: "Which of the following are core parts that make up a complete Linux system? (Choose all that apply.)",
-      type: "multi",
-      options: ["Linux kernel", "GNU utilities", "User interface", "Application software", "BIOS firmware"],
-      answer: [0, 1, 2, 3],
-      explain: "A complete Linux system consists of the Linux kernel, GNU utilities, a user interface (graphical or command-line), and application software. BIOS firmware is hardware-specific and not part of the Linux system itself.",
-      tags: ["linux-concepts", "components"]
+      q: "A company requires a commercially supported Linux distribution with vendor-backed enterprise updates rather than a community rebuild. Which distribution best matches that requirement?",
+      type: "mcq",
+      options: ["RHEL", "CentOS Stream", "Rocky Linux", "Fedora", "Ubuntu Desktop"],
+      answer: 0,
+      explain: "RHEL is the commercially supported Red Hat enterprise distribution. CentOS Stream, Rocky Linux, Fedora, and Ubuntu Desktop serve different community, development, or desktop roles.",
+      tags: ["distributions", "rhel", "support"]
     },
     {
       q: "On a Rocky Linux system, the command `sudo ____ check-update` is used to verify whether updated packages are available.",
