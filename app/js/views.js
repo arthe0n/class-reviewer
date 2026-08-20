@@ -1164,11 +1164,21 @@
     if (q._cert || q._chapter) {
       root.appendChild(makeContextHeader(q._cert, q._chapter, 'Quiz · ' + modeLabel));
     }
+    var total = Number.isInteger(sess.originalTotal) ? sess.originalTotal : sess.questions.length;
+    var retrying = sess.index >= total;
+    var retryCount = sess.questions.length - total;
     var header = el('div', { className: 'quiz-progress' });
-    header.appendChild(el('span', { className: 'mono text-muted', text: (sess.index + 1) + ' / ' + sess.questions.length }));
+    header.appendChild(el('span', { className: 'mono text-muted', text: retrying
+      ? 'Review · ' + (sess.index - total + 1) + ' / ' + retryCount
+      : (sess.index + 1) + ' / ' + total }));
     var bar = el('div', { className: 'progress-bar' });
-    bar.appendChild(el('div', { className: 'progress-fill', style: { width: ((sess.index) / sess.questions.length * 100) + '%' } }));
+    bar.appendChild(el('div', { className: 'progress-fill', style: { width: (retrying ? 100 : ((sess.index) / total * 100)) + '%' } }));
     header.appendChild(bar);
+    if (retrying) {
+      header.appendChild(el('span', { className: 'chip chip-amber', text: 'Missed · review' }));
+    } else if (retryCount > 0) {
+      header.appendChild(el('span', { className: 'chip chip-amber', text: retryCount + ' to retry' }));
+    }
     var timerEl = null;
     if (sess.speedLimit) {
       timerEl = el('span', { className: 'exam-timer', text: sess.speedLimit + 's' });

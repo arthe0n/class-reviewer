@@ -69,7 +69,9 @@
 
   function sanitizeQuizSession(saved) {
     if (!saved || !Array.isArray(saved.questions) || !sessionMatchesCurrentContent(saved)) return null;
-    var list = sanitizeSavedQuestionList(saved.questions);
+    var oldQuestions = saved.questions;
+    var oldOriginalTotal = Number.isInteger(saved.originalTotal) ? saved.originalTotal : oldQuestions.length;
+    var list = sanitizeSavedQuestionList(oldQuestions);
     if (!list.questions.length) return null;
     var oldIndex = Number.isInteger(saved.index) ? saved.index : 0;
     var newIndex = list.indexMap[oldIndex];
@@ -83,6 +85,15 @@
     if (saved.index !== newIndex) list.changed = true;
     saved.questions = list.questions;
     saved.index = Math.max(0, Math.min(newIndex, saved.questions.length - 1));
+    // Recompute the first-pass boundary. Sanitization can drop malformed
+    // questions, so count the surviving original questions so appended retries
+    // stay in the retry region instead of silently counting as first attempts.
+    var firstPassCount = 0;
+    for (var i = 0; i < oldOriginalTotal && i < oldQuestions.length; i++) {
+      if (list.indexMap[i] != null) firstPassCount++;
+    }
+    if (firstPassCount !== oldOriginalTotal) list.changed = true;
+    saved.originalTotal = firstPassCount;
     var validIds = {};
     saved.questions.forEach(function (q) { if (q._id) validIds[q._id] = true; });
     if (!Array.isArray(saved.answers)) {
@@ -401,8 +412,9 @@
       cert: config.cert || (questions[0] && questions[0]._cert) || null,
       contentVersion: currentContentVersion(),
       questions: questions,
+      originalTotal: questions.length,
       index: 0,
-      answers: [], // { qId, correct, userAnswer }
+      answers: [], // { qId, correct, userAnswer, retry }
       startTime: Date.now(),
       speedLimit: config.speedLimit || null, // seconds per Q for speed run
       speedTimer: null,
@@ -418,16 +430,30 @@
     return session.questions[session.index];
   }
 
+  // Retried questions are appended after the original first pass, so an index
+  // at or beyond originalTotal is a practice-only re-show of a missed question.
+  function currentIsRetry() {
+    return !!(session && Number.isInteger(session.originalTotal) && session.index >= session.originalTotal);
+  }
+
   function submitAnswer(userAnswer) {
     if (!session) return null;
     var q = currentQ();
     var correct = checkAnswer(q, userAnswer);
+    var retry = currentIsRetry();
     session.answers.push({
       qId: q._id,
       correct: correct,
       userAnswer: userAnswer,
-      question: q
+      question: q,
+      retry: retry
     });
+    // Queue a first-pass miss to be shown again at the end, mirroring the
+    // flashcard retry queue. The re-show is practice only: retried answers are
+    // never counted toward the score or written to the stats log.
+    if (!correct && !retry) {
+      session.questions.push(q);
+    }
     // Answers are recorded in the session only. They are written to the stats
     // log when the quiz finishes (see endQuiz), so an abandoned quiz never
     // counts toward statistics.
@@ -452,26 +478,28 @@
   function skipQuestion() {
     if (!session) return;
     var q = currentQ();
-    session.answers.push({ qId: q._id, correct: false, userAnswer: null, skipped: true, question: q });
+    session.answers.push({ qId: q._id, correct: false, userAnswer: null, skipped: true, retry: currentIsRetry(), question: q });
     App.store.saveQuizSession(session);
     return nextQuestion();
   }
 
   function endQuiz() {
     if (!session) return null;
+    var total = Number.isInteger(session.originalTotal) ? session.originalTotal : session.questions.length;
+    var firstAttempts = session.answers.filter(function (a) { return !a.retry; });
     var result = {
       mode: session.mode,
-      total: session.questions.length,
-      answered: session.answers.length,
-      correct: session.answers.filter(function (a) { return a.correct; }).length,
+      total: total,
+      answered: firstAttempts.length,
+      correct: firstAttempts.filter(function (a) { return a.correct; }).length,
       timeMs: Date.now() - session.startTime,
-      answers: session.answers,
-      questions: session.questions
+      answers: firstAttempts,
+      questions: session.questions.slice(0, total)
     };
     result.score = result.total ? Math.round((result.correct / result.total) * 100) : 0;
-    // per-tag
+    // per-tag (first attempts only — retries are practice and never re-score)
     var tagMap = {};
-    session.answers.forEach(function (a) {
+    firstAttempts.forEach(function (a) {
       (a.question.tags || []).forEach(function (t) {
         if (!tagMap[t]) tagMap[t] = { correct: 0, total: 0 };
         tagMap[t].total++;
@@ -482,9 +510,11 @@
       return { tag: t, correct: tagMap[t].correct, total: tagMap[t].total, pct: Math.round((tagMap[t].correct / tagMap[t].total) * 100) };
     });
 
-    // Commit the completed quiz's answers to the stats log. Answers are held
-    // back while the quiz is in progress, so only finished quizzes count.
-    session.answers.forEach(function (a) {
+    // Commit the completed quiz's answers to the stats log. Only the first
+    // attempt per question is logged, so retries never double-count toward
+    // statistics. Answers are held back while the quiz is in progress, so only
+    // finished quizzes count.
+    firstAttempts.forEach(function (a) {
       var q = a.question || {};
       App.store.logAnswer({
         qId: a.qId,
