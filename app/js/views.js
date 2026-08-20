@@ -996,6 +996,17 @@
     return { chapter: 'Chapter Focus', random: 'Random Mix', theme: 'Theme Attack', weak: 'Weak Spots', speed: 'Speed Run' }[mode] || mode;
   }
 
+  function quizQuestionTypeLabel(type) {
+    return {
+      mcq: 'Multiple choice',
+      multi: 'Multiple select',
+      tf: 'True / false',
+      fill: 'Fill in',
+      match: 'Matching',
+      command_match: 'Matching'
+    }[type] || 'Question';
+  }
+
   // Keyboard-shortcut reference panel, opened with ? from any question.
   function showShortcutsModal(mode) {
     var rows = mode === 'exam'
@@ -1184,6 +1195,12 @@
       timerEl = el('span', { className: 'exam-timer', text: sess.speedLimit + 's' });
       header.appendChild(timerEl);
     }
+    var questionType = quizQuestionTypeLabel(q.type);
+    header.appendChild(el('span', {
+      className: 'quiz-question-type',
+      'aria-label': 'Question type: ' + questionType,
+      text: questionType
+    }));
     root.appendChild(header);
     var card = el('div', { className: 'question-card' });
     card.appendChild(el('div', { className: 'question-text', html: App.markdown.renderInline(q.q || '') }));
