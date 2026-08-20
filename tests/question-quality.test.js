@@ -16,6 +16,8 @@ var vm = require('vm');
 
 var promptPath = path.join(__dirname, '..', 'docs', 'prompt-generator.md');
 var prompt = fs.readFileSync(promptPath, 'utf8');
+var manifestPath = path.join(__dirname, '..', 'certifications', '_manifest.js');
+var manifest = fs.readFileSync(manifestPath, 'utf8');
 
 [
   'ANSWER-CHOICE QUALITY',
@@ -72,6 +74,18 @@ function loadQuestionPayloads() {
 
 var payloads = loadQuestionPayloads();
 assert.strictEqual(payloads.length, 3, 'all checked-in question banks should register');
+[
+  'linux-plus/questions/ch01-exploring-linux-questions.js',
+  'linux-plus/questions/ch02-servers-services-security-questions.js',
+  'linux-plus/questions/ch03-files-directories-search-questions.js'
+].forEach(function (file) {
+  assert.ok(manifest.indexOf('"' + file + '"') >= 0,
+    'manifest should load the question bank: ' + file);
+});
+assert.ok(manifest.indexOf('contentVersion: "1.0.10"') >= 0,
+  'manifest should version the content snapshot contract');
+assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.length; }), [19, 87, 165],
+  'question banks should contain all expected chapter questions');
 
 var questionCount = 0;
 var multiAnswerCounts = {};
@@ -146,7 +160,8 @@ payloads.forEach(function (payload) {
   });
 });
 
-assert.ok(questionCount >= 100, 'checked-in question banks should contain a meaningful sample');
+assert.strictEqual(questionCount, 271,
+  'all active Linux+ question banks should provide 271 questions to the registry');
 var wildcardQuestion = null;
 payloads.forEach(function (payload) {
   payload.items.forEach(function (question) {
@@ -330,6 +345,18 @@ assert.strictEqual(cleanedExamSession.state.questions.length, 1,
   'saved exams should remove malformed choice questions before rendering');
 assert.deepStrictEqual(cleanedExamSession.state.answers, { 0: 2 });
 assert.deepStrictEqual(cleanedExamSession.state.flagged, { 0: true });
+
+var originalContent = global.window.ReviewApp.content;
+global.window.ReviewApp.content = {
+  getManifest: function () { return { contentVersion: '1.0.10' }; }
+};
+assert.strictEqual(quiz.sanitizeQuizSession({
+  contentVersion: '1.0.9',
+  index: 0,
+  questions: [reversed],
+  answers: []
+}), null, 'saved quizzes from an older content version should not hide current questions');
+global.window.ReviewApp.content = originalContent;
 
 var multi = quiz.prepareQuestion({
   q: 'Which options are correct?',

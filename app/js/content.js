@@ -106,17 +106,11 @@
     loadToken++;
     var myToken = loadToken;
     var t = Date.now();
-
-    // Try snapshot first if present
     var snap = App.store.getContentSnapshot();
-    if (snap && snap.registry) {
-      registry = snap.registry;
-      if (snap.manifest) manifest = snap.manifest;
-      invalidateCache();
-      if (cb) cb();
-      return;
-    }
 
+    // Always read the current manifest before accepting a snapshot. Older
+    // snapshots can contain fewer questions than the checked-in banks, which
+    // makes the quiz show a stale total (for example 157 instead of 165).
     injectScript('certifications/_manifest.js?t=' + t, function () {
       if (myToken !== loadToken) return;
       if (!manifest) {
@@ -124,6 +118,19 @@
         if (cb) cb();
         return;
       }
+
+      var snapManifest = snap && snap.manifest;
+      var customSnapshot = snapManifest && Array.isArray(snapManifest.files) && snapManifest.files.length === 0;
+      var currentSnapshot = snap && snap.registry && snapManifest && (
+        customSnapshot || (manifest.contentVersion && snapManifest.contentVersion === manifest.contentVersion)
+      );
+      if (currentSnapshot) {
+        registry = snap.registry;
+        invalidateCache();
+        if (cb) cb();
+        return;
+      }
+
       registry.certs = (manifest.certs || []).slice();
       loadManifestFiles(manifest.files || [], function () {
         if (myToken !== loadToken) return;

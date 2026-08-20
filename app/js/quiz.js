@@ -28,6 +28,16 @@
     return rendered || utils.escapeHtml(raw);
   }
 
+  function currentContentVersion() {
+    var manifest = App.content && App.content.getManifest ? App.content.getManifest() : null;
+    return manifest && manifest.contentVersion ? String(manifest.contentVersion) : null;
+  }
+
+  function sessionMatchesCurrentContent(saved) {
+    var version = currentContentVersion();
+    return !version || saved.contentVersion === version;
+  }
+
   function isSavedChoiceQuestionValid(q) {
     if (!q || q._invalid) return false;
     if (q.type !== 'mcq' && q.type !== 'multi') return true;
@@ -58,7 +68,7 @@
   }
 
   function sanitizeQuizSession(saved) {
-    if (!saved || !Array.isArray(saved.questions)) return null;
+    if (!saved || !Array.isArray(saved.questions) || !sessionMatchesCurrentContent(saved)) return null;
     var list = sanitizeSavedQuestionList(saved.questions);
     if (!list.questions.length) return null;
     var oldIndex = Number.isInteger(saved.index) ? saved.index : 0;
@@ -87,7 +97,7 @@
   }
 
   function sanitizeExamSession(saved) {
-    if (!saved || !Array.isArray(saved.questions)) return null;
+    if (!saved || !Array.isArray(saved.questions) || !sessionMatchesCurrentContent(saved)) return null;
     var list = sanitizeSavedQuestionList(saved.questions);
     if (!list.questions.length) return null;
     var oldIndex = Number.isInteger(saved.index) ? saved.index : 0;
@@ -385,6 +395,7 @@
     session = {
       mode: config.mode || 'random',
       cert: config.cert || (questions[0] && questions[0]._cert) || null,
+      contentVersion: currentContentVersion(),
       questions: questions,
       index: 0,
       answers: [], // { qId, correct, userAnswer }
@@ -753,6 +764,7 @@
     var timeLimit = config.timeLimit || (count * 75); // seconds
     examSession = {
       cert: config.cert,
+      contentVersion: currentContentVersion(),
       questions: questions,
       answers: {}, // index -> userAnswer
       flagged: {},
