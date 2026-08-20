@@ -9,6 +9,13 @@
 
   var App = window.ReviewApp;
 
+  function inlineContentHtml(value) {
+    value = value == null ? '' : String(value);
+    return App.markdown && App.markdown.renderInline
+      ? App.markdown.renderInline(value)
+      : utils.escapeHtml(value);
+  }
+
   /* ── Utils ──────────────────────────────────────────────── */
   var utils = {
     $: function (sel, ctx) { return (ctx || document).querySelector(sel); },
@@ -380,8 +387,8 @@
               if (h.action) h.action();
             }
           }, [
-            utils.el('div', { text: h.title }),
-            h.meta ? utils.el('div', { className: 'meta', text: h.meta }) : null
+            utils.el('div', { html: inlineContentHtml(h.title) }),
+            h.meta ? utils.el('div', { className: 'meta', html: inlineContentHtml(h.meta) }) : null
           ]);
           btn.addEventListener('mouseenter', function () {
             var buttons = resultButtons();

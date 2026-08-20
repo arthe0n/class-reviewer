@@ -9,6 +9,10 @@
   var utils = App.core.utils;
   var el = utils.el;
 
+  function inlineHtml(value) {
+    return App.markdown.renderInline(value == null ? '' : String(value));
+  }
+
   /* ── Helpers ────────────────────────────────────────────── */
   // `match` is the generic authoring type. `command_match` remains a legacy
   // alias so existing content and saved sessions continue to work.
@@ -329,7 +333,7 @@
     var label = q._matchLabel || (q.command ? 'COMMAND' : 'MATCHING');
     var banner = el('div', { className: 'match-context' }, [
       el('span', { className: 'match-context-label', text: label }),
-      el('span', { className: 'match-context-name', text: context || 'Related items' })
+      el('span', { className: 'match-context-name', html: inlineHtml(context || 'Related items') })
     ]);
     container.appendChild(banner);
 
@@ -340,14 +344,14 @@
     q._shuffledPairs.forEach(function (pair, i) {
       var item = pairItem(pair);
       var row = el('div', { className: 'match-row' });
-      row.appendChild(el('span', { className: 'match-item', text: item }));
+      row.appendChild(el('span', { className: 'match-item', html: inlineHtml(item) }));
       var sel = el('select', {
         className: 'form-control match-select',
         'aria-label': 'Match ' + item + ' with its counterpart'
       });
       sel.appendChild(el('option', { value: '', text: '— choose counterpart —' }));
       matches.forEach(function (match, j) {
-        sel.appendChild(el('option', { value: String(j), text: match }));
+        sel.appendChild(el('option', { value: String(j), html: inlineHtml(match) }));
       });
       if (initial[i] != null) sel.value = String(initial[i]);
       sel.addEventListener('change', function () {
@@ -380,7 +384,7 @@
           row.classList.add('wrong');
           row.appendChild(el('span', {
             className: 'match-correct',
-            text: '→ ' + matches[correctIdx]
+            html: inlineHtml('→ ' + matches[correctIdx])
           }));
         }
       });
@@ -421,7 +425,7 @@
       optsWrap.querySelectorAll('.option-btn').forEach(function (b) { b.disabled = true; });
       var exp = el('div', { className: 'explain-panel' }, [
         el('strong', { text: correct ? 'Correct. ' : 'Incorrect. ' }),
-        document.createTextNode(explain || q.explain || '')
+        el('span', { html: App.markdown.renderInline(explain || q.explain || '') })
       ]);
       container.appendChild(exp);
       App.store.logAnswer({
@@ -455,7 +459,7 @@
           }
         }, [
           el('span', { className: 'option-key', text: key }),
-          el('span', { text: opt.text })
+          el('span', { html: inlineHtml(opt.text) })
         ]);
         optsWrap.appendChild(btn);
       });
@@ -485,7 +489,7 @@
           }
         }, [
           el('span', { className: 'option-key', text: key }),
-          el('span', { text: opt.text })
+          el('span', { html: inlineHtml(opt.text) })
         ]);
         optsWrap.appendChild(btn);
       });

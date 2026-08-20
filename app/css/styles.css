@@ -1318,7 +1318,18 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   margin-bottom: 1.25rem;
   line-height: 1.45;
 }
-.question-text code {
+.question-text code,
+.option-btn code,
+.explain-panel code,
+.match-context-name code,
+.match-item code,
+.match-correct code,
+.flashcard-text code,
+.lab-row-title code,
+.lab-row-desc code,
+.lab-step-header code,
+.lab-step-body code,
+.note-section-title code {
   font-family: var(--font-mono);
   background: var(--bg-base);
   color: var(--accent-cyan);

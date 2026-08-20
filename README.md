@@ -61,6 +61,21 @@ All progress lives in the browser's local IndexedDB database. Existing ReviewApp
 - **Search** — global search across questions, flashcards, notes, ports, and commands.
 - **Settings** — themes, text size, animations, exam threshold, and Backup & Data.
 
+## Content formatting
+
+Study content supports safe inline Markdown across the app. Wrap commands,
+paths, flags, or other short code snippets in backticks:
+
+```text
+Which `ls` option lists hidden files?
+```
+
+Inline code is rendered consistently in question titles, answer options,
+explanations, matching items, flashcards, labs, notes, search results, and
+reference content. User-provided HTML is escaped before rendering, so content
+formatting cannot inject markup into the app. Fenced code blocks and literal
+command output remain preserved as code blocks.
+
 ---
 
 ## How it works

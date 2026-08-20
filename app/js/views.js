@@ -10,6 +10,10 @@
   var el = utils.el;
   var $ = utils.$;
 
+  function inlineHtml(value) {
+    return App.markdown.renderInline(value == null ? '' : String(value));
+  }
+
   function isMatchQuestion(q) {
     return App.quiz && App.quiz.isMatchQuestion ? App.quiz.isMatchQuestion(q) : !!q && (q.type === 'match' || q.type === 'command_match');
   }
@@ -56,10 +60,10 @@
   function makeContextHeader(certId, chapter, activity, meta) {
     var wrap = el('div', { className: 'activity-context' });
     var cert = certId ? App.content.getCert(certId) : null;
-    if (activity) wrap.appendChild(el('div', { className: 'ctx-activity', text: activity }));
+    if (activity) wrap.appendChild(el('div', { className: 'ctx-activity', html: inlineHtml(activity) }));
     if (cert) wrap.appendChild(el('div', { className: 'ctx-cert', text: cert.name }));
-    if (chapter) wrap.appendChild(el('div', { className: 'ctx-chapter', text: chapter }));
-    if (meta) wrap.appendChild(el('div', { className: 'ctx-meta', text: meta }));
+    if (chapter) wrap.appendChild(el('div', { className: 'ctx-chapter', html: inlineHtml(chapter) }));
+    if (meta) wrap.appendChild(el('div', { className: 'ctx-meta', html: inlineHtml(meta) }));
     return wrap;
   }
 
@@ -162,7 +166,7 @@
     } : App.content.counts();
     var stats = App.store.getDashboardStats(certId);
 
-    var termText = 'reviewapp v1.0.5 — ' + (cert ? cert.name + ' · ' : '') + compactNumber(counts.questions) + ' questions · ' +
+    var termText = 'reviewapp v1.0.6 — ' + (cert ? cert.name + ' · ' : '') + compactNumber(counts.questions) + ' questions · ' +
       compactNumber(counts.flashcards) + ' cards · ' + compactNumber(counts.labs) + ' labs — SYSTEM READY';
     var strip = el('div', { className: 'terminal-strip', 'aria-label': 'System status' });
     root.appendChild(strip);
@@ -391,7 +395,7 @@
     var cmdCard = el('div', { className: 'panel' });
     cmdCard.appendChild(el('div', { className: 'label-upper mb-1', text: 'Command of the day' }));
     cmdCard.appendChild(el('div', { className: 'code-block', text: cotd.cmd }));
-    cmdCard.appendChild(el('p', { className: 'text-muted mt-1', style: { fontSize: '0.88rem' }, text: cotd.tip }));
+    cmdCard.appendChild(el('p', { className: 'text-muted mt-1', style: { fontSize: '0.88rem' }, html: inlineHtml(cotd.tip) }));
     daily.appendChild(cmdCard);
     var ports = App.tools && App.tools.getPorts ? App.tools.getPorts() : [];
     if (ports.length) {
@@ -402,7 +406,7 @@
         el('span', { className: 'port-num', text: potd.port }),
         el('span', { className: 'port-name', text: potd.name })
       ]));
-      portCard.appendChild(el('p', { className: 'text-muted mt-1', style: { fontSize: '0.88rem' }, text: potd.desc }));
+      portCard.appendChild(el('p', { className: 'text-muted mt-1', style: { fontSize: '0.88rem' }, html: inlineHtml(potd.desc) }));
       portCard.appendChild(el('button', {
         className: 'btn btn-secondary btn-sm mt-1', text: 'Open Port Reference',
         onClick: function () {
@@ -756,7 +760,7 @@
     var continueText = el('div', { className: 'dashboard-continue-copy' });
     if (continueRow) {
       continueText.appendChild(el('div', { className: 'dashboard-chapter-number', style: { color: certColor }, text: continueRow.number }));
-      continueText.appendChild(el('div', { className: 'dashboard-continue-title', text: continueRow.title }));
+      continueText.appendChild(el('div', { className: 'dashboard-continue-title', html: inlineHtml(continueRow.title) }));
       continueText.appendChild(el('p', { className: 'text-muted', text: continueMeta }));
     } else {
       continueText.appendChild(el('div', { className: 'dashboard-continue-title', text: continueMode }));
@@ -806,7 +810,7 @@
       var rowEl = el('article', { className: 'dashboard-chapter-row' + (isCurrent ? ' is-current' : '') });
       var titleWrap = el('div', { className: 'dashboard-chapter-heading' });
       titleWrap.appendChild(el('span', { className: 'dashboard-chapter-number', style: { color: certColor }, text: row.number }));
-      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { text: row.title }), el('small', { text: (isCurrent ? 'Current · ' : '') + compactNumber(row.questions) + ' questions · ' + compactNumber(row.cards) + ' cards · ' + compactNumber(row.labs) + ' labs' })]));
+      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { html: inlineHtml(row.title) }), el('small', { text: (isCurrent ? 'Current · ' : '') + compactNumber(row.questions) + ' questions · ' + compactNumber(row.cards) + ' cards · ' + compactNumber(row.labs) + ' labs' })]));
       titleWrap.appendChild(el('span', { className: 'dashboard-chapter-percent', text: row.pct + '%' }));
       rowEl.appendChild(titleWrap);
       var track = el('div', { className: 'dashboard-chapter-track', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(row.pct), 'aria-label': row.title + ' progress' });
@@ -834,7 +838,7 @@
         var item = el('div', { className: 'dashboard-focus-item' });
         item.appendChild(el('span', { className: 'dashboard-focus-dot', style: { background: certColor } }));
         var copy = el('div', { className: 'dashboard-focus-copy' });
-        copy.appendChild(el('strong', { text: area.tag }));
+        copy.appendChild(el('strong', { html: inlineHtml(area.tag) }));
         copy.appendChild(el('small', { text: (area.chapter || 'Certification-wide') + ' · ' + area.cards + ' card' + (area.cards === 1 ? '' : 's') + ' · ' + area.agains + ' Again' + (area.agains === 1 ? '' : 's') }));
         item.appendChild(copy);
         item.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Review', onClick: function () {
@@ -883,8 +887,8 @@
       activityEvents.slice(0, 6).forEach(function (event) {
         var eventRow = el('div', { className: 'dashboard-activity-item' });
         eventRow.appendChild(el('span', { className: 'dashboard-activity-type', text: activityLabel(event.type) }));
-        eventRow.appendChild(el('span', { className: 'dashboard-activity-chapter', text: event.chapter || 'Certification activity' }));
-        eventRow.appendChild(el('span', { className: 'dashboard-activity-detail', text: event.detail + ' · ' + relativeDate(event.ts) }));
+        eventRow.appendChild(el('span', { className: 'dashboard-activity-chapter', html: inlineHtml(event.chapter || 'Certification activity') }));
+        eventRow.appendChild(el('span', { className: 'dashboard-activity-detail', html: inlineHtml(event.detail + ' · ' + relativeDate(event.ts)) }));
         recentSection.appendChild(eventRow);
       });
     } else {
@@ -943,7 +947,7 @@
       el('div', { className: 'dashboard-kicker', text: 'Global reference' }),
       el('strong', { text: 'Command of the day' }),
       el('code', { text: command.cmd }),
-      el('small', { className: 'text-muted', text: command.tip })
+      el('small', { className: 'text-muted', html: inlineHtml(command.tip) })
     ]));
     var ports = App.tools && App.tools.getPorts ? App.tools.getPorts() : [];
     if (ports.length) {
@@ -952,7 +956,7 @@
         el('div', { className: 'dashboard-kicker', text: 'Global reference' }),
         el('strong', { text: 'Port of the day' }),
         el('code', { text: port.port + ' · ' + port.name }),
-        el('small', { className: 'text-muted', text: port.desc })
+        el('small', { className: 'text-muted', html: inlineHtml(port.desc) })
       ]));
     }
     page.appendChild(references);
@@ -1133,13 +1137,13 @@
       var list = el('div', { className: 'match-answer mt-1' });
       q.pairs.forEach(function (p) {
         list.appendChild(el('div', { className: 'match-answer-row' }, [
-          el('span', { className: 'match-item', text: matchItem(p) }),
-          el('span', { className: 'text-muted', text: '→ ' + matchCounterpart(p) })
+          el('span', { className: 'match-item', html: inlineHtml(matchItem(p)) }),
+          el('span', { className: 'text-muted', html: inlineHtml('→ ' + matchCounterpart(p)) })
         ]));
       });
       parent.appendChild(list);
     }
-    parent.appendChild(el('div', { className: 'explain-panel mt-1', text: q.explain || '' }));
+    parent.appendChild(el('div', { className: 'explain-panel mt-1', html: App.markdown.renderInline(q.explain || '') }));
   }
 
   function renderQuizPlayer(root) {
@@ -1202,7 +1206,7 @@
       }
       card.appendChild(el('div', { className: 'explain-panel' }, [
         el('strong', { text: result.correct ? '✓ Correct. ' : '✗ Incorrect. ' }),
-        document.createTextNode(q.explain || '')
+        el('span', { html: App.markdown.renderInline(q.explain || '') })
       ]));
       actions.innerHTML = '';
       actions.appendChild(el('button', {
@@ -1256,7 +1260,7 @@
       q._shuffledOptions.forEach(function (opt, i) {
         optsWrap.appendChild(el('button', { className: 'option-btn', onClick: function () { doSubmit(i); } }, [
           el('span', { className: 'option-key', text: String(i + 1) }),
-          el('span', { text: opt.text })
+          el('span', { html: inlineHtml(opt.text) })
         ]));
       });
     } else if (q.type === 'tf') {
@@ -1275,7 +1279,7 @@
           onClick: function () { toggleOption(i); }
         }, [
           el('span', { className: 'option-key', text: String(i + 1) }),
-          el('span', { text: opt.text })
+          el('span', { html: inlineHtml(opt.text) })
         ]));
       });
     } else if (q.type === 'fill') {
@@ -1542,7 +1546,7 @@
         optsWrap.appendChild(el('button', {
           className: 'option-btn' + (selected ? ' selected' : ''),
           onClick: function () { App.quiz.examAnswer(sess.index, i); root.innerHTML = ''; renderExamPlayer(root); }
-        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: opt.text })]));
+        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { html: inlineHtml(opt.text) })]));
       });
     } else if (q.type === 'tf') {
       [true, false].forEach(function (v, i) {
@@ -1572,7 +1576,7 @@
         optsWrap.appendChild(el('button', {
           className: 'option-btn' + (selected ? ' selected' : ''),
           onClick: function () { selectOption(i); }
-        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { text: opt.text })]));
+        }, [el('span', { className: 'option-key', text: String(i + 1) }), el('span', { html: inlineHtml(opt.text) })]));
       });
     } else if (isMatchQuestion(q)) {
       if (q._invalid) {
@@ -1738,7 +1742,7 @@
     if (savedSession && (!savedSession.cert || savedSession.cert === certId) && !savedSession.finished) {
       var resumePanel = el('div', { className: 'flash-resume-panel mb-3' });
       resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
-      resumePanel.appendChild(el('p', { className: 'text-muted', text: (savedSession.chapter || 'All chapters') + ' · ' + Math.max(0, savedSession.totalCards - savedSession.completed) + ' cards remaining' }));
+      resumePanel.appendChild(el('p', { className: 'text-muted', html: inlineHtml((savedSession.chapter || 'All chapters') + ' · ' + Math.max(0, savedSession.totalCards - savedSession.completed) + ' cards remaining') }));
       var resumeRow = el('div', { className: 'flex gap-sm' });
       resumeRow.appendChild(el('button', { className: 'btn btn-secondary btn-sm', text: 'Resume saved session', onClick: function () { root.innerHTML = ''; renderFlashPlayer(root); } }));
       resumeRow.appendChild(el('button', {
@@ -1777,7 +1781,7 @@
         type: 'button',
         'aria-label': 'Start ' + label + ' flashcards'
       }, [
-        el('span', { className: 'fc-chapter-option-name', text: label }),
+        el('span', { className: 'fc-chapter-option-name', html: inlineHtml(label) }),
         el('span', { className: 'chip chip-muted', text: count + ' card' + (count === 1 ? '' : 's') })
       ]);
       btn.addEventListener('click', function () { startChapter(value); });
@@ -1839,11 +1843,11 @@
     });
     fc.appendChild(el('div', { className: 'flashcard-face front' }, [
       el('div', { className: 'flashcard-label', text: 'Front' }),
-      el('div', { className: 'flashcard-text', text: card.front })
+      el('div', { className: 'flashcard-text', html: inlineHtml(card.front) })
     ]));
     fc.appendChild(el('div', { className: 'flashcard-face back' }, [
       el('div', { className: 'flashcard-label', text: 'Back' }),
-      el('div', { className: 'flashcard-text', text: card.back })
+      el('div', { className: 'flashcard-text', html: inlineHtml(card.back) })
     ]));
     stage.appendChild(fc);
     root.appendChild(stage);
@@ -1972,14 +1976,14 @@
     });
     row.appendChild(el('div', { className: 'lab-row-index', text: String(num) }));
     var body = el('div', { className: 'lab-row-body' });
-    body.appendChild(el('div', { className: 'lab-row-title', text: lab.title }));
+    body.appendChild(el('div', { className: 'lab-row-title', html: inlineHtml(lab.title) }));
     var meta = el('div', { className: 'lab-row-meta' });
     meta.appendChild(el('span', { className: 'chip chip-amber', text: '★'.repeat(lab.difficulty || 1) }));
     meta.appendChild(el('span', { className: 'chip chip-muted', text: (lab.minutes || '?') + ' min' }));
     body.appendChild(meta);
     if (lab.scenario) {
       var desc = lab.scenario.length > 110 ? lab.scenario.slice(0, 110) + '…' : lab.scenario;
-      body.appendChild(el('div', { className: 'lab-row-desc', text: desc }));
+      body.appendChild(el('div', { className: 'lab-row-desc', html: inlineHtml(desc) }));
     }
     row.appendChild(body);
     if (done) row.appendChild(el('span', { className: 'chip chip-green', text: 'Completed' }));
@@ -2001,7 +2005,7 @@
       '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
     }));
     var titleWrap = el('div', { className: 'lab-chapter-title-wrap' });
-    titleWrap.appendChild(el('div', { className: 'lab-chapter-title', text: chapterName }));
+    titleWrap.appendChild(el('div', { className: 'lab-chapter-title', html: inlineHtml(chapterName) }));
     titleWrap.appendChild(el('div', { className: 'lab-chapter-meta', text: doneCount + ' / ' + chapterLabs.length + ' labs completed' }));
     header.appendChild(titleWrap);
     header.appendChild(el('span', { className: 'chip chip-muted lab-chapter-count', text: chapterLabs.length + ' Labs' }));
@@ -2041,7 +2045,7 @@
     if (activeSession) {
       var resumePanel = el('div', { className: 'quiz-resume-panel mb-3' });
       resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
-      resumePanel.appendChild(el('p', { className: 'text-muted', text: activeSession.lab.title + ' · ' + activeSession.doneCount + ' of ' + activeSession.total + ' steps done' }));
+      resumePanel.appendChild(el('p', { className: 'text-muted', html: inlineHtml(activeSession.lab.title + ' · ' + activeSession.doneCount + ' of ' + activeSession.total + ' steps done') }));
       var resumeRow = el('div', { className: 'flex gap-sm' });
       resumeRow.appendChild(el('button', {
         className: 'btn btn-secondary btn-sm', text: 'Resume lab',
@@ -2118,7 +2122,7 @@
     var labIdx = chapterLabs.findIndex(function (l) { return l._id === lab._id; });
     var labMeta = labIdx >= 0 ? 'Lab ' + (labIdx + 1) + ' of ' + chapterLabs.length : null;
     root.appendChild(makeContextHeader(lab._cert, lab._chapter, 'Lab', labMeta));
-    root.appendChild(el('h1', { text: lab.title }));
+    root.appendChild(el('h1', { html: inlineHtml(lab.title) }));
     root.appendChild(el('div', { className: 'flex gap-sm mb-2' }, [
       el('span', { className: 'chip chip-amber', text: 'Difficulty ' + (lab.difficulty || 1) }),
       el('span', { className: 'chip chip-muted', text: (lab.minutes || '?') + ' min' })
@@ -2320,7 +2324,7 @@
           }
         });
         labEl.appendChild(cb);
-        labEl.appendChild(document.createTextNode(o));
+        labEl.appendChild(el('span', { html: inlineHtml(o) }));
         obj.appendChild(labEl);
         objectiveCbs.push(cb);
       });
@@ -2336,7 +2340,7 @@
           onClick: function () { wrap.classList.toggle('open'); }
         }, [
           chip,
-          el('span', { text: step.do || 'Step ' + (i + 1) })
+          el('span', { html: inlineHtml(step.do || 'Step ' + (i + 1)) })
         ]));
         var body = el('div', { className: 'lab-step-body' });
         var actions = el('div', { className: 'lab-step-actions' });
@@ -2344,7 +2348,7 @@
         var reveals = [];
         if (step.hint) {
           var hintBtn = el('button', { className: 'btn btn-ghost btn-sm', text: 'Show hint' });
-          var hintEl = el('div', { className: 'text-muted mb-1', style: { display: 'none' }, text: step.hint });
+          var hintEl = el('div', { className: 'text-muted mb-1', style: { display: 'none' }, html: inlineHtml(step.hint) });
           hintBtn.addEventListener('click', function (e) { e.stopPropagation(); hintEl.style.display = hintEl.style.display === 'none' ? 'block' : 'none'; });
           group.appendChild(hintBtn);
           reveals.push(hintEl);
@@ -2386,7 +2390,7 @@
         var verify = el('div', { className: 'lab-step-verify' });
         var verifyRow = el('div', { className: 'lab-step-verify-row' });
         verifyRow.appendChild(el('div', { className: 'lab-step-check' }, [
-          el('strong', { text: 'Verify: ' }), document.createTextNode(step.check || 'Review the expected result for this step.')
+          el('strong', { text: 'Verify: ' }), el('span', { html: inlineHtml(step.check || 'Review the expected result for this step.') })
         ]));
         appendExpectedOutputButton(verifyRow, step);
         verify.appendChild(verifyRow);
@@ -2686,7 +2690,7 @@
     L.push('');
     L.push('---');
     L.push('');
-    L.push('_Generated by ReviewApp v1.0.5 — offline study analytics._');
+    L.push('_Generated by ReviewApp v1.0.6 — offline study analytics._');
     L.push('');
 
     return L.join('\n');
@@ -3302,7 +3306,7 @@
       insightsData.slice(0, 4).forEach(function (item) {
         var card = el('article', { className: 'stats-insight ' + item.tone });
         card.appendChild(el('span', { className: 'stats-insight-icon', text: item.icon, 'aria-hidden': 'true' }));
-        card.appendChild(el('div', { className: 'stats-insight-copy' }, [el('strong', { text: item.title }), el('p', { text: item.text })]));
+        card.appendChild(el('div', { className: 'stats-insight-copy' }, [el('strong', { html: inlineHtml(item.title) }), el('p', { html: inlineHtml(item.text) })]));
         card.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: item.action, onClick: item.fn }));
         insightGrid.appendChild(card);
       });
@@ -3361,7 +3365,7 @@
         rows.forEach(function (row) {
           var details = el('details', { className: 'stats-chapter-details' });
           var summary = el('summary', { className: 'stats-chapter-row', role: 'row' });
-          summary.appendChild(el('span', { className: 'stats-chapter-name' }, [el('b', { style: { color: certColor }, text: row.number }), el('span', { text: row.title })]));
+          summary.appendChild(el('span', { className: 'stats-chapter-name' }, [el('b', { style: { color: certColor }, text: row.number }), el('span', { html: inlineHtml(row.title) })]));
           summary.appendChild(el('span', { className: 'stats-chapter-coverage' }, [el('i', { style: { width: row.coverage + '%', background: certColor } }), el('em', { text: row.coverage + '%' })]));
           summary.appendChild(el('span', { text: row.accuracy == null ? '—' : row.accuracy + '%' }));
           summary.appendChild(el('span', { text: row.questions.length ? row.seenQuestions + ' / ' + row.questions.length : '—' }));
@@ -3370,7 +3374,7 @@
           summary.appendChild(el('span', { className: 'stats-status ' + row.status.toLowerCase().replace(/\s/g, '-'), text: row.status }));
           details.appendChild(summary);
           var detail = el('div', { className: 'stats-chapter-detail' });
-          detail.appendChild(el('div', { className: 'stats-chapter-detail-copy' }, [el('strong', { text: row.title }), el('p', { className: 'text-muted', text: (row.qAnswers.length ? compactNumber(row.qAnswers.length) + ' question attempts' : 'No quiz attempts') + (row.fReviews.length ? ' · ' + compactNumber(row.fReviews.length) + ' flashcard reviews' : '') + (row.lastTs ? ' · Last studied ' + utils.formatDate(row.lastTs) : '') })]));
+          detail.appendChild(el('div', { className: 'stats-chapter-detail-copy' }, [el('strong', { html: inlineHtml(row.title) }), el('p', { className: 'text-muted', text: (row.qAnswers.length ? compactNumber(row.qAnswers.length) + ' question attempts' : 'No quiz attempts') + (row.fReviews.length ? ' · ' + compactNumber(row.fReviews.length) + ' flashcard reviews' : '') + (row.lastTs ? ' · Last studied ' + utils.formatDate(row.lastTs) : '') })]));
           var actions = el('div', { className: 'stats-action-row' });
           if (row.questions.length) actions.appendChild(el('button', { className: 'btn btn-primary btn-xs', text: 'Quiz', onClick: function (e) { e.preventDefault(); launchChapter('quiz', row); } }));
           if (row.cards.length) actions.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Flashcards', onClick: function (e) { e.preventDefault(); launchChapter('flashcards', row); } }));
@@ -3595,7 +3599,7 @@
         }
         visible.forEach(function (n) {
           var p = el('div', { className: 'card mb-2', style: { cursor: 'pointer' }, onClick: function () { App.core.navigate('#/notes/' + encodeURIComponent(n._id)); } });
-          p.appendChild(el('h3', { text: n.title }));
+          p.appendChild(el('h3', { html: inlineHtml(n.title) }));
           var certName = cert ? cert.name : (n._cert || 'General');
           var meta = certName + (n.sections.length > 1 ? ' · ' + n.sections.length + ' sections' : '');
           p.appendChild(el('div', { className: 'text-muted mt-1', text: meta }));
@@ -3616,7 +3620,7 @@
       personal.forEach(function (n) {
         var p = el('div', { className: 'panel mb-2' });
         p.appendChild(el('div', { className: 'flex-between' }, [
-          el('h3', { text: n.title }),
+          el('h3', { html: inlineHtml(n.title) }),
           el('div', { className: 'flex gap-sm' }, [
             el('button', { className: 'btn btn-ghost btn-sm', text: 'Edit', onClick: function () { openEditor(n); } }),
             el('button', {
@@ -3682,9 +3686,9 @@
       cert ? el('span', { className: 'chip chip-muted', text: cert.name }) : null,
       el('span', { className: 'chip chip-muted', text: note._chapter || 'General' })
     ]));
-    root.appendChild(el('h1', { text: note.title }));
+    root.appendChild(el('h1', { html: inlineHtml(note.title) }));
     note.sections.forEach(function (s, i) {
-      root.appendChild(el('h2', { className: 'note-section-title', text: s.title }));
+      root.appendChild(el('h2', { className: 'note-section-title', html: inlineHtml(s.title) }));
       root.appendChild(el('div', { className: 'notes-preview mb-3', html: App.markdown.render(s.body || '') }));
     });
   }
@@ -3815,7 +3819,7 @@
       tb.appendChild(el('tr', {}, [
         el('td', { className: 'mono', style: { fontWeight: '600', color: 'var(--accent-green)' }, text: p.mode }),
         el('td', { text: p.name }),
-        el('td', { className: 'text-muted', text: p.note })
+        el('td', { className: 'text-muted', html: inlineHtml(p.note) })
       ]));
     });
     tbl.appendChild(tb);
@@ -3950,7 +3954,7 @@
         var tr = el('tr', { className: (hl && String(p.port).indexOf(String(hl)) >= 0) ? 'highlight' : '' });
         tr.appendChild(el('td', { className: 'mono', text: p.port }));
         tr.appendChild(el('td', { text: p.name }));
-        tr.appendChild(el('td', { text: p.desc }));
+        tr.appendChild(el('td', { html: inlineHtml(p.desc) }));
         portBody.appendChild(tr);
       });
     }
@@ -3982,7 +3986,7 @@
       }).forEach(function (c) {
         var tr = el('tr', { className: (hl && c.cmd === hl) ? 'highlight' : '' });
         tr.appendChild(el('td', { className: 'mono', text: c.cmd }));
-        tr.appendChild(el('td', { text: c.desc }));
+        tr.appendChild(el('td', { html: inlineHtml(c.desc) }));
         var exTd = el('td');
         var exampleBox = el('div', { className: 'terminal-command' });
         exampleBox.appendChild(el('code', { className: 'mono terminal-command-text', text: c.example }));
@@ -4493,7 +4497,7 @@
     root.appendChild(el('div', { className: 'settings-section', text: 'About' }));
     var about = el('div', { className: 'panel' });
     about.appendChild(el('div', { className: 'label-upper mb-1', text: 'About' }));
-    about.appendChild(el('p', { text: 'ReviewApp v1.0.5 — offline study hub for CompTIA Linux+ and Network+.' }));
+    about.appendChild(el('p', { text: 'ReviewApp v1.0.6 — offline study hub for CompTIA Linux+ and Network+.' }));
     about.appendChild(el('p', { className: 'text-muted', style: { fontSize: '0.85rem' }, text: 'Vanilla HTML/CSS/JS. No network required. All data stays in your browser.' }));
     var c = App.content.counts();
     about.appendChild(el('p', { className: 'mono text-muted mt-1', style: { fontSize: '0.8rem' }, text: 'Loaded: ' + c.questions + 'Q · ' + c.flashcards + 'C · ' + c.labs + 'L · ' + c.notes + 'N' }));
