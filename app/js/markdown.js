@@ -14,24 +14,55 @@
     return utils.escapeHtml(String(s));
   }
 
+  // Render inline Markdown without allowing source text to become HTML.
+  // Protected tokens let us escape ordinary text before adding the small set
+  // of markup elements supported by this renderer.
   function inline(text) {
-    // code first
+    var tokens = [];
+    text = String(text);
+    // Pick markers that cannot collide with literal user text. The protected
+    // markup is restored after escaping, so even unusual question text stays
+    // visible and cannot accidentally become HTML.
+    var markerStart = '\uE000';
+    var markerEnd = '\uE001';
+    while (text.indexOf(markerStart) >= 0 || text.indexOf(markerEnd) >= 0) {
+      markerStart += '\uE000';
+      markerEnd += '\uE001';
+    }
+
+    function protect(value) {
+      var index = tokens.length;
+      tokens.push(value);
+      return markerStart + index + markerEnd;
+    }
+
+    // Code and links are protected before escaping so their generated markup
+    // is preserved while their user-provided contents remain escaped.
     text = text.replace(/`([^`]+)`/g, function (_, c) {
-      return '<code>' + escape(c) + '</code>';
+      return protect('<code>' + escape(c) + '</code>');
     });
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, function (_, label, url) {
+      return protect('<a href="' + escape(url) + '" target="_blank" rel="noopener noreferrer">' + escape(label) + '</a>');
+    });
+
+    text = escape(text);
     // bold
     text = text.replace(/\*\*([^*]+)\*\*/g, function (_, c) {
-      return '<strong>' + escape(c) + '</strong>';
+      return '<strong>' + c + '</strong>';
     });
     // italic
     text = text.replace(/\*([^*]+)\*/g, function (_, c) {
-      return '<em>' + escape(c) + '</em>';
+      return '<em>' + c + '</em>';
     });
-    // links (http/https only)
-    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, function (_, label, url) {
-      return '<a href="' + escape(url) + '" target="_blank" rel="noopener noreferrer">' + escape(label) + '</a>';
+
+    var tokenPattern = new RegExp(markerStart + '(\\d+)' + markerEnd, 'g');
+    return text.replace(tokenPattern, function (_, index) {
+      return tokens[Number(index)] || '';
     });
-    return text;
+  }
+
+  function renderInline(src) {
+    return inline(src == null ? '' : String(src));
   }
 
   function render(src) {
@@ -139,5 +170,5 @@
     return html.join('\n');
   }
 
-  App.markdown = { render: render };
+  App.markdown = { render: render, renderInline: renderInline };
 })();

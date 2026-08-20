@@ -413,7 +413,7 @@
   function renderSingle(container, rawQ) {
     var q = prepareQuestion(rawQ);
     var answered = false;
-    container.appendChild(el('div', { className: 'question-text', text: q.q }));
+    container.appendChild(el('div', { className: 'question-text', html: App.markdown.renderInline(q.q || '') }));
     var optsWrap = el('div', { className: 'options-list' });
 
     function finish(correct, explain) {
