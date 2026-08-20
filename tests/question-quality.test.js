@@ -88,7 +88,7 @@ assert.strictEqual(payloads.length, 3, 'all checked-in question banks should reg
   assert.ok(manifest.indexOf('"' + file + '"') >= 0,
     'manifest should load the question bank: ' + file);
 });
-assert.ok(manifest.indexOf('contentVersion: "1.0.12"') >= 0,
+assert.ok(manifest.indexOf('contentVersion: "1.0.13"') >= 0,
   'manifest should version the content snapshot contract');
 assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.length; }), [19, 87, 165],
   'question banks should contain all expected chapter questions');
@@ -203,6 +203,8 @@ payloads.forEach(function (payload) {
 });
 [
   'A company requires a commercially supported Linux distribution with vendor-backed enterprise updates rather than a community rebuild. Which distribution best matches that requirement?',
+  'On openSUSE, which command refreshes package metadata before an upgrade?',
+  'Which file is the primary Nginx configuration file on a typical Linux installation?',
   'A firewall must permit standard unencrypted HTTP requests to a web server. Which destination port should it allow?',
   'Which operator appends command output to an existing file without replacing its contents?',
   'A live filesystem search must match names using a regular expression rather than shell wildcard syntax. Which `find` criterion is appropriate?',
@@ -216,7 +218,11 @@ payloads.forEach(function (payload) {
   'Which `grep` option makes the search case-insensitive?',
   'Match the `cp` options with their descriptions.',
   'Symbolic links always share the same inode number as their target.',
-  'The command used to create a symbolic link is ___'
+  'The command used to create a symbolic link is ___',
+  'A developer modifies the Linux kernel source code for a commercial product. Under which license must they release their modified source code to the public?',
+  'The open standard CPU architecture that any manufacturer can implement without licensing fees is ____. ',
+  'Nginx was designed primarily to compete with Apache by offering superior modularity.',
+  'The `locate` option that matches the full pathname rather than only its basename is ___'
 ].forEach(function (stem) {
   assert.strictEqual(allQuestionTexts.indexOf(stem), -1, 'audited duplicate should be replaced: ' + stem);
 });
@@ -421,7 +427,7 @@ assert.deepStrictEqual(cleanedExamSession.state.flagged, { 0: true });
 
 var originalContent = global.window.ReviewApp.content;
 global.window.ReviewApp.content = {
-  getManifest: function () { return { contentVersion: '1.0.12' }; }
+  getManifest: function () { return { contentVersion: '1.0.13' }; }
 };
 assert.strictEqual(quiz.sanitizeQuizSession({
   contentVersion: '1.0.9',

@@ -12,12 +12,12 @@ window.ReviewApp.content.register({
       tags: ["kernel", "versions"]
     },
     {
-      q: "A developer modifies the Linux kernel source code for a commercial product. Under which license must they release their modified source code to the public?",
+      q: "A vendor distributes proprietary software at no cost, but does not provide its source code and does not limit use to a trial period. Which licensing category best describes it?",
       type: "mcq",
-      options: ["MIT", "Apache", "GPL", "LGPL", "MPL"],
-      answer: 2,
-      explain: "The GNU General Public License (GPL) requires that any changes made to the source code be released to the public under the same GPL license. MIT and Apache are permissive licenses without this requirement, and LGPL allows integration without public release.",
-      tags: ["licensing", "gpl"]
+      options: ["Freeware", "Open source", "Shareware", "Copyleft", "Permissive"],
+      answer: 0,
+      explain: "Freeware is proprietary software provided at no monetary cost. Open source makes source available, shareware is typically a trial model, and copyleft or permissive describe open-source licensing terms.",
+      tags: ["licensing", "freeware", "closed-source"]
     },
     {
       q: "Which of the following are considered permissive open source licenses? (Choose two.)",
@@ -81,11 +81,11 @@ window.ReviewApp.content.register({
       tags: ["rhel", "centos", "distributions"]
     },
     {
-      q: "The open standard CPU architecture that any manufacturer can implement without licensing fees is ____. ",
+      q: "On openSUSE, which command refreshes package metadata before an upgrade?",
       type: "fill",
-      answer: "RISC-V",
-      explain: "RISC-V (Reduced Instruction Set Computing, version 5) is an open standard architecture, unlike proprietary architectures such as x86_64 or ARM, which require licensing.",
-      tags: ["hardware", "architecture", "risc-v"]
+      answer: "zypper refresh",
+      explain: "`zypper refresh` updates the local package metadata from configured openSUSE repositories before an upgrade.",
+      tags: ["opensuse", "zypper", "package-management"]
     },
     {
       q: "A technician working at a graphical Ubuntu desktop needs to access a text-only terminal to run commands. Which key combination should they press?",

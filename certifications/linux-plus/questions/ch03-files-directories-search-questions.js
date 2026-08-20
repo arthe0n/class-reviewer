@@ -1195,11 +1195,11 @@ explain: "`rsync --stats` prints summary statistics about the transfer.",
 tags: ["rsync", "options"]
 },
 {
-q: "The `rsync` option that preserves modification times is ___",
+q: "The `rsync` option that preserves device and other special files is ___",
 type: "fill",
-answer: "-t",
-explain: "`rsync -t` preserves file modification times during a transfer.",
-tags: ["rsync", "options", "timestamps"]
+answer: "-D",
+explain: "`rsync -D` preserves device and other special files during a transfer; archive mode includes this behavior.",
+tags: ["rsync", "options", "devices"]
 },
 {
 q: "The `find` criterion that filters entries by modification age in minutes is ___",
@@ -1216,11 +1216,11 @@ explain: "The notes specify `unlink` with the linked filename to remove that lin
 tags: ["links", "unlink"]
 },
 {
-q: "The `locate` option that matches the full pathname rather than only its basename is ___",
+q: "The shell redirection operator that begins a here-document is ___",
 type: "fill",
-answer: "-w",
-explain: "`locate -w` matches the full pathname; `-b` limits matching to the basename.",
-tags: ["locate", "options"]
+answer: "<<",
+explain: "`<<` starts a here-document, allowing a command to receive a block of shell input until a chosen delimiter.",
+tags: ["shell", "redirection", "here-document"]
 },
 {
 q: "The `locate` option that suppresses error messages is ___",

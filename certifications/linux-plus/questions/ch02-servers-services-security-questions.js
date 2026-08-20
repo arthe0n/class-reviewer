@@ -205,11 +205,12 @@ window.ReviewApp.content.register({
       tags: ["apache", "config-files"]
     },
     {
-      q: "Nginx was designed primarily to compete with Apache by offering superior modularity.",
-      type: "tf",
-      answer: false,
-      explain: "Nginx was designed for speed, scalability, and efficient resource use via an event-driven core with built-in features, not for greater modularity — Apache is the more modular one.",
-      tags: ["nginx", "apache"]
+      q: "Which file is the primary Nginx configuration file on a typical Linux installation?",
+      type: "mcq",
+      options: ["/etc/nginx/nginx.conf", "/etc/httpd/httpd.conf", "/var/www/html/nginx.conf", "/etc/nginx/nginx.ini", "/usr/share/nginx/config"],
+      answer: 0,
+      explain: "`/etc/nginx/nginx.conf` is the primary Nginx configuration file. The other paths are Apache paths, incorrect file names, or document/data locations.",
+      tags: ["nginx", "config-files"]
     },
     {
       q: "Which of the following are features built into Nginx's core rather than added via external modules? (Select all that apply.)",
