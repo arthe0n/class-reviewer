@@ -1214,14 +1214,22 @@
         });
       } else if (q.type === 'multi') {
         optsWrap.querySelectorAll('.option-btn').forEach(function (b, i) {
-          if ((q._correctShuffled || []).indexOf(i) >= 0) b.classList.add('correct');
-          else if (selectedMulti[i]) b.classList.add('wrong');
+          var isCorrectOption = (q._correctShuffled || []).indexOf(i) >= 0;
+          var isSelected = !!selectedMulti[i];
+          // Green = correct choices the learner made, amber = correct choices
+          // they missed, red = wrong choices they selected.
+          if (isCorrectOption && isSelected) b.classList.add('correct');
+          else if (isCorrectOption) b.classList.add('missed');
+          else if (isSelected) b.classList.add('wrong');
         });
       } else if (isMatchQuestion(q) && matchUI) {
         matchUI.lock();
       }
       card.appendChild(el('div', { className: 'explain-panel' }, [
-        el('strong', { text: result.correct ? '✓ Correct. ' : '✗ Incorrect. ' }),
+        el('span', { className: 'feedback-status ' + (result.correct ? 'feedback-correct' : 'feedback-incorrect') }, [
+          el('span', { className: 'feedback-icon', text: result.correct ? '✓' : '✗' }),
+          el('span', { className: 'feedback-label', text: result.correct ? 'Correct' : 'Incorrect' })
+        ]),
         el('span', { html: App.markdown.renderInline(q.explain || '') })
       ]));
       actions.innerHTML = '';
