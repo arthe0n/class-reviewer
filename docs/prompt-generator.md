@@ -96,6 +96,16 @@ notes and send it — the AI replies with a complete `.js` file.
 > - Rewrite source-framed wording as a direct question: use “Which command…?”, “What does…?”, “How does…?”, or “Which statement…?” instead.
 > - Keep source references, if genuinely useful, out of `q`; the answer and explanation should explain the concept itself rather than test whether it appeared in the supplied notes.
 >
+> CONCEPTUAL DUPLICATE / COVERAGE REVIEW (strict):
+> - Before drafting any new question, inventory the existing questions in the supplied material and group them by the underlying knowledge target they assess. Do not compare wording alone.
+> - Ask: **Does this question test the same underlying knowledge as an existing question, even if the wording, question type, or answer format is different?**
+> - Compare every candidate against existing multiple-choice, multi-select, True/False, matching, fill-in-the-blank, short-answer, command-matching, and any other supported question types. A fact tested by a definition, term-identification item, option-selection item, flag-description item, or matching pair is still the same knowledge target.
+> - Reject or substantially redesign a candidate when it is merely another modality of an existing question. For example, if an existing item tests that `cp -r` copies directories recursively, do not create “Which `cp` option copies directories recursively?” or a matching pair for `-r` unless the new item introduces a genuinely different reasoning or application context.
+> - Treat command/flag recall and its inverse wording as one target: “What does `-r` do?”, “Which flag should copy a directory recursively?”, “What does `cp -r` mean?”, and “Match `-r` with its purpose” are not separate coverage.
+> - Keep a question only when it adds new assessment value through a genuinely different concept, scenario, decision, constraint, troubleshooting process, comparison, or application. A scenario is not automatically new if it merely restates the same fact with extra words.
+> - Prefer broad coverage and meaningful diversity across concepts, scenarios, difficulty, reasoning, application, and question type. Vary the modality only after confirming that the underlying knowledge target is new.
+> - After drafting the complete set, perform a second conceptual-overlap pass across the entire output, including replacements and questions in every modality. Remove or redesign any near-duplicate before emitting the file; never fill a quota with a superficial variation.
+>
 > ANSWER FORMATS:
 > - mcq:   zero-based index (e.g. 0) — exactly 1 correct choice
 > - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — independently choose a varied, aleatory correct-choice count of 1, 2, 3, or 4 for each question; never choose 0 or all 5, and always leave at least one plausible distractor
