@@ -6,7 +6,7 @@ window.ReviewApp.content.register({
     {
       q: "A server reports its kernel version as 6.8.12. Which number represents the minor revision?",
       type: "mcq",
-      options: ["6", "8", "12", "6.8"],
+      options: ["6", "8", "12", "6.8", "6.8.12"],
       answer: 1,
       explain: "Linux kernel versions follow a major.minor.revision format. In 6.8.12, 6 is the major number, 8 is the minor number, and 12 is the revision number.",
       tags: ["kernel", "versions"]
@@ -14,7 +14,7 @@ window.ReviewApp.content.register({
     {
       q: "A developer modifies the Linux kernel source code for a commercial product. Under which license must they release their modified source code to the public?",
       type: "mcq",
-      options: ["MIT", "Apache", "GPL", "LGPL"],
+      options: ["MIT", "Apache", "GPL", "LGPL", "MPL"],
       answer: 2,
       explain: "The GNU General Public License (GPL) requires that any changes made to the source code be released to the public under the same GPL license. MIT and Apache are permissive licenses without this requirement, and LGPL allows integration without public release.",
       tags: ["licensing", "gpl"]
@@ -22,10 +22,18 @@ window.ReviewApp.content.register({
     {
       q: "Which of the following are considered permissive open source licenses? (Choose two.)",
       type: "multi",
-      options: ["GPL", "Apache", "LGPL", "MIT"],
+      options: ["MPL", "MIT", "GPL", "Apache", "LGPL"],
       answer: [1, 3],
       explain: "Permissive licenses such as Apache and MIT allow redistribution of derivative work under a different license or with no license at all. GPL and LGPL are copyleft licenses, which require derivative work to inherit the parent license terms.",
       tags: ["licensing", "permissive"]
+    },
+    {
+      q: "Which license governs the Linux kernel itself? (Select one.)",
+      type: "multi",
+      options: ["MIT", "MPL", "GPL version 2", "Apache", "LGPL"],
+      answer: [2],
+      explain: "The Linux kernel is licensed under GPL version 2. The other licenses use different permissive or copyleft terms and do not govern the kernel itself.",
+      tags: ["licensing", "kernel"]
     },
     {
       q: "The Linux kernel itself is licensed under GPL version 2, but not all Linux distributions use this same license for all included software.",
@@ -44,7 +52,7 @@ window.ReviewApp.content.register({
     {
       q: "Which virtualization product uses dynamic binary translation to emulate a computer's CPU?",
       type: "mcq",
-      options: ["Oracle VirtualBox", "Microsoft Hyper-V", "QEMU", "VMware ESXi"],
+      options: ["Oracle VirtualBox", "Microsoft Hyper-V", "QEMU", "VMware ESXi", "KVM"],
       answer: 2,
       explain: "QEMU (Quick Emulator) is unique among common hypervisors in that it emulates a computer's CPU using dynamic binary translation. VirtualBox and Hyper-V use hardware-assisted virtualization rather than CPU emulation.",
       tags: ["virtualization", "qemu"]
@@ -52,7 +60,7 @@ window.ReviewApp.content.register({
     {
       q: "Which utility allows administrators to control many system services from a single interface on openSUSE?",
       type: "mcq",
-      options: ["dnf", "YaST", "apt", "zypper"],
+      options: ["dnf", "YaST", "apt", "zypper", "pacman"],
       answer: 1,
       explain: "Yet another Setup Tool (YaST) is openSUSE's comprehensive command-center utility for managing system services, network settings, and software. dnf and apt are package managers for other distributions, while zypper is openSUSE's command-line package manager.",
       tags: ["opensuse", "yast"]
@@ -82,7 +90,7 @@ window.ReviewApp.content.register({
     {
       q: "A technician working at a graphical Ubuntu desktop needs to access a text-only terminal to run commands. Which key combination should they press?",
       type: "mcq",
-      options: ["Ctrl + Alt + F1", "Ctrl + Alt + F2", "Ctrl + Alt + Delete", "Alt + F4"],
+      options: ["Ctrl + Alt + F1", "Ctrl + Alt + F2", "Ctrl + Alt + Delete", "Alt + F4", "Ctrl + Alt + F7"],
       answer: 1,
       explain: "Pressing Ctrl+Alt+F2 (or F3) switches to a virtual console (TTY) such as tty2, providing a text-only terminal. Ctrl+Alt+F1 or F7 typically returns to the graphical desktop, while Ctrl+Alt+Delete may reboot the system.",
       tags: ["terminal", "tty", "ui"]
@@ -94,7 +102,8 @@ window.ReviewApp.content.register({
         "Copyleft licenses determine whether software may be used only for commercial purposes.",
         "Copyleft licenses require derivative works to retain the same license, while permissive licenses generally do not.",
         "Copyleft licenses prohibit users from modifying software, while permissive licenses encourage modification.",
-        "Copyleft licenses are issued only by GNU projects, while permissive licenses are issued only by Apache projects."
+        "Copyleft licenses are issued only by GNU projects, while permissive licenses are issued only by Apache projects.",
+        "Copyleft licenses permit private changes but never allow redistribution of the resulting software."
       ],
       answer: 1,
       explain: "Copyleft licenses such as GPL require that any derivative work be released under the same license terms, ensuring the code remains open. Permissive licenses such as Apache and MIT impose no such restriction, allowing derivatives to use different licenses or remain closed source.",
@@ -122,7 +131,8 @@ window.ReviewApp.content.register({
         "Oracle VirtualBox, a desktop hypervisor that runs VMs on the local workstation.",
         "Microsoft Hyper-V, a host hypervisor that runs VMs on the organization's own servers.",
         "DigitalOcean, a hosted cloud platform that provisions Linux VMs on remote infrastructure.",
-        "QEMU, a processor emulator that runs VMs on the local computer."
+        "QEMU, a processor emulator that runs VMs on the local computer.",
+        "KVM, a local hypervisor that runs virtual machines on existing hardware."
       ],
       answer: 2,
       explain: "DigitalOcean is a cloud service provider that offers Linux virtual machines. Oracle VirtualBox, Microsoft Hyper-V, and QEMU are local hypervisors or emulators that run on existing hardware, not cloud providers.",

@@ -34,11 +34,13 @@ var prompt = fs.readFileSync(promptPath, 'utf8');
   'not the longest',
   'not make it the shortest',
   'plausible',
+  'literal shell syntax and punctuation-only choices',
   'blind clue review',
   'source order',
   'exactly 5 options for every mcq and multi question',
-  '1, 2, 3, or 4 correct choices',
-  'never mark all 5 options correct',
+  'randomly/aleatorily select the correct-choice count from 1, 2, 3, or 4',
+  'never use 0 or 5 correct choices',
+  'independently randomize which A–E positions hold the correct choices',
   '45% mcq, 20% multi, 10% tf, 10% fill, and 15% match'
 ].forEach(function (requiredText) {
   assert.ok(prompt.toLowerCase().indexOf(requiredText.toLowerCase()) >= 0,
@@ -73,6 +75,7 @@ assert.strictEqual(payloads.length, 3, 'all checked-in question banks should reg
 
 var questionCount = 0;
 var multiAnswerCounts = {};
+var multiAnswerPositions = {};
 var sourceFraming = /\b(?:according to|based on|from|in|supported by)\s+(?:the\s+)?notes\b/i;
 payloads.forEach(function (payload) {
   assert.strictEqual(payload.type, 'questions');
@@ -86,7 +89,8 @@ payloads.forEach(function (payload) {
 
     if (question.type === 'mcq' || question.type === 'multi') {
       assert.ok(Array.isArray(question.options), 'choice question needs an options array');
-      assert.ok(question.options.length >= 4, 'legacy choice questions still need at least four options');
+      assert.strictEqual(question.options.length, 5,
+        'choice questions must have exactly five options: ' + question.q);
 
       var normalized = question.options.map(function (option) {
         assert.strictEqual(typeof option, 'string');
@@ -105,6 +109,8 @@ payloads.forEach(function (payload) {
         assert.ok(question.answer.length >= 1 && question.answer.length <= 4,
           'multi questions should have 1–4 correct choices: ' + question.q);
         multiAnswerCounts[question.answer.length] = (multiAnswerCounts[question.answer.length] || 0) + 1;
+        var positionKey = question.answer.slice().sort(function (a, b) { return a - b; }).join(',');
+        multiAnswerPositions[positionKey] = (multiAnswerPositions[positionKey] || 0) + 1;
         assert.strictEqual(new Set(question.answer).size, question.answer.length,
           'multi answer indices must be distinct: ' + question.q);
         question.answer.forEach(function (index) {
@@ -141,10 +147,21 @@ payloads.forEach(function (payload) {
 });
 
 assert.ok(questionCount >= 100, 'checked-in question banks should contain a meaningful sample');
+var wildcardQuestion = null;
+payloads.forEach(function (payload) {
+  payload.items.forEach(function (question) {
+    if (question.q === 'Which shell metacharacter is used for a range wildcard?') wildcardQuestion = question;
+  });
+});
+assert.ok(wildcardQuestion, 'the range-wildcard question should remain in the checked-in bank');
+assert.deepStrictEqual(wildcardQuestion.options, ['[ ]', '*', '?', '{ }', '~'],
+  'range-wildcard choices should contain five visible literal symbols');
 assert.strictEqual(multiAnswerCounts[5] || 0, 0,
   'multi questions must never mark all five options as correct');
-assert.ok([1, 2, 3, 4].filter(function (count) { return multiAnswerCounts[count]; }).length >= 3,
-  'multi questions should vary the number of correct choices');
+assert.strictEqual([1, 2, 3, 4].filter(function (count) { return multiAnswerCounts[count]; }).length, 4,
+  'checked-in multi questions should cover 1, 2, 3, and 4 correct choices');
+assert.ok(Object.keys(multiAnswerPositions).length >= 8,
+  'multi questions should vary correct-answer positions');
 
 // Deterministic regression for the anti-length rule used by the prompt: a
 // clearly outlying correct choice is detectable, while natural variation is
@@ -182,11 +199,19 @@ assert.strictEqual(hasLengthClue([
 // facing position clue. Use controlled shuffles so the test is not probabilistic.
 var shuffleUtils = {
   el: function () {},
-  shuffle: function (items) { return items.slice().reverse(); }
+  shuffle: function (items) { return items.slice().reverse(); },
+  escapeHtml: function (value) { return String(value); }
 };
 global.window = { ReviewApp: { core: { utils: shuffleUtils } } };
 require('../app/js/quiz.js');
 var quiz = global.window.ReviewApp.quiz;
+
+// Shell metacharacters are literal answer text. They must never disappear
+// because an inline-markdown renderer interprets them as formatting syntax.
+['[ ]', '*', '?', '{ }', '~', '()', '|', '>>'].forEach(function (symbol) {
+  assert.strictEqual(quiz.renderChoiceHtml(symbol), symbol,
+    'literal symbol choice should remain visible: ' + symbol);
+});
 
 [
   {
@@ -250,12 +275,14 @@ assert.deepStrictEqual(quiz.sanitizeCommandMatch({
 ]);
 
 var raw = {
+  _id: 'valid-choice',
   q: 'Which option is correct?',
   type: 'mcq',
   options: ['Correct', 'Distractor one', 'Distractor two', 'Distractor three', 'Distractor four'],
   answer: 0
 };
 var reversed = quiz.prepareQuestion(raw);
+assert.strictEqual(quiz.isValidMcqAnswer(raw), true);
 assert.strictEqual(reversed._correctShuffled, 4);
 assert.strictEqual(quiz.checkAnswer(reversed, 4), true);
 
@@ -266,6 +293,44 @@ var rotated = quiz.prepareQuestion(raw);
 assert.strictEqual(rotated._correctShuffled, 1);
 assert.strictEqual(quiz.checkAnswer(rotated, 1), true);
 
+var savedInvalidChoice = {
+  _id: 'invalid-choice',
+  q: 'Which shell metacharacter is used for a range wildcard?',
+  type: 'mcq',
+  options: ['[ ]', '*', '', '{ }', '~'],
+  answer: 0,
+  _shuffledOptions: [
+    { text: '[ ]', origIdx: 0 },
+    { text: '*', origIdx: 1 },
+    { text: '', origIdx: 2 },
+    { text: '{ }', origIdx: 3 },
+    { text: '~', origIdx: 4 }
+  ]
+};
+var cleanedQuizSession = quiz.sanitizeQuizSession({
+  index: 0,
+  questions: [savedInvalidChoice, reversed],
+  answers: [{ qId: 'invalid-choice' }, { qId: 'valid-choice' }]
+});
+assert.ok(cleanedQuizSession);
+assert.strictEqual(cleanedQuizSession.state.questions.length, 1,
+  'saved quizzes should remove malformed choice questions before rendering');
+assert.strictEqual(cleanedQuizSession.state.questions[0]._id, 'valid-choice');
+assert.strictEqual(cleanedQuizSession.state.index, 0);
+assert.deepStrictEqual(cleanedQuizSession.state.answers.map(function (answer) { return answer.qId; }), ['valid-choice']);
+
+var cleanedExamSession = quiz.sanitizeExamSession({
+  index: 0,
+  questions: [savedInvalidChoice, reversed],
+  answers: { 0: 1, 1: 2 },
+  flagged: { 1: true }
+});
+assert.ok(cleanedExamSession);
+assert.strictEqual(cleanedExamSession.state.questions.length, 1,
+  'saved exams should remove malformed choice questions before rendering');
+assert.deepStrictEqual(cleanedExamSession.state.answers, { 0: 2 });
+assert.deepStrictEqual(cleanedExamSession.state.flagged, { 0: true });
+
 var multi = quiz.prepareQuestion({
   q: 'Which options are correct?',
   type: 'multi',
@@ -274,6 +339,16 @@ var multi = quiz.prepareQuestion({
 });
 assert.deepStrictEqual(multi._correctShuffled, [1, 3]);
 assert.strictEqual(quiz.checkAnswer(multi, [3, 1]), true);
+
+var orderFixtures = [1, 2, 3, 4].map(function (count) {
+  return { type: 'multi', answer: [0, 1, 2, 3].slice(0, count) };
+});
+var randomizedOrder = quiz.randomizeQuestionOrder(orderFixtures);
+assert.deepStrictEqual(randomizedOrder.map(function (q) { return q.answer.length; }).sort(function (a, b) { return a - b; }), [1, 2, 3, 4]);
+for (var orderIndex = 1; orderIndex < randomizedOrder.length; orderIndex++) {
+  assert.notStrictEqual(randomizedOrder[orderIndex - 1].answer.length, randomizedOrder[orderIndex].answer.length,
+    'randomized multi-question order should not repeat adjacent answer counts');
+}
 
 var fourCorrect = quiz.prepareQuestion({
   q: 'Which four options are correct?',
@@ -295,5 +370,33 @@ assert.strictEqual(allFiveCorrect._invalid, true,
   'multi questions must reject an answer containing every option');
 assert.strictEqual(quiz.isValidMultiAnswer(allFiveCorrect), false);
 assert.strictEqual(quiz.checkAnswer(allFiveCorrect, [0, 1, 2, 3, 4]), false);
+
+var zeroCorrect = quiz.prepareQuestion({
+  q: 'Which options are correct?',
+  type: 'multi',
+  options: ['Distractor one', 'Distractor two', 'Distractor three', 'Distractor four', 'Distractor five'],
+  answer: []
+});
+assert.strictEqual(zeroCorrect._invalid, true,
+  'multi questions must reject an answer containing no options');
+
+var invalidFourOptions = quiz.prepareQuestion({
+  q: 'Which options are correct?',
+  type: 'multi',
+  options: ['Correct one', 'Correct two', 'Correct three', 'Distractor'],
+  answer: [0]
+});
+assert.strictEqual(invalidFourOptions._invalid, true,
+  'multi questions with fewer than five options must be rejected');
+
+var invalidMcq = quiz.prepareQuestion({
+  q: 'Which option is correct?',
+  type: 'mcq',
+  options: ['Correct', 'Distractor one', 'Distractor two', 'Distractor three'],
+  answer: 0
+});
+assert.strictEqual(invalidMcq._invalid, true,
+  'mcq questions with fewer than five options must be rejected');
+assert.strictEqual(quiz.isValidMcqAnswer(invalidMcq), false);
 
 console.log(questionCount + ' questions checked; prompt and choice-quality checks passed');

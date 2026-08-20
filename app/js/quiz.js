@@ -13,6 +13,110 @@
     return App.markdown.renderInline(value == null ? '' : String(value));
   }
 
+  // Choice text often contains literal shell symbols such as `*`, `?`, or
+  // `~`. Those are answer content, not Markdown, so render symbol-only
+  // choices as escaped text instead of sending them through the inline parser.
+  // This also gives a safe text fallback if a malformed renderer returns no
+  // visible content for a non-empty value.
+  function renderChoiceHtml(value) {
+    var raw = value == null ? '' : String(value);
+    if (!raw) return '';
+    if (!/[A-Za-z0-9]/.test(raw)) return utils.escapeHtml(raw);
+    var rendered = App.markdown && App.markdown.renderInline
+      ? App.markdown.renderInline(raw)
+      : utils.escapeHtml(raw);
+    return rendered || utils.escapeHtml(raw);
+  }
+
+  function isSavedChoiceQuestionValid(q) {
+    if (!q || q._invalid) return false;
+    if (q.type !== 'mcq' && q.type !== 'multi') return true;
+    if (q.type === 'mcq' ? !isValidMcqAnswer(q) : !isValidMultiAnswer(q)) return false;
+    if (!Array.isArray(q._shuffledOptions) || q._shuffledOptions.length !== 5) return false;
+    var seen = {};
+    return q._shuffledOptions.every(function (option) {
+      if (!option || typeof option.text !== 'string' || !Number.isInteger(option.origIdx) || option.origIdx < 0 || option.origIdx >= q.options.length || seen[option.origIdx]) return false;
+      if (option.text !== q.options[option.origIdx]) return false;
+      seen[option.origIdx] = true;
+      return true;
+    });
+  }
+
+  function sanitizeSavedQuestionList(questions) {
+    var kept = [];
+    var indexMap = {};
+    var changed = false;
+    (Array.isArray(questions) ? questions : []).forEach(function (q, index) {
+      if (!isSavedChoiceQuestionValid(q)) {
+        changed = true;
+        return;
+      }
+      indexMap[index] = kept.length;
+      kept.push(q);
+    });
+    return { questions: kept, indexMap: indexMap, changed: changed };
+  }
+
+  function sanitizeQuizSession(saved) {
+    if (!saved || !Array.isArray(saved.questions)) return null;
+    var list = sanitizeSavedQuestionList(saved.questions);
+    if (!list.questions.length) return null;
+    var oldIndex = Number.isInteger(saved.index) ? saved.index : 0;
+    var newIndex = list.indexMap[oldIndex];
+    if (newIndex == null) {
+      for (var i = Math.max(0, oldIndex); i < saved.questions.length; i++) {
+        if (list.indexMap[i] != null) { newIndex = list.indexMap[i]; break; }
+      }
+      if (newIndex == null) newIndex = list.questions.length - 1;
+      list.changed = true;
+    }
+    if (saved.index !== newIndex) list.changed = true;
+    saved.questions = list.questions;
+    saved.index = Math.max(0, Math.min(newIndex, saved.questions.length - 1));
+    var validIds = {};
+    saved.questions.forEach(function (q) { if (q._id) validIds[q._id] = true; });
+    if (!Array.isArray(saved.answers)) {
+      saved.answers = [];
+      list.changed = true;
+    } else {
+      var answers = saved.answers.filter(function (answer) { return answer && validIds[answer.qId]; });
+      if (answers.length !== saved.answers.length) list.changed = true;
+      saved.answers = answers;
+    }
+    return { state: saved, changed: list.changed };
+  }
+
+  function sanitizeExamSession(saved) {
+    if (!saved || !Array.isArray(saved.questions)) return null;
+    var list = sanitizeSavedQuestionList(saved.questions);
+    if (!list.questions.length) return null;
+    var oldIndex = Number.isInteger(saved.index) ? saved.index : 0;
+    var newIndex = list.indexMap[oldIndex];
+    if (newIndex == null) {
+      for (var i = Math.max(0, oldIndex); i < saved.questions.length; i++) {
+        if (list.indexMap[i] != null) { newIndex = list.indexMap[i]; break; }
+      }
+      if (newIndex == null) newIndex = list.questions.length - 1;
+      list.changed = true;
+    }
+    if (saved.index !== newIndex) list.changed = true;
+    var answers = {};
+    var flagged = {};
+    Object.keys(saved.answers && typeof saved.answers === 'object' ? saved.answers : {}).forEach(function (index) {
+      if (list.indexMap[index] != null) answers[list.indexMap[index]] = saved.answers[index];
+      else list.changed = true;
+    });
+    Object.keys(saved.flagged && typeof saved.flagged === 'object' ? saved.flagged : {}).forEach(function (index) {
+      if (list.indexMap[index] != null) flagged[list.indexMap[index]] = saved.flagged[index];
+      else list.changed = true;
+    });
+    saved.questions = list.questions;
+    saved.index = Math.max(0, Math.min(newIndex, saved.questions.length - 1));
+    saved.answers = answers;
+    saved.flagged = flagged;
+    return { state: saved, changed: list.changed };
+  }
+
   /* ── Helpers ────────────────────────────────────────────── */
   // `match` is the generic authoring type. `command_match` remains a legacy
   // alias so existing content and saved sessions continue to work.
@@ -64,20 +168,84 @@
   }
 
   // Multi questions are authored with a variable number of correct choices,
-  // but every question must leave at least one distractor. Reject malformed
-  // content instead of silently treating duplicate, out-of-range, or all-
-  // options answers as valid. This keeps a bad generated question from
-  // teaching the learner that selecting everything is a safe strategy.
+  // but every question must have exactly five options and leave at least one
+  // distractor. Reject malformed content instead of silently treating
+  // duplicate, out-of-range, or all-options answers as valid. This keeps a
+  // bad generated question from teaching the learner that selecting everything
+  // is a safe strategy.
+  function hasValidChoiceOptions(options) {
+    if (!Array.isArray(options) || options.length !== 5) return false;
+    var seen = {};
+    return options.every(function (option) {
+      if (typeof option !== 'string' || !option.trim()) return false;
+      var key = option.trim().toLowerCase();
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  function isValidMcqAnswer(q) {
+    var options = Array.isArray(q && q.options) ? q.options : [];
+    return hasValidChoiceOptions(options) && Number.isInteger(q && q.answer) && q.answer >= 0 && q.answer < options.length;
+  }
+
   function isValidMultiAnswer(q) {
     var options = Array.isArray(q && q.options) ? q.options : [];
     var answer = Array.isArray(q && q.answer) ? q.answer : [];
-    if (!options.length || answer.length < 1 || answer.length > 4 || answer.length >= options.length) return false;
+    if (!hasValidChoiceOptions(options) || answer.length < 1 || answer.length > 4 || answer.length >= options.length) return false;
     var seen = {};
     return answer.every(function (index) {
       if (!Number.isInteger(index) || index < 0 || index >= options.length || seen[index]) return false;
       seen[index] = true;
       return true;
     });
+  }
+
+  // The answer count belongs to the authored question; changing it at runtime
+  // would change the facts being tested. Instead, randomize the order of
+  // multi questions by their authored count so consecutive questions do not
+  // expose a fixed 2/3/4 pattern, while option positions are independently
+  // shuffled by prepareQuestion.
+  function randomizeQuestionOrder(questions) {
+    var remaining = utils.shuffle(questions);
+    var multiBuckets = {};
+    var other = [];
+    remaining.forEach(function (q) {
+      if (q.type === 'multi') {
+        var count = q.answer && q.answer.length;
+        if (!multiBuckets[count]) multiBuckets[count] = [];
+        multiBuckets[count].push(q);
+      } else {
+        other.push(q);
+      }
+    });
+    other = utils.shuffle(other);
+
+    var ordered = [];
+    var lastCount = null;
+    while (other.length || Object.keys(multiBuckets).some(function (key) { return multiBuckets[key].length; })) {
+      var availableCounts = Object.keys(multiBuckets).filter(function (key) {
+        return multiBuckets[key].length && String(key) !== String(lastCount);
+      });
+      var useMulti = availableCounts.length && (!other.length || Math.random() < 0.65);
+      if (useMulti) {
+        var countKey = availableCounts[Math.floor(Math.random() * availableCounts.length)];
+        var bucket = multiBuckets[countKey];
+        ordered.push(bucket.splice(Math.floor(Math.random() * bucket.length), 1)[0]);
+        lastCount = Number(countKey);
+      } else if (other.length) {
+        ordered.push(other.pop());
+        lastCount = null;
+      } else {
+        // Only one answer-count bucket remains, so use it rather than loop.
+        var fallbackKey = Object.keys(multiBuckets).find(function (key) { return multiBuckets[key].length; });
+        var fallback = multiBuckets[fallbackKey];
+        ordered.push(fallback.splice(Math.floor(Math.random() * fallback.length), 1)[0]);
+        lastCount = Number(fallbackKey);
+      }
+    }
+    return ordered;
   }
 
   function prepareQuestion(raw) {
@@ -105,6 +273,12 @@
       opts = utils.shuffle(opts);
       q._shuffledOptions = opts;
       if (q.type === 'mcq') {
+        if (!isValidMcqAnswer(q)) {
+          q._invalid = true;
+          q._invalidReason = 'Multiple-choice questions need exactly five options and one valid correct answer.';
+          q._correctShuffled = -1;
+          return q;
+        }
         q._correctShuffled = opts.findIndex(function (o) { return o.origIdx === q.answer; });
       } else {
         if (!isValidMultiAnswer(q)) {
@@ -200,7 +374,7 @@
       App.toast('No questions match your criteria', 'error');
       return null;
     }
-    questions = utils.shuffle(questions).map(prepareQuestion).filter(function (q) { return !q._invalid; });
+    questions = randomizeQuestionOrder(questions).map(prepareQuestion).filter(function (q) { return !q._invalid; });
     if (!questions.length) {
       App.toast('No valid questions match your criteria', 'error');
       return null;
@@ -372,14 +546,14 @@
     q._shuffledPairs.forEach(function (pair, i) {
       var item = pairItem(pair);
       var row = el('div', { className: 'match-row' });
-      row.appendChild(el('span', { className: 'match-item', html: inlineHtml(item) }));
+      row.appendChild(el('span', { className: 'match-item', html: renderChoiceHtml(item) }));
       var sel = el('select', {
         className: 'form-control match-select',
         'aria-label': 'Match ' + item + ' with its counterpart'
       });
       sel.appendChild(el('option', { value: '', text: '— choose counterpart —' }));
       matches.forEach(function (match, j) {
-        sel.appendChild(el('option', { value: String(j), html: inlineHtml(match) }));
+        sel.appendChild(el('option', { value: String(j), html: renderChoiceHtml(match) }));
       });
       if (initial[i] != null) sel.value = String(initial[i]);
       sel.addEventListener('change', function () {
@@ -492,7 +666,7 @@
           }
         }, [
           el('span', { className: 'option-key', text: key }),
-          el('span', { html: inlineHtml(opt.text) })
+          el('span', { html: renderChoiceHtml(opt.text) })
         ]);
         optsWrap.appendChild(btn);
       });
@@ -522,7 +696,7 @@
           }
         }, [
           el('span', { className: 'option-key', text: key }),
-          el('span', { html: inlineHtml(opt.text) })
+          el('span', { html: renderChoiceHtml(opt.text) })
         ]);
         optsWrap.appendChild(btn);
       });
@@ -569,7 +743,7 @@
       App.toast('No questions for this cert', 'error');
       return null;
     }
-    var questions = utils.shuffle(pool).map(prepareQuestion).filter(function (q) { return !q._invalid; });
+    var questions = randomizeQuestionOrder(pool).map(prepareQuestion).filter(function (q) { return !q._invalid; });
     var count = Math.min(config.count || 50, questions.length);
     questions = questions.slice(0, count);
     if (!questions.length) {
@@ -686,11 +860,29 @@
   }
 
   function getExamSession() {
-    if (!examSession && App.store.getExamSession) examSession = App.store.getExamSession();
+    if (!examSession && App.store.getExamSession) {
+      var saved = App.store.getExamSession();
+      var checked = sanitizeExamSession(saved);
+      if (!checked) {
+        if (saved && App.store.clearExamSession) App.store.clearExamSession();
+        return null;
+      }
+      examSession = checked.state;
+      if (checked.changed && App.store.saveExamSession) App.store.saveExamSession(examSession);
+    }
     return examSession;
   }
   function getQuizSession() {
-    if (!session && App.store.getQuizSession) session = App.store.getQuizSession();
+    if (!session && App.store.getQuizSession) {
+      var saved = App.store.getQuizSession();
+      var checked = sanitizeQuizSession(saved);
+      if (!checked) {
+        if (saved && App.store.clearQuizSession) App.store.clearQuizSession();
+        return null;
+      }
+      session = checked.state;
+      if (checked.changed && App.store.saveQuizSession) App.store.saveQuizSession(session);
+    }
     return session;
   }
 
@@ -702,7 +894,9 @@
     skipQuestion: skipQuestion,
     endQuiz: endQuiz,
     buildPool: buildPool,
+    randomizeQuestionOrder: randomizeQuestionOrder,
     prepareQuestion: prepareQuestion,
+    isValidMcqAnswer: isValidMcqAnswer,
     isValidMultiAnswer: isValidMultiAnswer,
     checkAnswer: checkAnswer,
     normalizeAnswer: normalizeAnswer,
@@ -721,6 +915,9 @@
     discardQuiz: discardQuiz,
     discardExam: discardExam,
     getExamSession: getExamSession,
-    getQuizSession: getQuizSession
+    getQuizSession: getQuizSession,
+    renderChoiceHtml: renderChoiceHtml,
+    sanitizeQuizSession: sanitizeQuizSession,
+    sanitizeExamSession: sanitizeExamSession
   };
 })();

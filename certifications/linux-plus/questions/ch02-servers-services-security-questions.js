@@ -10,7 +10,8 @@ window.ReviewApp.content.register({
         "Servers cannot run a GUI at all, while desktops are built around direct graphical interaction with users.",
         "Servers provide network services for other systems with little direct interaction, while desktops support interactive local use.",
         "Servers use a different kernel and process model from desktops, even on the same Linux distribution.",
-        "Servers cannot be managed remotely, while desktops rely on local administration through graphical tools."
+        "Servers cannot be managed remotely, while desktops rely on local administration through graphical tools.",
+        "Desktop systems always require a separate kernel from the server edition of a distribution."
       ],
       answer: 1,
       explain: "Both use the same kernel and shell; the distinction is usage — servers provide network services with minimal direct interaction, while desktops are used interactively.",
@@ -30,7 +31,8 @@ window.ReviewApp.content.register({
         "ps ax | grep mysql",
         "ps ax | grep apache",
         "grep mysql /etc/services",
-        "ls /var/log/mysql"
+        "ls /var/log/mysql",
+        "systemctl status apache2"
       ],
       answer: 0,
       explain: "ps ax | grep mysql lists running processes and filters for mysqld; the other options don't reliably show whether the daemon process is running.",
@@ -50,7 +52,8 @@ window.ReviewApp.content.register({
         "It reduces memory use by launching each service only when a matching request arrives.",
         "It encrypts each service connection before handing the request to the target daemon.",
         "It replaces firewall rules by filtering each packet before a service receives it.",
-        "It converts every network service into a Systemd unit before starting it."
+        "It converts every network service into a Systemd unit before starting it.",
+        "It consolidates every service into a single executable permanently."
       ],
       answer: 0,
       explain: "Super-servers reduce the number of daemons that must sit resident in memory by launching service programs on demand when requests come in.",
@@ -67,12 +70,13 @@ window.ReviewApp.content.register({
       q: "Which features does xinetd add over the original inetd? (Select all that apply.)",
       type: "multi",
       options: [
+        "Automatic load balancing across multiple service instances",
         "Access-control rules that restrict which clients may use a service",
         "Detailed logging of service requests and connection activity",
         "Automatic certificate generation for each network service",
         "Scheduling rules that enable or disable services at selected times"
       ],
-      answer: [0, 1, 3],
+      answer: [1, 2, 4],
       explain: "xinetd adds ACLs, advanced logging, and service scheduling over inetd. It does not handle certificate generation — that's a CA/OpenSSL function.",
       tags: ["xinetd", "super-server"]
     },
@@ -83,7 +87,8 @@ window.ReviewApp.content.register({
         "systemd unit files",
         "cron jobs",
         "GRUB configuration",
-        "the /etc/services file"
+        "the /etc/services file",
+        "a standalone DNS resolver"
       ],
       answer: 0,
       explain: "Systemd uses unit files to manage service activation, replacing the role previously played by inetd/xinetd super-servers.",
@@ -103,7 +108,8 @@ window.ReviewApp.content.register({
         "IP address for the main number, port number for the extension",
         "MAC address for the main number, IP address for the extension",
         "Subnet mask for the main number, gateway for the extension",
-        "DNS name for the main number, IP address for the extension"
+        "DNS name for the main number, IP address for the extension",
+        "TCP port for the main number, MAC address for the extension"
       ],
       answer: 0,
       explain: "The notes use this exact analogy: clients connect via IP address (the main number), then specify a port number (the extension) to reach a specific service.",
@@ -112,7 +118,7 @@ window.ReviewApp.content.register({
     {
       q: "Match the port to its correct default service — Port 443:",
       type: "mcq",
-      options: ["HTTP", "HTTPS", "SMTP", "DNS"],
+      options: ["HTTP", "HTTPS", "SMTP", "DNS", "IMAP"],
       answer: 1,
       explain: "Port 443 is used by HTTPS, the encrypted version of HTTP.",
       tags: ["ports", "https"]
@@ -120,7 +126,7 @@ window.ReviewApp.content.register({
     {
       q: "Which port is associated with the DHCP service?",
       type: "mcq",
-      options: ["53", "67", "80", "110"],
+      options: ["53", "67", "80", "110", "443"],
       answer: 1,
       explain: "Port 67 is the well-known port for DHCP, which automatically assigns IP addresses to clients.",
       tags: ["ports", "dhcp"]
@@ -132,7 +138,8 @@ window.ReviewApp.content.register({
         "22 – SSH",
         "23 – Telnet",
         "389 – LDAP",
-        "2049 – SMB"
+        "2049 – SMB",
+        "161 – SNMP"
       ],
       answer: 3,
       explain: "Port 2049 is used by NFS, not SMB. SMB uses ports 137-139. The other three pairings are correct per the notes.",
@@ -148,7 +155,7 @@ window.ReviewApp.content.register({
     {
       q: "Which organization is responsible for publishing standardized service protocols as RFC documents?",
       type: "mcq",
-      options: ["ISO", "IETF", "ICANN", "W3C"],
+      options: ["ISO", "IETF", "ICANN", "W3C", "IEEE"],
       answer: 1,
       explain: "The Internet Engineering Task Force (IETF) publishes protocol standards as Requests for Comments (RFCs).",
       tags: ["ietf", "rfc"]
@@ -156,8 +163,8 @@ window.ReviewApp.content.register({
     {
       q: "Which three services are standard Internet services Linux servers excel at?",
       type: "multi",
-      options: ["Web services", "Database services", "Email services", "Print services"],
-      answer: [0, 1, 2],
+      options: ["Print services", "Web services", "Directory services", "Email services", "Database services"],
+      answer: [1, 3, 4],
       explain: "The notes specifically call out web, database, and email services as the three core Internet services; print services are covered separately as a local network service.",
       tags: ["overview", "services"]
     },
@@ -168,7 +175,8 @@ window.ReviewApp.content.register({
         "An event-driven core that handles connections without blocking.",
         "A modular core that adds advanced features through loadable modules.",
         "A built-in database engine that stores application data.",
-        "A monolithic core that requires every feature to be compiled in."
+        "A monolithic core that requires every feature to be compiled in.",
+        "A database-backed core that stores website data internally."
       ],
       answer: 1,
       explain: "Apache relies on a modular design where advanced functionality (SSL/TLS, PHP, etc.) is added via loadable modules, unlike Nginx's event-driven core design.",
@@ -188,7 +196,8 @@ window.ReviewApp.content.register({
         "/etc/httpd/httpd.conf",
         "/etc/apache2/apache.ini",
         "/etc/nginx/nginx.conf",
-        "/var/www/html/httpd.conf"
+        "/var/www/html/httpd.conf",
+        "/etc/httpd/httpd.ini"
       ],
       answer: 0,
       explain: "/etc/httpd/httpd.conf is the primary Apache configuration file per the notes; /etc/nginx/nginx.conf belongs to Nginx, not Apache.",
@@ -204,8 +213,8 @@ window.ReviewApp.content.register({
     {
       q: "Which of the following are features built into Nginx's core rather than added via external modules? (Select all that apply.)",
       type: "multi",
-      options: ["Reverse proxy", "Load balancing", "Web content caching", "SQL query optimization"],
-      answer: [0, 1, 2],
+      options: ["SQL query optimization", "Reverse proxy", "Database transaction management", "Web content caching", "Load balancing"],
+      answer: [1, 3, 4],
       explain: "Nginx natively includes reverse proxy, load balancing, and caching capabilities. SQL query optimization is not a web server function.",
       tags: ["nginx", "features"]
     },
@@ -216,7 +225,8 @@ window.ReviewApp.content.register({
         "Nginx handles many incoming connections and load balancing, while Apache serves dynamic content through its modules.",
         "Nginx serves static content and Apache handles connections, while a database provides the load-balancing layer.",
         "Nginx requires Apache to serve any content, because it cannot operate as a standalone web server.",
-        "The two servers replace a database service by sharing all application state through their web modules."
+        "The two servers replace a database service by sharing all application state through their web modules.",
+        "Apache handles TLS termination while Nginx only stores database records."
       ],
       answer: 0,
       explain: "This combines Nginx's efficient handling of high connection volume with Apache's flexibility and rich module ecosystem for dynamic content.",
@@ -232,7 +242,7 @@ window.ReviewApp.content.register({
     {
       q: "Which lightweight web server is best suited for embedded systems and IoT devices due to low memory and CPU usage?",
       type: "mcq",
-      options: ["Apache", "Nginx", "lighttpd", "IIS"],
+      options: ["Apache", "Nginx", "lighttpd", "IIS", "Caddy"],
       answer: 2,
       explain: "lighttpd is specifically designed for resource-constrained environments like embedded systems and IoT devices.",
       tags: ["lighttpd"]
@@ -255,7 +265,7 @@ window.ReviewApp.content.register({
     {
       q: "Which acronym describes PostgreSQL's guarantee of reliable transaction processing?",
       type: "mcq",
-      options: ["ACID", "CRUD", "REST", "SOAP"],
+      options: ["ACID", "CRUD", "REST", "SOAP", "BSON"],
       answer: 0,
       explain: "PostgreSQL adheres to ACID (Atomicity, Consistency, Isolation, Durability) principles for transaction integrity.",
       tags: ["postgresql", "acid"]
@@ -271,12 +281,13 @@ window.ReviewApp.content.register({
       q: "Which of the following are features of PostgreSQL? (Select all that apply.)",
       type: "multi",
       options: [
-        "Full transaction support",
-        "Updatable views",
         "Document-oriented BSON storage",
-        "Stored procedures"
+        "Stored procedures",
+        "Built-in SMTP mail delivery",
+        "Full transaction support",
+        "Updatable views"
       ],
-      answer: [0, 1, 3],
+      answer: [1, 3, 4],
       explain: "PostgreSQL supports transactions, updatable views, and stored procedures. BSON document storage is a MongoDB feature, not PostgreSQL's.",
       tags: ["postgresql", "features"]
     },
@@ -295,7 +306,8 @@ window.ReviewApp.content.register({
         "Maximum extensibility through user-defined data types, plugins, and custom storage engines.",
         "Lightweight, high-performance operation with an emphasis on speed, simplicity, and easy administration.",
         "Full compliance with NoSQL document standards, flexible schemas, and document-based storage models.",
-        "Built-in load balancing across database nodes without external tools or a separate proxy layer."
+        "Built-in load balancing across database nodes without external tools or a separate proxy layer.",
+        "A design centered on kernel-level packet filtering."
       ],
       answer: 1,
       explain: "MySQL was originally built for speed, simplicity, and ease of use, though it has since added advanced features like transactions and stored procedures.",
@@ -308,7 +320,8 @@ window.ReviewApp.content.register({
         "A relational database that stores application records in SQL tables.",
         "A document-oriented NoSQL database that stores data as JSON-like BSON documents.",
         "A hierarchical database that stores application data as directory-style records.",
-        "An in-memory key-value cache intended only for temporary application data."
+        "An in-memory key-value cache intended only for temporary application data.",
+        "A time-series database that stores only timestamped metrics."
       ],
       answer: 1,
       explain: "MongoDB stores data as BSON (Binary JSON) documents rather than in relational tables, making it a document-oriented NoSQL database.",
@@ -328,7 +341,8 @@ window.ReviewApp.content.register({
         "MongoDB has never provided an authentication mechanism, so every release accepts unauthenticated connections.",
         "Older versions shipped with authentication disabled by default, so administrators had to enable it.",
         "The firewall permits MongoDB traffic and therefore makes database authentication unnecessary for clients.",
-        "MongoDB requires Kerberos authentication before any database instance can start or accept connections."
+        "MongoDB requires Kerberos authentication before any database instance can start or accept connections.",
+        "The server is using a read-only replica mode that skips access checks."
       ],
       answer: 1,
       explain: "The notes specifically caution that older MongoDB versions shipped with authentication disabled by default, a known security risk that must be manually remediated.",
@@ -344,15 +358,15 @@ window.ReviewApp.content.register({
     {
       q: "Which three components make up the modular Linux email system?",
       type: "multi",
-      options: ["Mail User Agent (MUA)", "Mail Transfer Agent (MTA)", "Mail Delivery Agent (MDA)", "Mail Caching Agent (MCA)"],
-      answer: [0, 1, 2],
+      options: ["Mail Caching Agent (MCA)", "Mail Transfer Agent (MTA)", "Mail Archive Agent (MAA)", "Mail Delivery Agent (MDA)", "Mail User Agent (MUA)"],
+      answer: [1, 3, 4],
       explain: "The Linux email architecture consists of MUA, MTA, and MDA; there is no 'Mail Caching Agent' component described in the notes.",
       tags: ["email", "mua", "mta", "mda"]
     },
     {
       q: "Which component is responsible for routing email between mail servers using SMTP?",
       type: "mcq",
-      options: ["MUA", "MTA", "MDA", "DNS resolver"],
+      options: ["MUA", "MTA", "MDA", "DNS resolver", "SMTP relay"],
       answer: 1,
       explain: "The Mail Transfer Agent (MTA) handles sending, receiving, and routing mail between servers using SMTP.",
       tags: ["mta", "email"]
@@ -364,7 +378,8 @@ window.ReviewApp.content.register({
         "On the mail server, alongside the MTA, because users connect there directly to read messages.",
         "On the client machine, because users interact with it directly to read and compose messages.",
         "Inside the DNS server, where messages are converted into delivery records before routing.",
-        "As a kernel module, where it can intercept messages before network delivery begins."
+        "As a kernel module, where it can intercept messages before network delivery begins.",
+        "As a DNS resolver plugin that delivers messages after lookup."
       ],
       answer: 1,
       explain: "Because users interact with the MUA directly to read/compose mail, it typically runs on the client machine rather than the server.",
@@ -373,8 +388,8 @@ window.ReviewApp.content.register({
     {
       q: "Which three MTA packages does the Linux+ exam focus on?",
       type: "multi",
-      options: ["sendmail", "Postfix", "Exim", "Dovecot"],
-      answer: [0, 1, 2],
+      options: ["Dovecot", "Postfix", "Cyrus IMAP", "Exim", "sendmail"],
+      answer: [1, 3, 4],
       explain: "sendmail, Postfix, and Exim are the three MTA packages the exam covers; Dovecot is an IMAP server (MUA-facing), not an MTA.",
       tags: ["mta", "exam"]
     },
@@ -385,7 +400,8 @@ window.ReviewApp.content.register({
         "Edit /etc/mail/sendmail.cf directly, then reload the service to apply the configuration.",
         "Edit /etc/mail/sendmail.mc, then restart sendmail so sendmail.cf is regenerated.",
         "Edit /etc/postfix/main.cf and restart sendmail to import the Postfix settings.",
-        "Use a package-manager command because sendmail has no editable configuration file."
+        "Use a package-manager command because sendmail has no editable configuration file.",
+        "Edit /etc/mail/aliases and regenerate sendmail.cf without restarting the service."
       ],
       answer: 1,
       explain: "sendmail.cf should not be edited directly; instead, admins edit the shorthand sendmail.mc file and restart the service so sendmail.cf regenerates automatically.",
@@ -394,7 +410,7 @@ window.ReviewApp.content.register({
     {
       q: "Which mail transfer agent is known for a modular design using several small programs and just two plaintext config files?",
       type: "mcq",
-      options: ["sendmail", "Postfix", "Exim", "Dovecot"],
+      options: ["sendmail", "Postfix", "Exim", "Dovecot", "OpenSMTPD"],
       answer: 1,
       explain: "Postfix uses main.cf and master.cf as its two plaintext config files and is composed of several small, modular programs, contrasting with sendmail's single large program design.",
       tags: ["postfix", "config-files"]
@@ -409,7 +425,7 @@ window.ReviewApp.content.register({
     {
       q: "Which MTA favors immediate delivery over queuing messages in most environments?",
       type: "mcq",
-      options: ["sendmail", "Postfix", "Exim", "Procmail"],
+      options: ["sendmail", "Postfix", "Exim", "Procmail", "qmail"],
       answer: 2,
       explain: "Exim, though architecturally similar to sendmail (a single large program), is distinguished by its preference for immediate delivery rather than queuing.",
       tags: ["exim"]
@@ -417,7 +433,7 @@ window.ReviewApp.content.register({
     {
       q: "Which MDA program is the most popular in Linux and stores mail by default in /var/spool/mail?",
       type: "mcq",
-      options: ["Postfix", "Binmail", "Procmail", "Dovecot"],
+      options: ["Postfix", "Binmail", "Procmail", "Dovecot", "Maildrop"],
       answer: 1,
       explain: "Binmail (/bin/mail) is the most popular MDA and stores mail in /var/spool/mail by default.",
       tags: ["mda", "binmail"]
@@ -436,7 +452,8 @@ window.ReviewApp.content.register({
         "POP3, using sendmail",
         "IMAP4, using Dovecot",
         "SMTP, using Postfix",
-        "FTP, using vsftpd"
+        "FTP, using vsftpd",
+        "LDAP, using OpenLDAP"
       ],
       answer: 1,
       explain: "IMAP4 is the protocol most remote MUAs use, and Dovecot is cited as the most popular Linux IMAP4 server implementation.",
@@ -445,8 +462,8 @@ window.ReviewApp.content.register({
     {
       q: "Which two file-sharing packages are commonly used on Linux local networks?",
       type: "multi",
-      options: ["NFS", "Samba", "CUPS", "BIND"],
-      answer: [0, 1],
+      options: ["CUPS", "NFS", "vsftpd", "BIND", "Samba"],
+      answer: [1, 4],
       explain: "NFS and Samba are the two file-sharing packages discussed; CUPS is for printing and BIND is for DNS.",
       tags: ["nfs", "samba", "file-server"]
     },
@@ -460,7 +477,7 @@ window.ReviewApp.content.register({
     {
       q: "A Linux admin needs the server to share files with, and access shares from, Windows workstations. Which package should be used?",
       type: "mcq",
-      options: ["NFS", "Samba", "CUPS", "BIND"],
+      options: ["NFS", "Samba", "CUPS", "BIND", "vsftpd"],
       answer: 1,
       explain: "Samba implements Microsoft's SMB protocol, enabling Linux to act as both an SMB client and server for Windows interoperability.",
       tags: ["samba", "smb"]
@@ -476,7 +493,7 @@ window.ReviewApp.content.register({
     {
       q: "Which service centrally tracks and assigns unique IP addresses to clients on a network?",
       type: "mcq",
-      options: ["DNS", "DHCP", "NTP", "SNMP"],
+      options: ["DNS", "DHCP", "NTP", "SNMP", "ARP"],
       answer: 1,
       explain: "DHCP (Dynamic Host Configuration Protocol) centrally manages IP address assignment to prevent duplicate addresses.",
       tags: ["dhcp"]
@@ -484,8 +501,8 @@ window.ReviewApp.content.register({
     {
       q: "Which of the following are common Linux DHCP client packages? (Select all that apply.)",
       type: "multi",
-      options: ["dhclient", "dhcpcd", "pump", "named"],
-      answer: [0, 1, 2],
+      options: ["named", "pump", "dhcpd", "dhclient", "dhcpcd"],
+      answer: [1, 3, 4],
       explain: "dhclient, dhcpcd, and pump are DHCP client packages. named is the BIND DNS server daemon, unrelated to DHCP.",
       tags: ["dhcp", "dhcp-client"]
     },
@@ -499,7 +516,7 @@ window.ReviewApp.content.register({
     {
       q: "Which logging daemon is used on Systemd-based systems and can handle both local and remote logging?",
       type: "mcq",
-      options: ["rsyslogd", "journald", "syslogd", "auditd"],
+      options: ["rsyslogd", "journald", "syslogd", "auditd", "logrotate"],
       answer: 1,
       explain: "journald is the logging daemon associated with Systemd systems, whereas rsyslogd is used by SysVinit/Upstart systems.",
       tags: ["logging", "journald"]
@@ -518,7 +535,8 @@ window.ReviewApp.content.register({
         "BIND, daemon named 'named'",
         "Dovecot, daemon named 'imapd'",
         "Postfix, daemon named 'master'",
-        "CUPS, daemon named 'cupsd'"
+        "CUPS, daemon named 'cupsd'",
+        "Unbound, daemon named 'unbound'"
       ],
       answer: 0,
       explain: "BIND implements DNS on Linux, and its server daemon is literally called 'named'.",
@@ -534,7 +552,7 @@ window.ReviewApp.content.register({
     {
       q: "Which technology adds an encryption layer to standard DNS packets to prevent hostname spoofing?",
       type: "mcq",
-      options: ["DNSSEC", "SSL", "IPSec", "Kerberos"],
+      options: ["DNSSEC", "SSL", "IPSec", "Kerberos", "SSH"],
       answer: 0,
       explain: "DNSSEC secures the DNS lookup process against spoofing attacks by adding cryptographic protection to DNS responses.",
       tags: ["dns", "dnssec", "security"]
@@ -549,7 +567,7 @@ window.ReviewApp.content.register({
     {
       q: "Which version of SNMP introduced strong authentication and data encryption?",
       type: "mcq",
-      options: ["SNMPv1", "SNMPv2", "SNMPv3", "None of them support encryption"],
+      options: ["SNMPv1", "SNMPv2", "SNMPv3", "None of them support encryption", "SNMPv4"],
       answer: 2,
       explain: "SNMPv3 added strong authentication and encryption, a major security improvement over the plaintext-only SNMPv1 and the basic security of SNMPv2.",
       tags: ["snmp", "versions"]
@@ -564,8 +582,8 @@ window.ReviewApp.content.register({
     {
       q: "Which two daemons are used on Linux to synchronize system clocks via NTP?",
       type: "multi",
-      options: ["ntpd", "chronyd", "syslogd", "named"],
-      answer: [0, 1],
+      options: ["ntpdate", "chronyd", "named", "ntpd", "syslogd"],
+      answer: [1, 3],
       explain: "ntpd and chronyd are the two daemons used to sync Linux system clocks against remote NTP time servers.",
       tags: ["ntp", "ntpd", "chronyd"]
     },
@@ -579,7 +597,7 @@ window.ReviewApp.content.register({
     {
       q: "Where are basic Linux user credentials stored (in the more secure, modern approach)?",
       type: "mcq",
-      options: ["/etc/passwd only", "/etc/shadow", "/etc/security", "/etc/users.conf"],
+      options: ["/etc/passwd only", "/etc/shadow", "/etc/security", "/etc/users.conf", "/etc/login.defs"],
       answer: 1,
       explain: "/etc/shadow securely stores password hashes, whereas /etc/passwd is the older, non-secure legacy location for user account info.",
       tags: ["authentication", "shadow"]
@@ -594,7 +612,7 @@ window.ReviewApp.content.register({
     {
       q: "Which package implements NIS on most Linux distributions?",
       type: "mcq",
-      options: ["nis-utils", "openldap", "krb5-libs", "openssl"],
+      options: ["nis-utils", "openldap", "krb5-libs", "openssl", "ypbind"],
       answer: 0,
       explain: "nis-utils is the open-source package implementing NIS, included in most Linux distro repositories.",
       tags: ["nis", "nis-utils"]
@@ -602,7 +620,7 @@ window.ReviewApp.content.register({
     {
       q: "Which authentication protocol, developed at MIT, uses symmetric-key cryptography to authenticate users against a centralized encrypted database?",
       type: "mcq",
-      options: ["LDAP", "Kerberos", "NIS", "SNMP"],
+      options: ["LDAP", "Kerberos", "NIS", "SNMP", "RADIUS"],
       answer: 1,
       explain: "Kerberos, developed at MIT, uses symmetric-key cryptography and encrypts the entire authentication process against a centralized database.",
       tags: ["kerberos", "authentication"]
@@ -622,7 +640,8 @@ window.ReviewApp.content.register({
         "A flat, unordered list",
         "A hierarchical, treelike structure",
         "A relational table-based schema only",
-        "A circular ring topology"
+        "A circular ring topology",
+        "A flat key-value store with no parent-child relationships"
       ],
       answer: 1,
       explain: "OpenLDAP uses a hierarchical database, letting admins design a treelike directory structure to organize users, servers, and other objects.",
@@ -631,8 +650,8 @@ window.ReviewApp.content.register({
     {
       q: "Certificate-based authentication is considered a two-factor method because it requires which two things?",
       type: "multi",
-      options: ["Something you possess (the certificate file)", "Something you know (a PIN)", "Something you are (a fingerprint)", "Something you inherit (a group membership)"],
-      answer: [0, 1],
+      options: ["Something you are (a fingerprint)", "Something you configure (a security policy)", "Something you possess (the certificate file)", "Something you inherit (a group membership)", "Something you know (a PIN)"],
+      answer: [2, 4],
       explain: "The notes describe certificate authentication as requiring possession of the certificate file plus knowledge of a PIN — not biometrics or inherited attributes.",
       tags: ["certificates", "authentication", "2fa"]
     },
@@ -647,7 +666,7 @@ window.ReviewApp.content.register({
     {
       q: "Which software provides standard certificate functions for both servers and clients on Linux?",
       type: "mcq",
-      options: ["OpenSSL", "OpenSSH", "OpenVPN", "OpenLDAP"],
+      options: ["OpenSSL", "OpenSSH", "OpenVPN", "OpenLDAP", "OpenSC"],
       answer: 0,
       explain: "OpenSSL provides the standard certificate creation and management functions used to set up Linux certificate-based authentication.",
       tags: ["openssl", "certificates"]
@@ -655,7 +674,7 @@ window.ReviewApp.content.register({
     {
       q: "Which protocol/software is the most popular Linux implementation for secure, encrypted remote shell access?",
       type: "mcq",
-      options: ["Telnet", "OpenSSH", "FTP", "rsyslogd"],
+      options: ["Telnet", "OpenSSH", "FTP", "rsyslogd", "rlogin"],
       answer: 1,
       explain: "OpenSSH is the most popular SSH implementation on Linux, providing encrypted remote access and secure alternatives to Telnet/FTP.",
       tags: ["ssh", "openssh"]
@@ -670,7 +689,7 @@ window.ReviewApp.content.register({
     {
       q: "Which solution creates a secure point-to-point tunnel allowing remote users full access to a local network's resources over the Internet?",
       type: "mcq",
-      options: ["OpenVPN", "OpenLDAP", "OpenSSL", "CUPS"],
+      options: ["OpenVPN", "OpenLDAP", "OpenSSL", "CUPS", "BIND"],
       answer: 0,
       explain: "OpenVPN is the popular Linux VPN solution that establishes a secure tunnel between remote clients and the local network.",
       tags: ["vpn", "openvpn"]
@@ -685,8 +704,8 @@ window.ReviewApp.content.register({
     {
       q: "Which newer technologies are modern clustering solutions? (Select all that apply.)",
       type: "multi",
-      options: ["Apache Hadoop", "Linux Virtual Server (LVS)", "Kerberos", "OpenLDAP"],
-      answer: [0, 1],
+      options: ["Kerberos", "Linux Virtual Server (LVS)", "Samba", "Apache Hadoop", "OpenLDAP"],
+      answer: [1, 3],
       explain: "Apache Hadoop and LVS are cited as newer clustering technologies; Kerberos and OpenLDAP are authentication technologies, unrelated to clustering.",
       tags: ["clustering", "hadoop", "lvs"]
     },
@@ -697,7 +716,8 @@ window.ReviewApp.content.register({
         "They cannot run database software because clustering supports only stateless services and web workloads.",
         "Concurrent instances need coordination and locking, which can reduce throughput and increase response time.",
         "They disable SQL support when more than one database node is active, forcing applications to use key-value APIs.",
-        "They always use slower hardware than a standalone database server because traffic crosses multiple cluster nodes."
+        "They always use slower hardware than a standalone database server because traffic crosses multiple cluster nodes.",
+        "They force every database query through a single unencrypted channel before execution."
       ],
       answer: 1,
       explain: "The notes caution that database clustering can introduce locking overhead when multiple instances execute queries concurrently, sometimes reducing performance.",
@@ -710,7 +730,8 @@ window.ReviewApp.content.register({
         "It routes each client request to one server while distributing total demand across the cluster.",
         "It applies only to database clusters and cannot be used with web services.",
         "It removes the need for multiple servers by concentrating all requests on one host.",
-        "It is unrelated to clustering because it operates only at the network perimeter."
+        "It is unrelated to clustering because it operates only at the network perimeter.",
+        "It sends every client request to every server so each node keeps an identical copy."
       ],
       answer: 0,
       explain: "Load balancing is described as a special application of clustering, where a load balancer directs each full client request to a specific server while distributing overall load.",
@@ -719,8 +740,8 @@ window.ReviewApp.content.register({
     {
       q: "Which of the following are named as common Linux load-balancing packages? (Select all that apply.)",
       type: "multi",
-      options: ["HAProxy", "LVS", "Nginx", "Dovecot"],
-      answer: [0, 1, 2],
+      options: ["Dovecot", "Nginx", "OpenLDAP", "HAProxy", "LVS"],
+      answer: [1, 3, 4],
       explain: "HAProxy, LVS, and Nginx are all cited as load-balancing solutions; Dovecot is an IMAP mail server, unrelated to load balancing.",
       tags: ["load-balancing", "haproxy", "lvs", "nginx"]
     },
@@ -731,7 +752,8 @@ window.ReviewApp.content.register({
         "They remove the need for a host operating system by running applications directly on hardware.",
         "They bundle application files, libraries, and dependencies so behavior stays consistent across environments.",
         "They replace network services by keeping every application on one isolated local machine.",
-        "They encrypt application data automatically without requiring application or host configuration."
+        "They encrypt application data automatically without requiring application or host configuration.",
+        "They replace application dependencies with a single shared system library set."
       ],
       answer: 1,
       explain: "Containers bundle everything an application needs so it behaves the same whether run on a developer workstation, physical server, VM, or in the cloud.",
@@ -740,8 +762,8 @@ window.ReviewApp.content.register({
     {
       q: "Which two platforms are named as the most popular Linux container technologies?",
       type: "multi",
-      options: ["Docker", "Kubernetes", "OpenVPN", "Beowulf"],
-      answer: [0, 1],
+      options: ["OpenVPN", "Kubernetes", "OpenStack", "Docker", "Beowulf"],
+      answer: [1, 3],
       explain: "Docker and Kubernetes are cited as the two most popular Linux container platforms.",
       tags: ["containers", "docker", "kubernetes"]
     },
@@ -755,8 +777,8 @@ window.ReviewApp.content.register({
     {
       q: "A Windows client needs to print to a printer physically attached to a Linux workstation. Which two Linux packages together make this possible?",
       type: "multi",
-      options: ["CUPS", "Samba", "BIND", "NFS"],
-      answer: [0, 1],
+      options: ["NFS", "CUPS", "Dovecot", "Samba", "BIND"],
+      answer: [1, 3],
       explain: "CUPS manages print sharing while Samba enables interoperability with Windows systems, together allowing a Windows client to use a Linux-attached printer.",
       tags: ["cups", "samba", "printing"]
     },
@@ -774,7 +796,8 @@ window.ReviewApp.content.register({
         "They are desktop email clients such as Evolution, KMail, and Thunderbird used directly by end users.",
         "They are mail-server daemons such as Postfix, Exim, and sendmail used for SMTP routing.",
         "They are directory clients such as LDAP tools used to resolve mail-server identities.",
-        "They are delivery agents such as Procmail and Binmail used to store incoming mail."
+        "They are delivery agents such as Procmail and Binmail used to store incoming mail.",
+        "They are kernel-level mail filters that run before a user logs in."
       ],
       answer: 0,
       explain: "Evolution, KMail, and Thunderbird are named in the notes as popular Linux desktop MUAs used directly by end users.",
