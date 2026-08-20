@@ -528,12 +528,50 @@
 
   function itemCert(item) { return item && (item.cert || item._cert || item.certification); }
 
+  function itemIdentity(item) {
+    if (!item || typeof item !== 'object') return 'value:' + JSON.stringify(item);
+    if (item.id != null) return 'id:' + String(item.id);
+    if (item._id != null) return '_id:' + String(item._id);
+    if (item._key != null) return '_key:' + String(item._key);
+    return 'value:' + JSON.stringify(item);
+  }
+
+  function uniqueItems(items) {
+    var seen = Object.create(null);
+    return (items || []).filter(function (item) {
+      var identity = itemIdentity(item);
+      if (seen[identity]) return false;
+      seen[identity] = true;
+      return true;
+    });
+  }
+
   function mergeArray(key, backup, scope) {
     if (!Array.isArray(backup)) return;
     var local = App.store.get(key, []);
-    if (!Array.isArray(local) || !scope.length) { App.store.set(key, clone(backup)); return; }
-    var kept = local.filter(function (item) { return scope.indexOf(itemCert(item)) < 0; });
-    App.store.set(key, kept.concat(clone(backup)));
+    if (!Array.isArray(local)) local = [];
+    var merged = [];
+    var positions = Object.create(null);
+
+    // Replace records for certifications represented by the backup, while
+    // retaining unrelated records. Stable IDs make a second import an update
+    // instead of another copy, including for unscoped personal notes.
+    uniqueItems(local).forEach(function (item) {
+      if (scope.length && scope.indexOf(itemCert(item)) >= 0) return;
+      var identity = itemIdentity(item);
+      positions[identity] = merged.length;
+      merged.push(item);
+    });
+    uniqueItems(backup).forEach(function (item) {
+      var identity = itemIdentity(item);
+      if (Object.prototype.hasOwnProperty.call(positions, identity)) {
+        merged[positions[identity]] = clone(item);
+      } else {
+        positions[identity] = merged.length;
+        merged.push(clone(item));
+      }
+    });
+    App.store.set(key, merged);
   }
 
   function mergeObject(key, backup, scope) {
@@ -562,13 +600,17 @@
     if (data.currentCert !== undefined) App.store.set('currentCert', clone(data.currentCert));
     if (data.settings !== undefined) App.store.set('settings', clone(data.settings));
     // Version-2 backups always include active-session fields, including null
-    // when no session was active. Apply that null explicitly so restoring a
-    // clean backup cannot leave a stale IndexedDB session in place. Legacy
-    // version-1 backups omit these fields and therefore remain merge-safe.
+    // when no session was active. Legacy version-1 backups omit these fields;
+    // both formats remain merge-safe for sessions outside the backup scope.
     ['flashSession', 'quizSession', 'examSession'].forEach(function (key) {
       if (!Object.prototype.hasOwnProperty.call(data, key)) return;
       var state = data[key];
-      if (state == null || !state.cert || scope.indexOf(state.cert) >= 0 || !scope.length) {
+      var existing = App.store.get(key, null);
+      var sameScope = !scope.length || !existing || !existing.cert || scope.indexOf(existing.cert) >= 0;
+      // A null session means the backup had no active session. Clear only a
+      // session in the backup's scope; importing another certification's clean
+      // backup must not discard an unrelated local session.
+      if (state == null ? (scope.length && sameScope) : (!state.cert || scope.indexOf(state.cert) >= 0 || !scope.length)) {
         App.store.set(key, clone(state));
       }
     });
@@ -603,7 +645,11 @@
       // Preserve existing conflict material when the safe Keep choice is selected.
       (current[type] || []).filter(function (item) { return kept[item._cert]; }).forEach(function (item) { registry[type].push(clone(item)); });
       (imported[type] || []).filter(function (item) { return !kept[item._cert]; }).forEach(function (item) { registry[type].push(clone(item)); });
+      // A malformed or previously imported snapshot must not multiply content
+      // with the same stable content identity.
+      registry[type] = uniqueItems(registry[type]);
     });
+    registry.certs = uniqueItems(registry.certs);
     if (report) report('Rebuilding certification index…');
     App.store.saveContentSnapshot({ registry: registry, manifest: { certs: registry.certs, files: [] }, ts: Date.now() });
     return new Promise(function (resolve) {
