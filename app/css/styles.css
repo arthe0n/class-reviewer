@@ -2789,6 +2789,8 @@ input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
   border-top: 1px solid var(--border-subtle);
 }
 .dashboard-chapter-row:first-child { border-top: 0; padding-top: 0; }
+.dashboard-chapter-row.is-current { padding-left: 0.65rem; border-left: 2px solid var(--cert-accent); }
+.dashboard-chapter-row.is-current .dashboard-chapter-percent { color: var(--cert-accent); font-weight: 700; }
 .dashboard-chapter-heading {
   display: grid;
   grid-template-columns: 2.2rem minmax(0, 1fr) auto;
