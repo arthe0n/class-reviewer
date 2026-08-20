@@ -43,6 +43,12 @@ var manifest = fs.readFileSync(manifestPath, 'utf8');
   'randomly/aleatorily select the correct-choice count from 1, 2, 3, or 4',
   'never use 0 or 5 correct choices',
   'independently randomize which A–E positions hold the correct choices',
+  'CONCEPTUAL DUPLICATE / COVERAGE REVIEW',
+  'Does this question test the same underlying knowledge',
+  'multiple-choice, multi-select, True/False, matching, fill-in-the-blank, short-answer',
+  'reject or substantially redesign',
+  'new assessment value',
+  'second conceptual-overlap pass',
   '45% mcq, 20% multi, 10% tf, 10% fill, and 15% match'
 ].forEach(function (requiredText) {
   assert.ok(prompt.toLowerCase().indexOf(requiredText.toLowerCase()) >= 0,
@@ -82,7 +88,7 @@ assert.strictEqual(payloads.length, 3, 'all checked-in question banks should reg
   assert.ok(manifest.indexOf('"' + file + '"') >= 0,
     'manifest should load the question bank: ' + file);
 });
-assert.ok(manifest.indexOf('contentVersion: "1.0.11"') >= 0,
+assert.ok(manifest.indexOf('contentVersion: "1.0.12"') >= 0,
   'manifest should version the content snapshot contract');
 assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.length; }), [19, 87, 165],
   'question banks should contain all expected chapter questions');
@@ -166,6 +172,55 @@ payloads.forEach(function (payload) {
 
 assert.strictEqual(questionCount, 271,
   'all active Linux+ question banks should provide 271 questions to the registry');
+
+// The bank view has a deterministic chapter/item order independent of file
+// registration order, while quiz.js applies its own randomized presentation.
+var contentSource = fs.readFileSync(path.join(__dirname, '..', 'app', 'js', 'content.js'), 'utf8');
+var contentContext = { window: { ReviewApp: { core: { utils: {} } } } };
+vm.runInNewContext(contentSource, contentContext, { filename: 'content.js' });
+var contentApi = contentContext.window.ReviewApp.content;
+contentApi.register({ type: 'questions', cert: 'linux-plus', chapter: 'Ch 10 · Later', items: [{ q: 'later' }] });
+contentApi.register({ type: 'questions', cert: 'linux-plus', chapter: 'Ch 02 · Earlier', items: [{ q: 'earlier' }] });
+assert.deepStrictEqual(contentApi.getAll('questions').map(function (question) { return question._chapter; }),
+  ['Ch 02 · Earlier', 'Ch 10 · Later'],
+  'default question-bank order should sort chapters numerically');
+assert.deepStrictEqual(contentApi.getChapters('linux-plus', 'questions')['Ch 02 · Earlier'].map(function (question) { return question.q; }),
+  ['earlier'],
+  'chapter access should preserve deterministic authored order');
+
+// Exact duplicate stems are an objective regression even though the audit also
+// checks conceptual overlap manually across question modalities.
+var normalizedStems = {};
+var allQuestionTexts = [];
+payloads.forEach(function (payload) {
+  payload.items.forEach(function (question) {
+    var normalized = question.q.trim().replace(/\s+/g, ' ').toLowerCase();
+    assert.strictEqual(normalizedStems[normalized], undefined,
+      'question stems must not be exact duplicates: ' + question.q);
+    normalizedStems[normalized] = true;
+    allQuestionTexts.push(question.q);
+  });
+});
+[
+  'A company requires a commercially supported Linux distribution with vendor-backed enterprise updates rather than a community rebuild. Which distribution best matches that requirement?',
+  'A firewall must permit standard unencrypted HTTP requests to a web server. Which destination port should it allow?',
+  'Which operator appends command output to an existing file without replacing its contents?',
+  'A live filesystem search must match names using a regular expression rather than shell wildcard syntax. Which `find` criterion is appropriate?',
+  'A privileged script follows a symbolic link whose original target was deleted, and an attacker creates a replacement at that path. What risk does this create?',
+  'A deployment script should run a reload only when its configuration test succeeds. Which shell operator should connect the two commands?'
+].forEach(function (stem) {
+  assert.ok(allQuestionTexts.indexOf(stem) >= 0, 'replacement question should remain in the bank: ' + stem);
+});
+[
+  'Which command lists hidden files in a directory?',
+  'Which `grep` option makes the search case-insensitive?',
+  'Match the `cp` options with their descriptions.',
+  'Symbolic links always share the same inode number as their target.',
+  'The command used to create a symbolic link is ___'
+].forEach(function (stem) {
+  assert.strictEqual(allQuestionTexts.indexOf(stem), -1, 'audited duplicate should be replaced: ' + stem);
+});
+
 var wildcardQuestion = null;
 payloads.forEach(function (payload) {
   payload.items.forEach(function (question) {
@@ -305,12 +360,26 @@ assert.strictEqual(quiz.isValidMcqAnswer(raw), true);
 assert.strictEqual(reversed._correctShuffled, 4);
 assert.strictEqual(quiz.checkAnswer(reversed, 4), true);
 
-shuffleUtils.shuffle = function (items) {
-  return [items[4], items[0], items[1], items[2], items[3]];
-};
-var rotated = quiz.prepareQuestion(raw);
-assert.strictEqual(rotated._correctShuffled, 1);
-assert.strictEqual(quiz.checkAnswer(rotated, 1), true);
+[
+  [0, 1, 2, 3, 4],
+  [1, 0, 2, 3, 4],
+  [1, 2, 0, 3, 4],
+  [1, 2, 3, 0, 4],
+  [1, 2, 3, 4, 0]
+].forEach(function (order) {
+  shuffleUtils.shuffle = function (items) {
+    return order.map(function (index) { return items[index]; });
+  };
+  var prepared = quiz.prepareQuestion(raw);
+  var correctPosition = order.indexOf(0);
+  assert.deepStrictEqual(prepared._shuffledOptions.map(function (option) { return option.origIdx; }), order);
+  assert.strictEqual(prepared._correctShuffled, correctPosition,
+    'the authored correct answer should map to every displayed position');
+  assert.strictEqual(quiz.checkAnswer(prepared, correctPosition), true);
+  assert.strictEqual(quiz.checkAnswer(prepared, (correctPosition + 1) % order.length), false);
+});
+assert.deepStrictEqual(raw.options, ['Correct', 'Distractor one', 'Distractor two', 'Distractor three', 'Distractor four'],
+  'shuffling choices must not mutate authored option order');
 
 var savedInvalidChoice = {
   _id: 'invalid-choice',
@@ -352,7 +421,7 @@ assert.deepStrictEqual(cleanedExamSession.state.flagged, { 0: true });
 
 var originalContent = global.window.ReviewApp.content;
 global.window.ReviewApp.content = {
-  getManifest: function () { return { contentVersion: '1.0.11' }; }
+  getManifest: function () { return { contentVersion: '1.0.12' }; }
 };
 assert.strictEqual(quiz.sanitizeQuizSession({
   contentVersion: '1.0.9',
@@ -371,14 +440,35 @@ var multi = quiz.prepareQuestion({
 assert.deepStrictEqual(multi._correctShuffled, [1, 3]);
 assert.strictEqual(quiz.checkAnswer(multi, [3, 1]), true);
 
-var orderFixtures = [1, 2, 3, 4].map(function (count) {
-  return { type: 'multi', answer: [0, 1, 2, 3].slice(0, count) };
-});
+shuffleUtils.shuffle = function (items) { return items.slice().reverse(); };
+var orderFixtures = [
+  { type: 'mcq', q: 'mcq-1' },
+  { type: 'mcq', q: 'mcq-2' },
+  { type: 'mcq', q: 'mcq-3' },
+  { type: 'tf', q: 'tf-1' },
+  { type: 'tf', q: 'tf-2' },
+  { type: 'multi', q: 'multi-1' },
+  { type: 'multi', q: 'multi-2' },
+  { type: 'fill', q: 'fill-1' },
+  { type: 'match', q: 'match-1' },
+  { type: 'command_match', q: 'legacy-match-1' }
+];
 var randomizedOrder = quiz.randomizeQuestionOrder(orderFixtures);
-assert.deepStrictEqual(randomizedOrder.map(function (q) { return q.answer.length; }).sort(function (a, b) { return a - b; }), [1, 2, 3, 4]);
+assert.strictEqual(randomizedOrder.length, orderFixtures.length,
+  'question ordering should preserve the complete pool');
+assert.deepStrictEqual(randomizedOrder.map(function (q) { return q.q; }).sort(),
+  orderFixtures.map(function (q) { return q.q; }).sort(),
+  'question ordering should preserve every question exactly once');
+assert.strictEqual(quiz.questionDistributionType({ type: 'command_match' }), 'match',
+  'legacy matching questions should share the matching distribution bucket');
 for (var orderIndex = 1; orderIndex < randomizedOrder.length; orderIndex++) {
-  assert.notStrictEqual(randomizedOrder[orderIndex - 1].answer.length, randomizedOrder[orderIndex].answer.length,
-    'randomized multi-question order should not repeat adjacent answer counts');
+  var previousType = quiz.questionDistributionType(randomizedOrder[orderIndex - 1]);
+  var currentType = quiz.questionDistributionType(randomizedOrder[orderIndex]);
+  if (previousType === currentType) {
+    var remainingTypes = randomizedOrder.slice(orderIndex + 1).map(quiz.questionDistributionType);
+    assert.ok(remainingTypes.every(function (type) { return type === currentType; }),
+      'same-type runs are allowed only after every other type is exhausted');
+  }
 }
 
 var fourCorrect = quiz.prepareQuestion({
