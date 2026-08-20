@@ -50,7 +50,7 @@ window.ReviewApp.content.register({
       tags: ["virtualization", "qemu"]
     },
     {
-      q: "Which utility is described as a command-center tool that allows administrators to control many system services from a single interface on openSUSE?",
+      q: "Which utility allows administrators to control many system services from a single interface on openSUSE?",
       type: "mcq",
       options: ["dnf", "YaST", "apt", "zypper"],
       answer: 1,

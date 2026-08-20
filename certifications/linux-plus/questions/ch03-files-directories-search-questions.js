@@ -132,7 +132,7 @@ explain: "`/usr/sbin` contains system binary commands. `/usr/bin` contains user 
 tags: ["filesystem", "usr", "sbin"]
 },
 {
-q: "Where are libraries under `/usr` stored according to the notes?",
+q: "Which `/usr` subdirectories contain libraries?",
 type: "mcq",
 options: ["/usr/lib and /usr/lib64", "/usr/bin and /usr/sbin", "/usr/src and /usr/share", "/usr/local and /usr/include"],
 answer: 0,
@@ -308,7 +308,7 @@ explain: "`ls -a` displays all file and subdirectory names, including hidden fil
 tags: ["ls", "hidden"]
 },
 {
-q: "Which statement about Linux file extensions is supported by the notes?",
+q: "Which statement about Linux file extensions is correct?",
 type: "mcq",
 options: ["Every executable must end in `.exe`", "Extensions are mandatory", "Extensions are optional", "Only text files may have extensions"],
 answer: 2,
@@ -316,7 +316,7 @@ explain: "Linux does not require filename extensions; they are optional.",
 tags: ["filenames", "extensions"]
 },
 {
-q: "What is the maximum filename length described in the notes?",
+q: "What is the maximum filename length in Linux?",
 type: "mcq",
 options: ["64 characters", "128 characters", "255 characters", "1024 characters"],
 answer: 2,
@@ -524,7 +524,7 @@ explain: "`mv source new-location/new-name` can move and rename in a single comm
 tags: ["mv", "paths"]
 },
 {
-q: "Which command is described as useful for fast copies of large numbers of files and backups?",
+q: "Which command is useful for fast copies of large numbers of files and backups?",
 type: "mcq",
 options: ["rmdir", "rsync", "cat", "which"],
 answer: 1,
@@ -748,7 +748,7 @@ explain: "Press `q` to exit `less`.",
 tags: ["less", "pager"]
 },
 {
-q: "Which command is the default pager for `man` pages according to the notes?",
+q: "Which command is the default pager for `man` pages?",
 type: "mcq",
 options: ["more", "less", "cat", "pr"],
 answer: 1,
@@ -756,7 +756,7 @@ explain: "The notes state that `less` is the default man-page pager.",
 tags: ["man", "less"]
 },
 {
-q: "Which `file` command purpose is described in the notes?",
+q: "What is the purpose of the `file` command?",
 type: "mcq",
 options: ["Show detailed inode metadata", "Determine a file's basic type", "Find a file by owner", "Compare two files"],
 answer: 1,
@@ -900,7 +900,7 @@ explain: "`-maxdepth` limits the depth of the recursive search.",
 tags: ["find", "maxdepth"]
 },
 {
-q: "Which command from the notes can audit `/usr/bin` for the SUID permission bit?",
+q: "Which command can audit `/usr/bin` for the SUID permission bit?",
 type: "mcq",
 options: ["find /usr/bin -perm /4000", "find /usr/bin -mode 4000", "ls /usr/bin -suid", "grep /usr/bin 4000"],
 answer: 0,
@@ -916,7 +916,7 @@ explain: "`grep -R` or `grep -r` recursively searches a directory tree for match
 tags: ["grep", "recursive"]
 },
 {
-q: "Which `grep` option in the notes causes directories encountered while searching to be skipped?",
+q: "Which `grep` option causes directories encountered while searching to be skipped?",
 type: "mcq",
 options: ["-d skip", "-r", "-R", "-v"],
 answer: 0,
@@ -924,7 +924,7 @@ explain: "`grep -d skip` tells `grep` to skip directories instead of producing e
 tags: ["grep", "directories"]
 },
 {
-q: "Which of the following are valid file types described in the notes?",
+q: "Which of the following are valid Linux file types?",
 type: "multi",
 options: ["Text files", "Binary data files", "Executable program files", "Directory files", "Encrypted files", "Compressed archive files"],
 answer: [0, 1, 2, 3],
@@ -948,7 +948,7 @@ explain: "The long listing includes file type/permissions, hard-link count, owne
 tags: ["ls", "metadata"]
 },
 {
-q: "Which `-F` indicators are supported by the notes?",
+q: "Which `-F` indicators does `ls` use?",
 type: "multi",
 options: ["/ for a directory", "* for an executable", "@ for a symbolic link", "= for a socket", "# for a hidden file"],
 answer: [0, 1, 2, 3],
@@ -972,7 +972,7 @@ explain: "`mv` moves or renames files and directories in one step and supports `
 tags: ["mv", "options"]
 },
 {
-q: "Which `rsync` behaviors are supported by the notes?",
+q: "Which statements about `rsync` are correct?",
 type: "multi",
 options: ["It can perform archive-mode copies", "It can preserve symbolic links as symbolic links", "It can preserve timestamps", "It can display progress", "It can only copy files on the same machine"],
 answer: [0, 1, 2, 3],
@@ -1012,7 +1012,7 @@ explain: "The notes document Spacebar, `/`, `?`, and `q`, and `Esc`+`V` moves ba
 tags: ["less", "pager"]
 },
 {
-q: "Which commands can help locate a command or file according to the notes?",
+q: "Which commands can help locate a command or file?",
 type: "multi",
 options: ["which", "whereis", "locate", "find", "updatedb"],
 answer: [0, 1, 2, 3],
@@ -1020,7 +1020,7 @@ explain: "`which`, `whereis`, `locate`, and `find` are described as information 
 tags: ["search", "which", "whereis", "locate", "find"]
 },
 {
-q: "Which `locate` behaviors are supported by the notes?",
+q: "Which statements about `locate` are correct?",
 type: "multi",
 options: ["It normally searches a prebuilt database", "The database may be stale", "`-b` matches the basename", "`-i` ignores case", "The database is rebuilt automatically before every search"],
 answer: [0, 1, 2, 3],
@@ -1028,7 +1028,7 @@ explain: "`locate` searches a prebuilt database that can be stale (usually updat
 tags: ["locate", "options"]
 },
 {
-q: "Which `find` criteria are supported by the notes?",
+q: "Which `find` criteria are valid?",
 type: "multi",
 options: ["-name", "-user", "-group", "-mtime", "-owner", "-recent"],
 answer: [0, 1, 2, 3],
@@ -1036,7 +1036,7 @@ explain: "`-name`, `-user`, `-group`, and `-mtime` are documented `find` criteri
 tags: ["find", "criteria"]
 },
 {
-q: "Which `grep` behaviors are supported by the notes?",
+q: "Which statements about `grep` are correct?",
 type: "multi",
 options: ["It is case-sensitive by default", "`-i` ignores case", "`-v` inverts the match", "`-E` treats the pattern as a literal string", "`-v` displays only the matching lines"],
 answer: [0, 1, 2],

@@ -90,6 +90,12 @@ notes and send it — the AI replies with a complete `.js` file.
 > }
 > ```
 >
+> QUESTION STEM STYLE (strict):
+> - Every `q` must stand alone and ask the learning objective directly, as it would appear on an exam.
+> - Never refer to the source material in the question stem. Do not write phrases such as “according to the notes,” “in the notes,” “based on the notes,” “from the notes,” or “as described/highlighted/mentioned/stated in the notes.”
+> - Rewrite source-framed wording as a direct question: use “Which command…?”, “What does…?”, “How does…?”, or “Which statement…?” instead.
+> - Keep source references, if genuinely useful, out of `q`; the answer and explanation should explain the concept itself rather than test whether it appeared in the supplied notes.
+>
 > ANSWER FORMATS:
 > - mcq:   zero-based index (e.g. 0) — exactly 1 correct choice
 > - multi: array of 1–4 zero-based indices (e.g. [0, 2]) — 1 to 4 of the 5 options are correct; the correct-choice count must vary across questions, never default to 3

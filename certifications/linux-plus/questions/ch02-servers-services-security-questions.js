@@ -154,7 +154,7 @@ window.ReviewApp.content.register({
       tags: ["ietf", "rfc"]
     },
     {
-      q: "Which three services are highlighted in the notes as standard Internet services Linux servers excel at?",
+      q: "Which three services are standard Internet services Linux servers excel at?",
       type: "multi",
       options: ["Web services", "Database services", "Email services", "Print services"],
       answer: [0, 1, 2],
@@ -268,7 +268,7 @@ window.ReviewApp.content.register({
       tags: ["postgresql", "history"]
     },
     {
-      q: "Which of the following are features of PostgreSQL according to the notes? (Select all that apply.)",
+      q: "Which of the following are features of PostgreSQL? (Select all that apply.)",
       type: "multi",
       options: [
         "Full transaction support",
@@ -683,7 +683,7 @@ window.ReviewApp.content.register({
       tags: ["clustering", "beowulf", "pvm"]
     },
     {
-      q: "Which newer technologies are mentioned as modern clustering solutions? (Select all that apply.)",
+      q: "Which newer technologies are modern clustering solutions? (Select all that apply.)",
       type: "multi",
       options: ["Apache Hadoop", "Linux Virtual Server (LVS)", "Kerberos", "OpenLDAP"],
       answer: [0, 1],
@@ -704,7 +704,7 @@ window.ReviewApp.content.register({
       tags: ["clustering", "database"]
     },
     {
-      q: "How does load balancing differ from general clustering as described in the notes?",
+      q: "How does load balancing differ from general clustering?",
       type: "mcq",
       options: [
         "It routes each client request to one server while distributing total demand across the cluster.",

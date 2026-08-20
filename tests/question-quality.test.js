@@ -28,6 +28,8 @@ var prompt = fs.readFileSync(promptPath, 'utf8');
   'do not force',
   'Balance the options, not the question stem',
   'short, direct questions',
+  'QUESTION STEM STYLE',
+  'Never refer to the source material in the question stem',
   'systematically be the longest or shortest',
   'not the longest',
   'not make it the shortest',
@@ -69,6 +71,7 @@ var payloads = loadQuestionPayloads();
 assert.strictEqual(payloads.length, 3, 'all checked-in question banks should register');
 
 var questionCount = 0;
+var sourceFraming = /\b(?:according to|based on|from|in|supported by)\s+(?:the\s+)?notes\b/i;
 payloads.forEach(function (payload) {
   assert.strictEqual(payload.type, 'questions');
   assert.ok(Array.isArray(payload.items) && payload.items.length > 0);
@@ -76,6 +79,8 @@ payloads.forEach(function (payload) {
   payload.items.forEach(function (question) {
     questionCount++;
     assert.ok(question.q && question.type, 'every question needs text and a type');
+    assert.ok(!sourceFraming.test(question.q),
+      'question stems should ask directly instead of referring to the notes: ' + question.q);
 
     if (question.type === 'mcq' || question.type === 'multi') {
       assert.ok(Array.isArray(question.options), 'choice question needs an options array');
