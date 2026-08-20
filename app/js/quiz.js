@@ -157,8 +157,10 @@
       var item = String(itemValue == null ? '' : itemValue).trim();
       var match = String(matchValue == null ? '' : matchValue).trim();
       if (!item || !match) return; // drop pairs missing a side
-      var itemKey = item.toLowerCase();
-      var matchKey = match.toLowerCase();
+      // Matching items may be case-sensitive Linux syntax (for example,
+      // `-i` and `-I`), so preserve case when detecting exact duplicates.
+      var itemKey = item;
+      var matchKey = match;
       if (seenItems[itemKey] || seenMatches[matchKey]) return; // drop duplicates
       seenItems[itemKey] = true;
       seenMatches[matchKey] = true;
@@ -188,7 +190,9 @@
     var seen = {};
     return options.every(function (option) {
       if (typeof option !== 'string' || !option.trim()) return false;
-      var key = option.trim().toLowerCase();
+      // Linux command options are case-sensitive (`-i` and `-I` are
+      // different choices), so only exact duplicates are malformed.
+      var key = option.trim();
       if (seen[key]) return false;
       seen[key] = true;
       return true;

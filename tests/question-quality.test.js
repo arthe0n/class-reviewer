@@ -82,7 +82,7 @@ assert.strictEqual(payloads.length, 3, 'all checked-in question banks should reg
   assert.ok(manifest.indexOf('"' + file + '"') >= 0,
     'manifest should load the question bank: ' + file);
 });
-assert.ok(manifest.indexOf('contentVersion: "1.0.10"') >= 0,
+assert.ok(manifest.indexOf('contentVersion: "1.0.11"') >= 0,
   'manifest should version the content snapshot contract');
 assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.length; }), [19, 87, 165],
   'question banks should contain all expected chapter questions');
@@ -106,10 +106,12 @@ payloads.forEach(function (payload) {
       assert.strictEqual(question.options.length, 5,
         'choice questions must have exactly five options: ' + question.q);
 
+      // Linux command options are case-sensitive (`-i` and `-I` are
+      // different choices), so only exact duplicate choices are invalid.
       var normalized = question.options.map(function (option) {
         assert.strictEqual(typeof option, 'string');
         assert.ok(option.trim(), 'choices must not be blank');
-        return option.trim().toLowerCase();
+        return option.trim();
       });
       assert.strictEqual(new Set(normalized).size, normalized.length,
         'choices must be distinct: ' + question.q);
@@ -141,11 +143,13 @@ payloads.forEach(function (payload) {
       if (legacyMatch) assert.ok(question.command, 'legacy command matches need a command context');
       assert.ok(Array.isArray(question.pairs));
       assert.ok(question.pairs.length >= 2, 'matching questions need at least two pairs');
+      // Matching items and counterparts can also be case-sensitive syntax,
+      // so only exact duplicate values are invalid here.
       var items = question.pairs.map(function (pair) {
-        return String(pair.item != null ? pair.item : pair.option).trim().toLowerCase();
+        return String(pair.item != null ? pair.item : pair.option).trim();
       });
       var counterparts = question.pairs.map(function (pair) {
-        return String(pair.match != null ? pair.match : pair.description).trim().toLowerCase();
+        return String(pair.match != null ? pair.match : pair.description).trim();
       });
       assert.strictEqual(new Set(items).size, items.length);
       assert.strictEqual(new Set(counterparts).size, counterparts.length);
@@ -348,7 +352,7 @@ assert.deepStrictEqual(cleanedExamSession.state.flagged, { 0: true });
 
 var originalContent = global.window.ReviewApp.content;
 global.window.ReviewApp.content = {
-  getManifest: function () { return { contentVersion: '1.0.10' }; }
+  getManifest: function () { return { contentVersion: '1.0.11' }; }
 };
 assert.strictEqual(quiz.sanitizeQuizSession({
   contentVersion: '1.0.9',
@@ -425,5 +429,27 @@ var invalidMcq = quiz.prepareQuestion({
 assert.strictEqual(invalidMcq._invalid, true,
   'mcq questions with fewer than five options must be rejected');
 assert.strictEqual(quiz.isValidMcqAnswer(invalidMcq), false);
+
+var caseSensitiveFlags = quiz.prepareQuestion({
+  q: 'Which Linux flags are distinct choices?',
+  type: 'mcq',
+  options: ['-d', '-D', '-i', '-I', '-r'],
+  answer: 0
+});
+assert.strictEqual(caseSensitiveFlags._invalid, undefined,
+  'case-sensitive Linux flags must remain valid distinct choices');
+assert.strictEqual(quiz.isValidMcqAnswer(caseSensitiveFlags), true);
+
+var caseSensitiveMatch = quiz.prepareQuestion({
+  q: 'Match case-sensitive Linux flags.',
+  type: 'command_match',
+  command: 'rm',
+  pairs: [
+    { option: '-i', description: 'Ask before each deletion' },
+    { option: '-I', description: 'Ask once before bulk deletion' }
+  ]
+});
+assert.strictEqual(caseSensitiveMatch._invalid, undefined,
+  'case-sensitive matching flags must remain valid distinct items');
 
 console.log(questionCount + ' questions checked; prompt and choice-quality checks passed');
