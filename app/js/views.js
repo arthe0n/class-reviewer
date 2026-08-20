@@ -1171,6 +1171,10 @@
     var selectedMulti = {};
     var selectedIdx = null; // single-answer selection (mcq / tf)
     var matchUI = null;
+    var fillInput = null; // the fill-in answer box, focused on entry
+    function focusFillInput() {
+      if (fillInput) fillInput.focus();
+    }
     function doSubmit(ua) {
       if (answered) return;
       answered = true;
@@ -1275,7 +1279,7 @@
         ]));
       });
     } else if (q.type === 'fill') {
-      optsWrap.appendChild(el('input', {
+      fillInput = el('input', {
         className: 'form-control', type: 'text', id: 'qz-fill', placeholder: 'Type answer…', autocomplete: 'off',
         onKeydown: function (e) {
           if (e.key !== 'Enter') return;
@@ -1287,7 +1291,8 @@
           if (answered) goNext();
           else submitCurrent();
         }
-      }));
+      });
+      optsWrap.appendChild(fillInput);
     } else if (isMatchQuestion(q)) {
       if (q._invalid) {
         optsWrap.appendChild(emptyState('Question unavailable', 'This matching question is missing required data (pairs or a valid counterpart on each side).'));
@@ -1300,6 +1305,10 @@
     }
     card.appendChild(optsWrap);
     root.appendChild(card);
+    // Fill-in questions focus the answer box on entry so the user can type
+    // directly without clicking. Focus happens after the card is in the DOM
+    // (a pre-attachment focus() is a silent no-op in most browsers).
+    focusFillInput();
     var actions = el('div', { className: 'flex gap-sm mt-2' });
     if (q.type === 'mcq' || q.type === 'tf' || q.type === 'multi' || q.type === 'fill') {
       actions.appendChild(el('button', { className: 'btn btn-primary', text: 'Submit', onClick: submitCurrent }));
