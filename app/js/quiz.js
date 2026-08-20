@@ -227,48 +227,55 @@
     });
   }
 
-  // The answer count belongs to the authored question; changing it at runtime
-  // would change the facts being tested. Instead, randomize the order of
-  // multi questions by their authored count so consecutive questions do not
-  // expose a fixed 2/3/4 pattern, while option positions are independently
-  // shuffled by prepareQuestion.
+  // Shuffle each question-type bucket, then interleave the buckets. The
+  // previous implementation separated every `multi` question from every other
+  // type and probabilistically inserted the rest, which could still create
+  // long multi-question runs. A type is never selected twice in a row while
+  // another type has questions remaining; once only one type remains, a run is
+  // unavoidable because the pool is exhausted. `command_match` shares the
+  // generic matching UI, so it participates in the same matching bucket.
+  function questionDistributionType(q) {
+    return q && q.type === 'command_match' ? 'match' : (q && q.type) || 'unknown';
+  }
+
   function randomizeQuestionOrder(questions) {
-    var remaining = utils.shuffle(questions);
-    var multiBuckets = {};
-    var other = [];
-    remaining.forEach(function (q) {
-      if (q.type === 'multi') {
-        var count = q.answer && q.answer.length;
-        if (!multiBuckets[count]) multiBuckets[count] = [];
-        multiBuckets[count].push(q);
-      } else {
-        other.push(q);
+    var buckets = Object.create(null);
+    var types = [];
+    (questions || []).forEach(function (q) {
+      var type = questionDistributionType(q);
+      if (!buckets[type]) {
+        buckets[type] = [];
+        types.push(type);
       }
+      buckets[type].push(q);
     });
-    other = utils.shuffle(other);
+    types.forEach(function (type) { buckets[type] = utils.shuffle(buckets[type]); });
 
     var ordered = [];
-    var lastCount = null;
-    while (other.length || Object.keys(multiBuckets).some(function (key) { return multiBuckets[key].length; })) {
-      var availableCounts = Object.keys(multiBuckets).filter(function (key) {
-        return multiBuckets[key].length && String(key) !== String(lastCount);
+    var lastType = null;
+    while (types.some(function (type) { return buckets[type].length; })) {
+      var available = types.filter(function (type) {
+        return buckets[type].length && type !== lastType;
       });
-      var useMulti = availableCounts.length && (!other.length || Math.random() < 0.65);
-      if (useMulti) {
-        var countKey = availableCounts[Math.floor(Math.random() * availableCounts.length)];
-        var bucket = multiBuckets[countKey];
-        ordered.push(bucket.splice(Math.floor(Math.random() * bucket.length), 1)[0]);
-        lastCount = Number(countKey);
-      } else if (other.length) {
-        ordered.push(other.pop());
-        lastCount = null;
-      } else {
-        // Only one answer-count bucket remains, so use it rather than loop.
-        var fallbackKey = Object.keys(multiBuckets).find(function (key) { return multiBuckets[key].length; });
-        var fallback = multiBuckets[fallbackKey];
-        ordered.push(fallback.splice(Math.floor(Math.random() * fallback.length), 1)[0]);
-        lastCount = Number(fallbackKey);
+      // If the pool has only one remaining type, use it rather than looping.
+      if (!available.length) {
+        available = types.filter(function (type) { return buckets[type].length; });
       }
+
+      // Choose proportionally among eligible types so large banks retain their
+      // natural representation without allowing them to monopolize the run.
+      var total = available.reduce(function (sum, type) { return sum + buckets[type].length; }, 0);
+      var cursor = Math.floor(Math.random() * total);
+      var chosen = available[available.length - 1];
+      for (var i = 0; i < available.length; i++) {
+        if (cursor < buckets[available[i]].length) {
+          chosen = available[i];
+          break;
+        }
+        cursor -= buckets[available[i]].length;
+      }
+      ordered.push(buckets[chosen].pop());
+      lastType = chosen;
     }
     return ordered;
   }
@@ -941,6 +948,7 @@
     endQuiz: endQuiz,
     buildPool: buildPool,
     randomizeQuestionOrder: randomizeQuestionOrder,
+    questionDistributionType: questionDistributionType,
     prepareQuestion: prepareQuestion,
     isValidMcqAnswer: isValidMcqAnswer,
     isValidMultiAnswer: isValidMultiAnswer,

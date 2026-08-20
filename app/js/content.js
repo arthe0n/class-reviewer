@@ -253,12 +253,30 @@
   /* ── Accessors ──────────────────────────────────────────── */
   function getCerts() { return registry.certs.slice(); }
 
+  // Keep the question-bank/data view deterministic: certification, chapter
+  // number, chapter label, then authored item id. Quiz presentation never uses
+  // this order directly; quiz.js randomizes its selected pool at session start.
+  function compareQuestionBankItems(a, b) {
+    var certCompare = String(a && a._cert || '').localeCompare(String(b && b._cert || ''));
+    if (certCompare) return certCompare;
+    var aChapter = String(a && a._chapter || '');
+    var bChapter = String(b && b._chapter || '');
+    var aNumber = chapterNumber(aChapter);
+    var bNumber = chapterNumber(bChapter);
+    if (aNumber != null && bNumber != null && aNumber !== bNumber) return aNumber - bNumber;
+    if (aNumber != null && bNumber == null) return -1;
+    if (aNumber == null && bNumber != null) return 1;
+    var chapterCompare = aChapter.localeCompare(bChapter);
+    if (chapterCompare) return chapterCompare;
+    return String(a && a._id || '').localeCompare(String(b && b._id || ''));
+  }
+
   function getCert(id) {
     return registry.certs.find(function (c) { return c.id === id; });
   }
 
   function getAll(type) {
-    if (type === 'questions') return registry.questions.slice();
+    if (type === 'questions') return registry.questions.slice().sort(compareQuestionBankItems);
     if (type === 'flashcards') return registry.flashcards.slice();
     if (type === 'labs') return registry.labs.slice();
     if (type === 'notes') return registry.notes.slice();
