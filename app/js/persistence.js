@@ -10,6 +10,8 @@
   var DB_NAME = 'ReviewAppUserData';
   var DB_VERSION = 2;
 
+  // 'labProgress' is retained (never read or written anymore) so existing
+  // databases keep their history; historical lab rows are ignored, not deleted.
   var STORE_NAMES = [
     'meta', 'settings', 'answers', 'exams', 'labProgress', 'leitner',
     'cardReviews', 'flashSessions', 'activeSessions', 'personalNotes',

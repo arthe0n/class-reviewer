@@ -15,7 +15,6 @@ window.ReviewApp.content.setManifest({
   files: [
     "linux-plus/questions/ch01-filesystem.js",
     "linux-plus/flashcards/ch01-filesystem.js",
-    "linux-plus/labs/ch03-permissions.js",
     "linux-plus/notes/ch01-notes.js",
     "network-plus/questions/ch01-networking-fundamentals.js"
   ]
@@ -171,59 +170,6 @@ Leitner state (box 1–5, due dates) is stored in the local IndexedDB database a
 
 ---
 
-## Labs
-
-```js
-window.ReviewApp.content.register({
-  type: "labs",
-  cert: "linux-plus",
-  chapter: "Ch 03 · Permissions",
-  items: [
-    {
-      title: "File Permissions & Ownership Lab",
-      difficulty: 2,
-      minutes: 25,
-      scenario: "Markdown description of the scenario…",
-      objectives: [
-        "Create a directory and set its owner and group",
-        "Apply correct mode bits"
-      ],
-      // Optional: step indices per objective. Omitted → objective i ↔ step i.
-      objectiveSteps: [[0], [1]],
-      steps: [
-        {
-          do: "Create the project directory…",
-          hint: "Use mkdir and touch.",
-          solution: "sudo mkdir -p /srv/project",
-          check: "ls -ld /srv/project shows the directory exists."
-        }
-      ],
-      tags: ["permissions", "chmod"]
-    }
-  ]
-});
-```
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `title` | string | yes | Lab title |
-| `difficulty` | 1–3 | no | Shown as star chips |
-| `minutes` | number | no | Estimated time |
-| `scenario` | string (markdown) | yes | Context / story |
-| `objectives` | string[] | no | Checklist items |
-| `objectiveSteps` | (number\|number[])[] | no | Which step indices satisfy each objective (parallel to `objectives`). Defaults to objective *i* ↔ step *i* when omitted. Once all of an objective's steps are complete it is checked automatically, and checking an objective completes its steps. |
-| `steps` | array | yes | Step objects |
-| `steps[].do` | string | yes | Instruction |
-| `steps[].command` | string | no | Internal command metadata for command-based steps; not shown in the learner UI |
-| `steps[].hint` | string | no | Revealable hint |
-| `steps[].solution` | string | no | Revealable solution (copyable) |
-| `steps[].expectedOutput` | string | no | Concrete representative output shown by **View output**; use `(no output)` when appropriate |
-| `steps[].expectedOutputDynamic` | boolean | no | Marks output whose values or formatting vary by system or run |
-| `steps[].check` | string | no | One-line learner-facing verification guidance |
-| `tags` | string[] | no | Filtering |
-
----
-
 ## Notes
 
 ```js
@@ -253,7 +199,7 @@ Supported markdown: headings (`#`–`###`), bold, italic, inline code, fenced co
 
 ## Adding new content (checklist)
 
-1. Create a `.js` file under the appropriate cert folder (`questions/`, `flashcards/`, `labs/`, or `notes/`).
+1. Create a `.js` file under the appropriate cert folder (`questions/`, `flashcards/`, or `notes/`).
 2. Call `window.ReviewApp.content.register({ … })` with the correct `type` and `cert`.
 3. Add the relative path to `certifications/_manifest.js` → `files`.
 4. Open the app and click the **reload** button (top bar) or use Settings → Reload.
@@ -285,4 +231,4 @@ Deep-scan also accepts `.json` files with the same object shape as the argument 
 }
 ```
 
-JSON deep-scan payloads use the same fields described above. For labs, `mockData` is an optional array of supplied files or data, while command steps may include internal `command`, `expectedOutput`, and `expectedOutputDynamic` metadata. When loading the repository's normal manifest, use `.js` paths under `certifications/` and call **Reload** after changing them.
+JSON deep-scan payloads use the same fields described above. When loading the repository's normal manifest, use `.js` paths under `certifications/` and call **Reload** after changing them.

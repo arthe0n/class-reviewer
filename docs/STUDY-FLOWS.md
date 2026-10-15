@@ -13,7 +13,7 @@ new certification automatically. Tools, Settings, and Search stay global.
 
 The Dashboard is the starting point. It shows the active certification's stats,
 recommendations, recent activity, and per-chapter progress. Each chapter row can
-launch its Quiz, Flashcards, or Labs directly with the right context.
+launch its Quiz or Flashcards directly with the right context.
 
 ## Quiz
 
@@ -68,12 +68,6 @@ it, or **Cancel session** to discard it without affecting your stats.
 Flashcards also support keyboard review: **Space** (or clicking the card) flips
 it, **S** shuffles the remaining cards, and once a card is flipped **1** marks
 **Again** and **2** (or Enter) marks **Next**.
-
-## Labs
-
-Labs are organized as **certification → chapter → lab**. Each chapter is an
-expandable section with its own labs, each with objectives, revealable hints and
-solutions, and completion tracking.
 
 ## Notes
 

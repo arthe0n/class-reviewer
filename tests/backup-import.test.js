@@ -13,7 +13,7 @@ var assert = require('assert');
 global.window = { ReviewApp: {} };
 var App = global.window.ReviewApp;
 var data = {};
-var registry = { certs: [], questions: [], flashcards: [], labs: [], notes: [] };
+var registry = { certs: [], questions: [], flashcards: [], notes: [] };
 
 function copy(value) { return value == null ? value : JSON.parse(JSON.stringify(value)); }
 
@@ -37,7 +37,7 @@ App.content = {
 require('../app/js/backup.js');
 
 var userKeys = [
-  'currentCert', 'settings', 'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews',
+  'currentCert', 'settings', 'answers', 'streak', 'exams', 'leitner', 'cardReviews',
   'flashSessions', 'flashSession', 'quizSession', 'examSession', 'personalNotes', 'timeOnTask'
 ];
 
@@ -81,7 +81,6 @@ function materialPackage() {
         certs: [cert, cert],
         questions: [question, question],
         flashcards: [],
-        labs: [],
         notes: []
       }
     },
@@ -96,8 +95,6 @@ function baseUserData() {
     answers: [],
     streak: { last: null, count: 0, best: 0 },
     exams: [],
-    labsDone: {},
-    labStepsDone: {},
     leitner: {},
     cardReviews: [],
     flashSessions: [],
@@ -154,7 +151,6 @@ async function run() {
     certs: [{ id: 'linux-plus', name: 'Existing' }],
     questions: [{ _id: 'linux-plus:questions:old', _cert: 'linux-plus' }],
     flashcards: [],
-    labs: [],
     notes: []
   };
   var material = materialPackage();
@@ -162,6 +158,27 @@ async function run() {
   await App.backup.importPackage(material);
   assert.strictEqual(registry.certs.length, 1, 're-importing material must keep one certification');
   assert.strictEqual(registry.questions.length, 1, 'duplicate material identities must be collapsed');
+
+  // Legacy backups from before the Labs removal still carry labs user keys
+  // and a labs material array. They must import cleanly with Labs ignored.
+  data = {};
+  var legacyValues = baseUserData();
+  legacyValues.labsDone = { 'linux-plus:labs:Ch 01:0': Date.now() };
+  legacyValues.labStepsDone = { 'linux-plus:labs:Ch 01:0:0': Date.now() };
+  var legacyPkg = userPackage(legacyValues, ['linux-plus']);
+  legacyPkg.entries['user-data/labsDone.json'] = jsonBytes(legacyValues.labsDone);
+  legacyPkg.entries['user-data/labStepsDone.json'] = jsonBytes(legacyValues.labStepsDone);
+  await App.backup.importPackage(legacyPkg);
+  assert.strictEqual(data.labsDone, undefined, 'legacy labs progress must not be restored');
+  assert.strictEqual(data.labStepsDone, undefined, 'legacy lab step progress must not be restored');
+  assert.strictEqual(data.currentCert, 'linux-plus', 'legacy user data outside Labs must still import');
+
+  registry = { certs: [], questions: [], flashcards: [], notes: [] };
+  var legacyMaterial = materialPackage();
+  legacyMaterial.snapshot.registry.labs = [{ _id: 'linux-plus:labs:ch01:0', _cert: 'linux-plus', title: 'Old lab' }];
+  await App.backup.importPackage(legacyMaterial);
+  assert.strictEqual(registry.labs, undefined, 'legacy labs material must not be restored');
+  assert.strictEqual(registry.questions.length, 1, 'legacy material outside Labs must still import');
 
   console.log('PASS: backup import regression checks');
 }

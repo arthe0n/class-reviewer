@@ -167,13 +167,12 @@
     var cert = App.content.getCert(certId);
     var counts = cert ? {
       questions: App.content.getByCert('questions', certId).length,
-      flashcards: App.content.getByCert('flashcards', certId).length,
-      labs: App.content.getByCert('labs', certId).length
+      flashcards: App.content.getByCert('flashcards', certId).length
     } : App.content.counts();
     var stats = App.store.getDashboardStats(certId);
 
-    var termText = 'reviewapp v1.3.5 — ' + (cert ? cert.name + ' · ' : '') + compactNumber(counts.questions) + ' questions · ' +
-      compactNumber(counts.flashcards) + ' cards · ' + compactNumber(counts.labs) + ' labs — SYSTEM READY';
+    var termText = 'reviewapp v1.5.0 — ' + (cert ? cert.name + ' · ' : '') + compactNumber(counts.questions) + ' questions · ' +
+      compactNumber(counts.flashcards) + ' cards — SYSTEM READY';
     var strip = el('div', { className: 'terminal-strip', 'aria-label': 'System status' });
     root.appendChild(strip);
     if (!App.core.motionEnabled()) {
@@ -197,7 +196,6 @@
       { label: 'Accuracy', value: stats.accuracy, suffix: '%' },
       { label: 'Streak', value: stats.streakDays, suffix: 'd' },
       { label: 'Cards Due', value: stats.cardsDue, suffix: '' },
-      { label: 'Labs Done', value: stats.labsDone, suffix: '' },
       { label: 'Answered', value: stats.totalAnswered, suffix: '' }
     ];
     tiles.forEach(function (t) {
@@ -262,9 +260,7 @@
 
         var acc = App.store.accuracyFor({ cert: certId, chapter: ch });
         var cardCh = App.content.findChapter ? App.content.findChapter(certId, 'flashcards', ch) : null;
-        var labCh = App.content.findChapter ? App.content.findChapter(certId, 'labs', ch) : null;
         var cards = cardCh ? (App.content.getChapters(certId, 'flashcards')[cardCh] || []).length : 0;
-        var labs = labCh ? (App.content.getChapters(certId, 'labs')[labCh] || []).length : 0;
 
         var row = el('div', { className: 'panel mb-2 chapter-row' });
         var head = el('div', { className: 'flex-between mb-1', style: { flexWrap: 'wrap', gap: '0.4rem', alignItems: 'baseline' } });
@@ -277,7 +273,7 @@
         row.appendChild(bar);
 
         row.appendChild(el('div', { className: 'text-muted mb-2', style: { fontSize: '0.82rem' },
-          text: items.length + ' Q · ' + cards + ' cards · ' + labs + ' labs · ' + (acc != null ? acc + '% accuracy' : 'no quiz data yet') }));
+          text: items.length + ' Q · ' + cards + ' cards · ' + (acc != null ? acc + '% accuracy' : 'no quiz data yet') }));
 
         var btns = el('div', { className: 'flex gap-sm', style: { flexWrap: 'wrap' } });
         btns.appendChild(el('button', {
@@ -293,15 +289,6 @@
             onClick: function () {
               sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: cardCh }));
               App.core.navigate('#/flashcards');
-            }
-          }));
-        }
-        if (labCh) {
-          btns.appendChild(el('button', {
-            className: 'btn btn-secondary btn-sm', text: 'Labs',
-            onClick: function () {
-              sessionStorage.setItem('reviewapp.labsSetup', JSON.stringify({ cert: certId, chapter: labCh }));
-              App.core.navigate('#/labs');
             }
           }));
         }
@@ -443,10 +430,8 @@
 
     var questions = App.content.getByCert('questions', certId);
     var cards = App.content.getByCert('flashcards', certId);
-    var labs = App.content.getByCert('labs', certId);
     var questionChapters = App.content.getChapters(certId, 'questions');
     var flashChapters = App.content.getChapters(certId, 'flashcards');
-    var labChapters = App.content.getChapters(certId, 'labs');
     var answers = App.store.getAnswers({ cert: certId });
     var reviews = App.store.getCardReviews({ cert: certId });
     var stats = App.store.getDashboardStats(certId);
@@ -457,7 +442,6 @@
     var reviewedCards = {};
     reviews.forEach(function (r) { if (r.cardId) reviewedCards[r.cardId] = true; });
     var reviewedCardCount = Object.keys(reviewedCards).length;
-    var completedLabs = Math.min(labs.length, stats.labsDone || 0);
     var overallProgress = questions.length
       ? Math.round((Object.keys(seenQuestions).length / questions.length) * 100)
       : (cards.length ? Math.round((reviewedCardCount / cards.length) * 100) : 0);
@@ -486,16 +470,11 @@
         if (!flashChapter) { App.toast('No flashcards in this chapter', 'error'); return; }
         sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: flashChapter }));
         App.core.navigate('#/flashcards');
-      } else if (type === 'labs') {
-        var labChapter = resolveChapter('labs', chapter);
-        if (!labChapter) { App.toast('No labs in this chapter', 'error'); return; }
-        sessionStorage.setItem('reviewapp.labsSetup', JSON.stringify({ cert: certId, chapter: labChapter }));
-        App.core.navigate('#/labs');
       }
     }
 
     function activityLabel(type) {
-      return type === 'flashcards' ? 'Flashcards' : type === 'labs' ? 'Lab' : 'Quiz';
+      return type === 'flashcards' ? 'Flashcards' : 'Quiz';
     }
 
     function relativeDate(ts) {
@@ -506,7 +485,7 @@
       return utils.formatDate(ts);
     }
 
-    // Build a compact, real activity feed from the existing answer/review/lab logs.
+    // Build a compact, real activity feed from the existing answer/review logs.
     var activityEvents = [];
     answers.forEach(function (a) {
       activityEvents.push({
@@ -523,12 +502,6 @@
         chapter: r.chapter,
         detail: r.outcome === 'again' ? 'Marked Again' : 'Marked Next'
       });
-    });
-    var doneLabs = App.store.get('labsDone', {});
-    labs.forEach(function (lab) {
-      if (doneLabs[lab._id]) {
-        activityEvents.push({ ts: doneLabs[lab._id], type: 'labs', chapter: lab._chapter, detail: lab.title });
-      }
     });
     activityEvents.sort(function (a, b) { return b.ts - a.ts; });
 
@@ -566,13 +539,12 @@
       if (type === 'questions') group.chapter = chapter;
     }
 
-    // Build a single ordered chapter list from all three learning modes. The
-    // next-action workflow must not disappear when a chapter has only cards or
-    // labs and no question file.
+    // Build a single ordered chapter list from both learning modes. The
+    // next-action workflow must not disappear when a chapter has only cards and
+    // no question file.
     var chapterGroups = [];
     Object.keys(questionChapters).forEach(function (chapter) { addChapterGroup(chapterGroups, chapter, 'questions'); });
     Object.keys(flashChapters).forEach(function (chapter) { addChapterGroup(chapterGroups, chapter, 'flashcards'); });
-    Object.keys(labChapters).forEach(function (chapter) { addChapterGroup(chapterGroups, chapter, 'labs'); });
     chapterGroups.sort(function (a, b) {
       if (a.number != null && b.number != null) return a.number - b.number;
       if (a.number != null) return -1;
@@ -584,10 +556,8 @@
       var chapter = group.chapter;
       var questionChapter = group.types.questions || resolveChapter('questions', chapter);
       var flashChapter = group.types.flashcards || resolveChapter('flashcards', chapter);
-      var labChapter = group.types.labs || resolveChapter('labs', chapter);
       var qItems = questionChapter ? (questionChapters[questionChapter] || []) : [];
       var cardItems = flashChapter ? (flashChapters[flashChapter] || []) : [];
-      var labItems = labChapter ? (labChapters[labChapter] || []) : [];
       var performance = App.store.chapterPerformance(certId).find(function (item) {
         return item.chapter === chapter || (App.content.chapterNumber(item.chapter) != null && App.content.chapterNumber(item.chapter) === App.content.chapterNumber(chapter));
       }) || { questionsSeen: 0, flashcardsReviewed: 0 };
@@ -602,7 +572,6 @@
         if (r.cardId && cardIds[r.cardId]) cardSeen[r.cardId] = true;
       });
       var cardSeenCount = performance.flashcardsReviewed;
-      var doneLabCount = labItems.filter(function (lab) { return !!doneLabs[lab._id]; }).length;
       var pct = performance.coverage || 0;
       return {
         chapter: chapter,
@@ -610,20 +579,16 @@
         title: chapterTitle(chapter),
         questions: qItems.length,
         cards: cardItems.length,
-        labs: labItems.length,
         // Stats is authoritative for per-chapter coverage. Use its counts so
         // Chapter 1 and other chapters cannot drift between views.
         pct: Math.min(100, pct),
         accuracy: App.store.accuracyFor({ cert: certId, chapter: questionChapter || chapter }),
         questionChapter: questionChapter,
         flashChapter: flashChapter,
-        labChapter: labChapter,
         quizSeen: seen,
         cardSeen: cardSeenCount,
-        labDoneCount: doneLabCount,
         flashComplete: !cardItems.length || cardSeenCount >= cardItems.length,
-        quizComplete: !qItems.length || seen >= qItems.length,
-        labsComplete: !labItems.length || doneLabCount >= labItems.length
+        quizComplete: !qItems.length || seen >= qItems.length
       };
     });
 
@@ -632,14 +597,13 @@
       // decision, so a fully covered chapter is never offered again.
       if (row.cards && !row.flashComplete) return { type: 'flashcards', completed: row.cardSeen, total: row.cards };
       if (row.questions && !row.quizComplete) return { type: 'quiz', completed: row.quizSeen, total: row.questions };
-      if (row.labs && !row.labsComplete) return { type: 'labs', completed: row.labDoneCount, total: row.labs };
       return null;
     }
 
     function findChapterRow(type, chapter) {
       var resolved = resolveChapter(type, chapter);
       if (!resolved) return null;
-      var field = type === 'questions' ? 'questionChapter' : type === 'flashcards' ? 'flashChapter' : 'labChapter';
+      var field = type === 'questions' ? 'questionChapter' : 'flashChapter';
       return chapterRows.find(function (row) { return row[field] === resolved; }) || null;
     }
 
@@ -656,7 +620,6 @@
     if (activeFlash && (activeFlash.cert || certId) !== certId) activeFlash = null;
     var activeQuiz = App.quiz && App.quiz.getQuizSession ? App.quiz.getQuizSession() : null;
     if (activeQuiz && activeQuiz.cert !== certId) activeQuiz = null;
-    var activeLab = activeLabSession(certId);
     var activeAction = null;
     if (activeFlash && !activeFlash.finished) {
       var flashRow = findChapterRow('flashcards', activeFlash.chapter);
@@ -664,35 +627,30 @@
     } else if (activeQuiz && activeQuiz.questions && activeQuiz.questions[activeQuiz.index]) {
       var quizRow = findChapterRow('questions', activeQuiz.questions[activeQuiz.index]._chapter);
       if (quizRow) activeAction = { row: quizRow, phase: { type: 'quiz', completed: activeQuiz.index, total: activeQuiz.questions.length }, resume: true };
-    } else if (activeLab) {
-      var labRow = findChapterRow('labs', activeLab.lab._chapter);
-      if (labRow) activeAction = { row: labRow, phase: { type: 'labs', completed: activeLab.doneCount, total: activeLab.total }, resume: true };
     }
 
     // A live session is the most useful thing to resume. Without one, always
-    // choose the first unfinished phase in chapter order: Flashcards → Quiz → Labs.
+    // choose the first unfinished phase in chapter order: Flashcards → Quiz.
     var selectedAction = activeAction || orderedAction;
     var continueRow = selectedAction ? selectedAction.row : null;
     var continueType = selectedAction ? selectedAction.phase.type : null;
     var continueChapter = continueRow ? continueRow.chapter : null;
     var continueMode = 'All chapters complete';
-    var continueMeta = 'All flashcards, quizzes, and labs are complete.';
+    var continueMeta = 'All flashcards and quizzes are complete.';
     if (selectedAction) {
-      var phaseName = continueType === 'flashcards' ? 'Flashcards' : continueType === 'quiz' ? 'Quiz' : 'Labs';
+      var phaseName = continueType === 'flashcards' ? 'Flashcards' : 'Quiz';
       if (selectedAction.resume) {
-        continueMode = 'Resume ' + (continueType === 'labs' ? 'Lab' : phaseName);
+        continueMode = 'Resume ' + phaseName;
         if (continueType === 'flashcards') {
           continueMeta = compactNumber(Math.max(0, selectedAction.phase.total - selectedAction.phase.completed)) + ' cards remaining in this session';
         } else if (continueType === 'quiz') {
           continueMeta = 'Question ' + compactNumber(selectedAction.phase.completed + 1) + ' of ' + compactNumber(selectedAction.phase.total);
-        } else {
-          continueMeta = activeLab.lab.title + ' · ' + activeLab.doneCount + ' of ' + activeLab.total + ' steps done';
         }
       } else {
         var hasProgress = selectedAction.phase.completed > 0;
         continueMode = (hasProgress ? 'Continue ' : 'Start ') + phaseName;
         var compactProgressLabel = compactNumber(selectedAction.phase.completed) + ' / ' + compactNumber(selectedAction.phase.total);
-        continueMeta = phaseName + ' · ' + compactProgressLabel + (continueType === 'flashcards' ? ' cards reviewed' : continueType === 'quiz' ? ' questions explored' : ' labs completed');
+        continueMeta = phaseName + ' · ' + compactProgressLabel + (continueType === 'flashcards' ? ' cards reviewed' : ' questions explored');
       }
     }
 
@@ -702,8 +660,7 @@
         return;
       }
       if (selectedAction.resume) {
-        if (continueType === 'labs') App.core.navigate('#/labs/' + encodeURIComponent(activeLab.lab._id));
-        else App.core.navigate('#/' + continueType);
+        App.core.navigate('#/' + continueType);
         return;
       }
       launchChapter(continueType, continueChapter);
@@ -718,7 +675,7 @@
     heroCopy.appendChild(el('div', { className: 'dashboard-kicker', text: 'Current certification · Study workspace' }));
     heroCopy.appendChild(el('h1', { className: 'dashboard-hero-title', style: { color: certColor }, text: cert.name }));
     heroCopy.appendChild(el('p', { className: 'dashboard-hero-subtitle', text: answers.length ? 'Keep building your certification readiness.' : 'Ready to start your certification journey?' }));
-    heroCopy.appendChild(el('p', { className: 'dashboard-hero-counts', text: compactNumber(chapterRows.length) + ' chapters · ' + compactNumber(questions.length) + ' questions · ' + compactNumber(cards.length) + ' flashcards · ' + compactNumber(labs.length) + ' labs' }));
+    heroCopy.appendChild(el('p', { className: 'dashboard-hero-counts', text: compactNumber(chapterRows.length) + ' chapters · ' + compactNumber(questions.length) + ' questions · ' + compactNumber(cards.length) + ' flashcards' }));
     var heroActions = el('div', { className: 'dashboard-hero-actions' });
     heroActions.appendChild(el('button', { className: 'btn btn-primary', text: continueMode, onClick: continueAction }));
     heroActions.appendChild(el('button', { className: 'btn btn-ghost', text: 'View stats', onClick: function () { App.core.navigate('#/stats'); } }));
@@ -753,7 +710,6 @@
     metrics.appendChild(metric('Quiz accuracy', answers.length ? stats.accuracy + '%' : '—', answers.length ? compactNumber(answers.length) + ' answers' : 'Not started', '#/stats'));
     metrics.appendChild(metric('Questions practiced', answers.length ? compactNumber(answers.length) : '—', answers.length ? compactNumber(Object.keys(seenQuestions).length) + ' unique explored' : 'Start a quiz', '#/quiz'));
     metrics.appendChild(metric('Flashcards reviewed', reviewedCardCount ? compactNumber(reviewedCardCount) : '—', reviews.length ? compactNumber(reviews.length) + ' review events' : 'No reviews yet', '#/flashcards'));
-    metrics.appendChild(metric('Labs completed', labs.length ? compactNumber(completedLabs) + ' / ' + compactNumber(labs.length) : '—', labs.length ? 'Hands-on progress' : 'No labs loaded', '#/labs'));
     metrics.appendChild(metric('Study streak', activeStreak ? activeStreak + 'd' : '—', activeStreak ? 'Keep it going' : 'No streak yet', '#/stats'));
     page.appendChild(metrics);
 
@@ -817,7 +773,7 @@
       var rowEl = el('article', { className: 'dashboard-chapter-row' + (isCurrent ? ' is-current' : '') });
       var titleWrap = el('div', { className: 'dashboard-chapter-heading' });
       titleWrap.appendChild(el('span', { className: 'dashboard-chapter-number', style: { color: certColor }, text: row.number }));
-      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { html: inlineHtml(row.title) }), el('small', { text: (isCurrent ? 'Current · ' : '') + compactNumber(row.questions) + ' questions · ' + compactNumber(row.cards) + ' cards · ' + compactNumber(row.labs) + ' labs' })]));
+      titleWrap.appendChild(el('div', { className: 'dashboard-chapter-name' }, [el('strong', { html: inlineHtml(row.title) }), el('small', { text: (isCurrent ? 'Current · ' : '') + compactNumber(row.questions) + ' questions · ' + compactNumber(row.cards) + ' cards' })]));
       titleWrap.appendChild(el('span', { className: 'dashboard-chapter-percent', text: row.pct + '%' }));
       rowEl.appendChild(titleWrap);
       var track = el('div', { className: 'dashboard-chapter-track', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(row.pct), 'aria-label': row.title + ' progress' });
@@ -826,7 +782,6 @@
       var rowActions = el('div', { className: 'dashboard-chapter-actions' });
       if (row.cards) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Flashcards', onClick: function () { launchChapter('flashcards', row.chapter); } }));
       if (row.questions) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Quiz', onClick: function () { launchChapter('quiz', row.chapter); } }));
-      if (row.labs) rowActions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Labs', onClick: function () { launchChapter('labs', row.chapter); } }));
       rowEl.appendChild(rowActions);
       chapterList.appendChild(rowEl);
     });
@@ -899,25 +854,24 @@
         recentSection.appendChild(eventRow);
       });
     } else {
-      recentSection.appendChild(el('div', { className: 'dashboard-empty-note' }, [el('strong', { text: 'No activity yet' }), el('p', { className: 'text-muted', text: 'Your quizzes, card reviews, and completed labs will appear here.' })]));
+      recentSection.appendChild(el('div', { className: 'dashboard-empty-note' }, [el('strong', { text: 'No activity yet' }), el('p', { className: 'text-muted', text: 'Your quizzes and card reviews will appear here.' })]));
     }
     lower.appendChild(recentSection);
     page.appendChild(lower);
 
-    // Activity remains a compact consistency check, using quiz + card + lab events for this certification.
+    // Activity remains a compact consistency check, using quiz + card events for this certification.
     var activitySection = el('section', { className: 'dashboard-section dashboard-activity-section' });
     var activityHead = el('div', { className: 'dashboard-section-header' });
     activityHead.appendChild(el('div', {}, [el('div', { className: 'dashboard-kicker', text: 'Consistency' }), el('h2', { text: 'Study activity' })]));
     activityHead.appendChild(el('span', { className: 'dashboard-section-hint', text: 'Last 14 days · ' + (activityEvents.length ? compactNumber(activityEvents.length) + ' logged events' : 'No activity yet') }));
     activitySection.appendChild(activityHead);
     var activity = App.store.getActivity(14, certId);
-    activity.forEach(function (day) { day.study = day.count; day.cards = 0; day.labs = 0; });
+    activity.forEach(function (day) { day.study = day.count; day.cards = 0; });
     function dayEntry(ts) {
       var day = new Date(ts); day.setHours(0, 0, 0, 0);
       return activity.find(function (d) { return d.date === day.getTime(); });
     }
     reviews.forEach(function (r) { var d = dayEntry(r.ts || r.sessionTs); if (d) { d.cards++; d.study++; } });
-    labs.forEach(function (lab) { if (doneLabs[lab._id]) { var d = dayEntry(doneLabs[lab._id]); if (d) { d.labs++; d.study++; } } });
     var maxStudy = Math.max.apply(null, activity.map(function (d) { return d.study; }).concat([1]));
     var today = new Date(); today.setHours(0, 0, 0, 0);
     var activitySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -937,7 +891,7 @@
       rect.setAttribute('rx', '3');
       rect.setAttribute('fill', day.study ? (day.date === today.getTime() ? 'var(--accent-green)' : 'var(--accent-cyan)') : 'var(--border)');
       var title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-      title.textContent = utils.formatDate(day.date) + ' — ' + compactNumber(day.study) + ' activities (' + compactNumber(day.count) + ' quiz, ' + compactNumber(day.cards) + ' cards, ' + compactNumber(day.labs) + ' labs)';
+      title.textContent = utils.formatDate(day.date) + ' — ' + compactNumber(day.study) + ' activities (' + compactNumber(day.count) + ' quiz, ' + compactNumber(day.cards) + ' cards)';
       rect.appendChild(title);
       activitySvg.appendChild(rect);
     });
@@ -2083,558 +2037,6 @@
     }));
   }
 
-  // A lab has an in-progress session when some (but not all) of its steps are
-  // complete and the lab itself is not marked done. Returns the most recently
-  // active one, mirroring the single saved-session behavior of quiz/flashcards.
-  function activeLabSession(certId) {
-    var labs = App.content.getByCert('labs', certId);
-    var stepsDone = App.store.get('labStepsDone', {});
-    var best = null;
-    labs.forEach(function (lab) {
-      if (!lab.steps || !lab.steps.length || App.store.isLabDone(lab._id)) return;
-      var doneCount = 0, lastTs = 0;
-      lab.steps.forEach(function (step, i) {
-        var ts = stepsDone[lab._id + ':' + i];
-        if (ts) { doneCount++; if (ts > lastTs) lastTs = ts; }
-      });
-      if (doneCount > 0 && doneCount < lab.steps.length && (!best || lastTs > best.lastTs)) {
-        best = { lab: lab, doneCount: doneCount, total: lab.steps.length, lastTs: lastTs };
-      }
-    });
-    return best;
-  }
-
-  function resetLabSession(labId) {
-    var done = App.store.get('labStepsDone', {});
-    var prefix = labId + ':';
-    Object.keys(done).forEach(function (key) {
-      if (key.indexOf(prefix) === 0) delete done[key];
-    });
-    App.store.set('labStepsDone', done);
-  }
-
-  // Normalize optional lab resources before rendering. String entries are valid
-  // mock data, while metadata-only or blank entries are not usable resources
-  // and must not create an empty Mock Data panel.
-  function labMockItems(lab) {
-    var raw = lab && Array.isArray(lab.mockData) ? lab.mockData : [];
-    return raw.map(function (item) {
-      if (typeof item === 'string') {
-        return item.trim() ? { content: item } : null;
-      }
-      if (!item || typeof item !== 'object' || item.content == null) return null;
-      var content = String(item.content);
-      if (!content.trim()) return null;
-      var normalized = { content: content };
-      if (item.filename != null) normalized.filename = item.filename;
-      if (item.name != null) normalized.name = item.name;
-      if (item.description != null) normalized.description = item.description;
-      return normalized;
-    }).filter(function (item) { return item !== null; });
-  }
-
-  function labRow(lab, num) {
-    var done = App.store.isLabDone(lab._id);
-    var row = el('a', {
-      className: 'lab-row',
-      href: '#/labs/' + encodeURIComponent(lab._id)
-    });
-    row.appendChild(el('div', { className: 'lab-row-index', text: String(num) }));
-    var body = el('div', { className: 'lab-row-body' });
-    body.appendChild(el('div', { className: 'lab-row-title', html: inlineHtml(lab.title) }));
-    var meta = el('div', { className: 'lab-row-meta' });
-    meta.appendChild(el('span', { className: 'chip chip-amber', text: '★'.repeat(lab.difficulty || 1) }));
-    meta.appendChild(el('span', { className: 'chip chip-muted', text: (lab.minutes || '?') + ' min' }));
-    body.appendChild(meta);
-    if (lab.scenario) {
-      var desc = lab.scenario.length > 110 ? lab.scenario.slice(0, 110) + '…' : lab.scenario;
-      body.appendChild(el('div', { className: 'lab-row-desc', html: inlineHtml(desc) }));
-    }
-    row.appendChild(body);
-    if (done) row.appendChild(el('span', { className: 'chip chip-green', text: 'Completed' }));
-    return row;
-  }
-
-  function labChapterSection(chapterName, chapterLabs, visibleLabs, open) {
-    var doneCount = chapterLabs.filter(function (l) { return App.store.isLabDone(l._id); }).length;
-    var allDone = chapterLabs.length > 0 && doneCount === chapterLabs.length;
-    var section = el('div', { className: 'lab-chapter' + (open ? ' open' : '') });
-    var header = el('button', {
-      className: 'lab-chapter-header',
-      'aria-expanded': open ? 'true' : 'false',
-      onClick: function () {
-        var isOpen = section.classList.toggle('open');
-        header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-      }
-    });
-    header.appendChild(el('span', { className: 'lab-chapter-chevron', 'aria-hidden': 'true', html:
-      '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    }));
-    var titleWrap = el('div', { className: 'lab-chapter-title-wrap' });
-    titleWrap.appendChild(el('div', { className: 'lab-chapter-title', html: inlineHtml(chapterName) }));
-    titleWrap.appendChild(el('div', { className: 'lab-chapter-meta', text: doneCount + ' / ' + chapterLabs.length + ' labs completed' }));
-    header.appendChild(titleWrap);
-    header.appendChild(el('span', { className: 'chip chip-muted lab-chapter-count', text: chapterLabs.length + ' Labs' }));
-    if (allDone) {
-      header.appendChild(el('span', {
-        className: 'lab-chapter-done',
-        role: 'img',
-        'aria-label': 'All labs completed',
-        title: 'All labs completed',
-        html: '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 7.3l3 3 6-6.6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-      }));
-    }
-    section.appendChild(header);
-    var body = el('div', { className: 'lab-chapter-body' });
-    var inner = el('div', { className: 'lab-chapter-body-inner' });
-    var rows = el('div', { className: 'lab-rows' });
-    visibleLabs.forEach(function (lab, i) { rows.appendChild(labRow(lab, i + 1)); });
-    inner.appendChild(rows);
-    body.appendChild(inner);
-    section.appendChild(body);
-    return section;
-  }
-
-  function viewLabs(root, parsed) {
-    var labId = parsed.params[0] ? decodeURIComponent(parsed.params[0]) : null;
-    if (labId) return viewLabDetail(root, labId);
-    root.appendChild(el('h1', { text: 'Labs' }));
-    var certId = App.core.getCurrentCertId();
-    var cert = App.content.getCert(certId);
-    if (!cert) { root.appendChild(emptyState('No certification selected', 'Pick a certification from the top bar to view its labs.')); return; }
-    var allLabs = App.content.getByCert('labs', certId);
-    if (!allLabs.length) { root.appendChild(emptyState('No labs yet', 'Add lab content files for ' + cert.name + ' and reload.')); return; }
-
-    var controls = el('div', { className: 'panel mb-3' });
-    controls.appendChild(el('div', { className: 'flex gap-sm mb-2', style: { flexWrap: 'wrap', alignItems: 'center' } }, [
-      el('span', { className: 'chip chip-muted', style: { color: cert.color, borderColor: 'currentColor' }, text: cert.name }),
-      el('span', { className: 'text-muted', text: allLabs.length + ' labs' })
-    ]));
-    var filter = el('input', { className: 'form-control', type: 'search', placeholder: 'Search labs…' });
-    controls.appendChild(el('div', { className: 'form-group' }, [el('label', { text: 'Find a lab' }), filter]));
-    root.appendChild(controls);
-
-    // Leaving a lab keeps its step progress (like a saved quiz session); the
-    // labs page offers Resume or Cancel so the user can pick it up or restart.
-    var activeSession = activeLabSession(certId);
-    if (activeSession) {
-      var resumePanel = el('div', { className: 'quiz-resume-panel mb-3' });
-      resumePanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Saved session' }));
-      resumePanel.appendChild(el('p', { className: 'text-muted', html: inlineHtml(activeSession.lab.title + ' · ' + activeSession.doneCount + ' of ' + activeSession.total + ' steps done') }));
-      var resumeRow = el('div', { className: 'flex gap-sm' });
-      resumeRow.appendChild(el('button', {
-        className: 'btn btn-secondary btn-sm', text: 'Resume lab',
-        onClick: function () { App.core.navigate('#/labs/' + encodeURIComponent(activeSession.lab._id)); }
-      }));
-      resumeRow.appendChild(el('button', {
-        className: 'btn btn-danger btn-sm', text: 'Cancel session',
-        title: 'Discard this lab\u2019s step progress and start it fresh',
-        onClick: function () {
-          if (!confirm('Cancel this lab session? Its step progress will be discarded.')) return;
-          resetLabSession(activeSession.lab._id);
-          App.core.handleRoute();
-        }
-      }));
-      resumePanel.appendChild(resumeRow);
-      root.appendChild(resumePanel);
-    }
-
-    var content = el('div', { id: 'labs-content' });
-    root.appendChild(content);
-
-    // Direct context from a certification chapter (Certifications → Chapter → Labs).
-    var pre = null;
-    try { pre = JSON.parse(sessionStorage.getItem('reviewapp.labsSetup') || 'null'); } catch (e) {}
-    var autoExpandChapter = null;
-    if (pre && pre.cert) {
-      sessionStorage.removeItem('reviewapp.labsSetup');
-      if (pre.cert !== certId && !App.core.setCurrentCert(pre.cert, { silent: true })) { /* stay on the current cert */ }
-      certId = App.core.getCurrentCertId();
-      cert = App.content.getCert(certId);
-      if (pre.chapter) {
-        var chNum = (String(pre.chapter).match(/Ch\s*(\d+)/i) || [])[1];
-        Object.keys(App.content.getChapters(certId, 'labs')).forEach(function (name) {
-          if (autoExpandChapter) return;
-          if (name === pre.chapter) { autoExpandChapter = name; return; }
-          var n = (String(name).match(/Ch\s*(\d+)/i) || [])[1];
-          if (chNum && n && parseInt(n, 10) === parseInt(chNum, 10)) autoExpandChapter = name;
-        });
-      }
-    }
-
-    function renderContent() {
-      content.innerHTML = '';
-      var chapters = App.content.getChapters(certId, 'labs');
-      var chapterNames = Object.keys(chapters); // preserve defined (manifest) order
-      if (!chapterNames.length) { content.appendChild(emptyState('No labs', cert.name + ' has no labs yet.')); return; }
-      var query = filter.value.trim().toLowerCase();
-      var shown = 0;
-      chapterNames.forEach(function (ch) {
-        var chapterLabs = chapters[ch];
-        var visibleLabs = query
-          ? chapterLabs.filter(function (l) {
-            return (l.title + ' ' + (l.tags || []).join(' ') + ' ' + (l.scenario || '')).toLowerCase().indexOf(query) >= 0;
-          })
-          : chapterLabs;
-        if (query && !visibleLabs.length) return; // hide chapters with no matches while filtering
-        var open = !!(autoExpandChapter && autoExpandChapter === ch);
-        content.appendChild(labChapterSection(ch, chapterLabs, visibleLabs, open));
-        shown++;
-      });
-      if (!shown) content.appendChild(emptyState('No labs found', 'Try a different search.'));
-    }
-
-    renderContent();
-    filter.addEventListener('input', renderContent);
-  }
-
-  function viewLabDetail(root, labId) {
-    var labs = App.content.getAll('labs');
-    var lab = labs.find(function (l) { return l._id === labId; });
-    if (!lab) { root.appendChild(emptyState('Lab not found', labId)); return; }
-    practiceBack(root, '#/labs', 'Back');
-    var chapterLabs = labs.filter(function (l) { return l._cert === lab._cert && l._chapter === lab._chapter; });
-    var labIdx = chapterLabs.findIndex(function (l) { return l._id === lab._id; });
-    var labMeta = labIdx >= 0 ? 'Lab ' + (labIdx + 1) + ' of ' + chapterLabs.length : null;
-    root.appendChild(makeContextHeader(lab._cert, lab._chapter, 'Lab', labMeta));
-    root.appendChild(el('h1', { html: inlineHtml(lab.title) }));
-    root.appendChild(el('div', { className: 'flex gap-sm mb-2' }, [
-      el('span', { className: 'chip chip-amber', text: 'Difficulty ' + (lab.difficulty || 1) }),
-      el('span', { className: 'chip chip-muted', text: (lab.minutes || '?') + ' min' })
-    ]));
-    var scen = el('div', { className: 'panel mb-3' });
-    scen.appendChild(el('div', { className: 'label-upper mb-1', text: 'Scenario' }));
-    scen.appendChild(el('div', { html: App.markdown.render(lab.scenario || '') }));
-    root.appendChild(scen);
-    // Per-step completion helpers. The Done button, the Redo button, and the
-    // objective checkboxes all route through completeStep()/redoStep(), so
-    // manual and automatic completion share one idempotent flow.
-    var stepWraps = [], stepChips = [], stepDoneBtns = [], btnActions = [], objectiveCbs = [];
-
-    // Explicit objective→steps mapping (optional). Without lab.objectiveSteps
-    // we fall back to the 1:1 convention: objective i satisfies step i.
-    function objectiveStepList(i) {
-      if (lab.objectiveSteps && lab.objectiveSteps[i] != null) {
-        var raw = lab.objectiveSteps[i];
-        return Array.isArray(raw) ? raw.slice() : [raw];
-      }
-      return [i];
-    }
-
-    // Objectives that list step `j` among the steps satisfying them.
-    function objectivesForStep(j) {
-      var out = [];
-      (lab.objectives || []).forEach(function (o, i) {
-        if (objectiveStepList(i).indexOf(j) >= 0) out.push(i);
-      });
-      return out;
-    }
-
-    // True when every step of objective i is complete.
-    function objectiveSatisfied(i) {
-      return objectiveStepList(i).every(function (k) {
-        return k >= 0 && k < lab.steps.length && App.store.isStepDone(lab._id, k);
-      });
-    }
-
-    // Keep an objective's checkbox in sync with its steps' completion state.
-    // Setting .checked directly never fires change events, so this cannot
-    // create a feedback loop with the checkbox listener.
-    function syncObjectiveCheckbox(i) {
-      var cb = objectiveCbs[i];
-      if (!cb) return;
-      cb.checked = objectiveSatisfied(i);
-    }
-
-    function markStepUI(i) {
-      var wrap = stepWraps[i];
-      if (!wrap) return;
-      wrap.classList.add('is-complete');
-      var chip = stepChips[i];
-      if (chip) {
-        chip.className = 'chip chip-green';
-        chip.textContent = '✓';
-        chip.setAttribute('aria-label', 'Step ' + (i + 1) + ' complete');
-        chip.title = 'Step complete';
-      }
-      var btn = stepDoneBtns[i];
-      if (btn) {
-        btn.className = 'btn btn-secondary btn-sm lab-step-done-btn';
-        btn.disabled = false;
-        btn.textContent = '↺ Redo';
-        btn.setAttribute('aria-label', 'Redo step ' + (i + 1));
-        btn.title = 'Un-complete this step and work through it again';
-        btnActions[i] = function () { redoStep(i); };
-      }
-    }
-
-    function unmarkStepUI(i) {
-      var wrap = stepWraps[i];
-      if (!wrap) return;
-      wrap.classList.remove('is-complete');
-      var chip = stepChips[i];
-      if (chip) {
-        chip.className = 'chip chip-muted';
-        chip.textContent = String(i + 1);
-        chip.removeAttribute('aria-label');
-        chip.title = '';
-      }
-      var btn = stepDoneBtns[i];
-      if (btn) {
-        btn.className = 'btn btn-primary btn-sm lab-step-done-btn';
-        btn.disabled = false;
-        btn.textContent = 'Done';
-        btn.setAttribute('aria-label', 'Mark step ' + (i + 1) + ' done');
-        btn.title = '';
-        btnActions[i] = function () { completeStep(i); };
-      }
-    }
-
-    // First incomplete step at or after `from`; falls back to the earliest
-    // incomplete step so out-of-order completion still lands on a current step.
-    function nextActiveStep(from) {
-      var n = lab.steps.length;
-      for (var k = from; k < n; k++) if (!App.store.isStepDone(lab._id, k)) return k;
-      for (var j = 0; j < from && j < n; j++) if (!App.store.isStepDone(lab._id, j)) return j;
-      return null;
-    }
-
-    function openStepOnly(k) {
-      stepWraps.forEach(function (w, j) { w.classList.toggle('open', j === k); });
-    }
-
-    // Expected output is kept out of the step body. The Verify row provides
-    // one compact entry point to the full output modal, so multiline output
-    // never creates a second inline section.
-
-    function expectedOutputInfo(step) {
-      if (step.expectedOutput == null) return null;
-      var value = step.expectedOutput;
-      var dynamic = !!step.expectedOutputDynamic;
-      if (typeof value === 'object') {
-        dynamic = dynamic || !!value.dynamic;
-        value = value.text != null ? value.text : (value.value != null ? value.value : '');
-      }
-      var text = String(value);
-      return { text: text === '' ? '(no output)' : text, dynamic: dynamic };
-    }
-
-    function appendExpectedOutputButton(parent, step) {
-      var info = expectedOutputInfo(step);
-      if (!info || info.text === '(no output)') return false;
-      parent.appendChild(el('button', {
-        className: 'btn btn-secondary btn-sm lab-output-view-btn',
-        type: 'button',
-        text: 'View output',
-        title: info.dynamic ? 'View expected output (may vary by system or run)' : 'View expected output',
-        'aria-label': info.dynamic ? 'View expected output; values may vary by system or run' : 'View expected output',
-        onClick: function (e) {
-          e.stopPropagation();
-          App.core.openModal(el('div', {
-            className: 'code-block lab-expected-output-modal',
-            role: 'document',
-            text: info.text
-          }), { title: 'Expected Output' });
-          var modal = document.querySelector('#modal-root .modal');
-          var title = modal && modal.querySelector('.modal-header h2');
-          if (modal && title) {
-            var titleId = utils.uid();
-            title.id = titleId;
-            modal.setAttribute('aria-labelledby', titleId);
-          }
-        }
-      }));
-      return true;
-    }
-
-    // Idempotent: completing an already-completed step is a no-op and never
-    // re-advances, so the Done button, Redo, and objective checks cannot
-    // double-fire or skip ahead. The final step never advances past the end.
-    // Returns true when the step was actually (newly) completed.
-    function completeStep(i) {
-      if (i < 0 || i >= lab.steps.length) return false;
-      if (App.store.isStepDone(lab._id, i)) return false;
-      App.store.markStepDone(lab._id, i);
-      markStepUI(i);
-      // Auto-check any objective that is now fully satisfied by its steps.
-      objectivesForStep(i).forEach(function (oi) {
-        if (objectiveSatisfied(oi)) syncObjectiveCheckbox(oi);
-      });
-      var next = nextActiveStep(i + 1);
-      if (next == null) {
-        App.toast('All steps complete — mark the lab done below', 'success', 2600);
-        return true;
-      }
-      openStepOnly(next);
-      stepWraps[next].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      return true;
-    }
-
-    // Redo a completed step: un-complete it, reopen it as the current step,
-    // and un-check any objective that depended on it. Idempotent like
-    // completeStep — redoing a pending step is a no-op.
-    function redoStep(i) {
-      if (i < 0 || i >= lab.steps.length) return;
-      if (!App.store.isStepDone(lab._id, i)) return;
-      App.store.unmarkStepDone(lab._id, i);
-      unmarkStepUI(i);
-      objectivesForStep(i).forEach(function (oi) { syncObjectiveCheckbox(oi); });
-      openStepOnly(i);
-      stepWraps[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    if (lab.objectives && lab.objectives.length) {
-      var obj = el('div', { className: 'panel mb-3' });
-      obj.appendChild(el('div', { className: 'label-upper mb-1', text: 'Objectives' }));
-      lab.objectives.forEach(function (o, i) {
-        var labEl = el('label', { style: { display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', cursor: 'pointer' } });
-        var cb = el('input', { type: 'checkbox', id: 'obj-' + i });
-        cb.addEventListener('change', function () {
-          if (!cb.checked) return; // unchecking never reverts completed steps; use Redo instead
-          var list = objectiveStepList(i);
-          var changed = false;
-          list.forEach(function (k) { if (completeStep(k)) changed = true; });
-          if (changed) {
-            App.toast('Objective met — ' + (list.length > 1 ? list.length + ' steps complete' : 'step ' + (list[0] + 1) + ' complete'), 'success', 2200);
-          }
-        });
-        labEl.appendChild(cb);
-        labEl.appendChild(el('span', { html: inlineHtml(o) }));
-        obj.appendChild(labEl);
-        objectiveCbs.push(cb);
-      });
-      root.appendChild(obj);
-    }
-    // Optional lab resources. Each item is rendered independently with its own
-    // copy action; labs without usable mock data get no resource section at all.
-    var mockItems = labMockItems(lab);
-    if (mockItems.length) {
-      var mdPanel = el('div', { className: 'panel mb-3 lab-mock-data' });
-      mdPanel.appendChild(el('div', { className: 'label-upper mb-1', text: 'Mock Data' }));
-      mdPanel.appendChild(el('p', { className: 'text-muted mb-2', style: { fontSize: '0.88rem' },
-        text: 'Sample data for this lab. Copy each item, then use it in the steps below.' }));
-      mockItems.forEach(function (item, i) {
-        var label = item.filename || item.name || ('Item ' + (i + 1));
-        var itemEl = el('div', { className: 'lab-mock-item' });
-        var head = el('div', { className: 'lab-mock-item-head' });
-        if (item.filename) head.appendChild(el('code', { className: 'lab-mock-filename', text: item.filename }));
-        if (item.name && item.name !== item.filename) head.appendChild(el('strong', { text: item.name }));
-        if (item.description) head.appendChild(el('span', { className: 'text-muted', text: item.description }));
-        itemEl.appendChild(head);
-        var block = el('div', { className: 'code-block' });
-        block.textContent = String(item.content == null ? '' : item.content);
-        block.appendChild(el('button', {
-          className: 'btn btn-ghost btn-sm copy-btn',
-          type: 'button',
-          text: 'Copy',
-          'aria-label': 'Copy ' + label + ' content',
-          title: 'Copy ' + label + ' content',
-          onClick: function (e) {
-            e.stopPropagation();
-            utils.copyText(item.content == null ? '' : String(item.content)).then(function (ok) {
-              if (ok) App.toast('Copied', 'success', 1500);
-              else App.toast('Copy failed — select the text manually', 'error', 2200);
-            });
-          }
-        }));
-        itemEl.appendChild(block);
-        mdPanel.appendChild(itemEl);
-      });
-      root.appendChild(mdPanel);
-    }
-    if (lab.steps && lab.steps.length) {
-      root.appendChild(el('h3', { className: 'mb-1', text: 'Steps' }));
-      lab.steps.forEach(function (step, i) {
-        var wrap = el('div', { className: 'lab-step' });
-        var chip = el('span', { className: 'chip chip-muted', text: String(i + 1) });
-        wrap.appendChild(el('div', {
-          className: 'lab-step-header',
-          onClick: function () { wrap.classList.toggle('open'); }
-        }, [
-          chip,
-          el('span', { html: inlineHtml(step.do || 'Step ' + (i + 1)) })
-        ]));
-        var body = el('div', { className: 'lab-step-body' });
-        var actions = el('div', { className: 'lab-step-actions' });
-        var group = el('div', { className: 'lab-step-action-group' });
-        var reveals = [];
-        if (step.hint) {
-          var hintBtn = el('button', { className: 'btn btn-ghost btn-sm', text: 'Show hint' });
-          var hintEl = el('div', { className: 'text-muted mb-1', style: { display: 'none' }, html: inlineHtml(step.hint) });
-          hintBtn.addEventListener('click', function (e) { e.stopPropagation(); hintEl.style.display = hintEl.style.display === 'none' ? 'block' : 'none'; });
-          group.appendChild(hintBtn);
-          reveals.push(hintEl);
-        }
-        if (step.solution) {
-          var solBtn = el('button', { className: 'btn btn-secondary btn-sm', text: 'Reveal solution' });
-          var solEl = el('div', { style: { display: 'none' } });
-          var code = el('div', { className: 'code-block' });
-          code.textContent = step.solution;
-          code.appendChild(el('button', {
-            className: 'btn btn-ghost btn-sm copy-btn', text: 'Copy',
-            onClick: function (e) {
-              e.stopPropagation();
-              utils.copyText(step.solution).then(function () { App.toast('Copied', 'success', 1500); });
-            }
-          }));
-          solEl.appendChild(code);
-          solBtn.addEventListener('click', function (e) { e.stopPropagation(); solEl.style.display = solEl.style.display === 'none' ? 'block' : 'none'; });
-          group.appendChild(solBtn);
-          reveals.push(solEl);
-        }
-        var doneBtn = el('button', {
-          className: 'btn btn-primary btn-sm lab-step-done-btn', type: 'button', text: 'Done',
-          'aria-label': 'Mark step ' + (i + 1) + ' done'
-        });
-        // One listener whose behavior is swapped by markStepUI/unmarkStepUI.
-        doneBtn.addEventListener('click', function (e) {
-          e.stopPropagation();
-          var act = btnActions[i];
-          if (act) act();
-        });
-        actions.appendChild(group);
-        actions.appendChild(doneBtn);
-        body.appendChild(actions);
-        reveals.forEach(function (r) { body.appendChild(r); });
-        // Keep one Verify block at the bottom of the step. The structured
-        // command metadata is intentionally not rendered here: the exact
-        // command remains available only through Reveal solution.
-        var verify = el('div', { className: 'lab-step-verify' });
-        var verifyRow = el('div', { className: 'lab-step-verify-row' });
-        verifyRow.appendChild(el('div', { className: 'lab-step-check' }, [
-          el('strong', { text: 'Verify: ' }), el('span', { html: inlineHtml(step.check || 'Review the expected result for this step.') })
-        ]));
-        appendExpectedOutputButton(verifyRow, step);
-        verify.appendChild(verifyRow);
-        if (step.expectedOutput != null || step.check) body.appendChild(verify);
-        wrap.appendChild(body);
-        root.appendChild(wrap);
-        stepWraps.push(wrap);
-        stepChips.push(chip);
-        stepDoneBtns.push(doneBtn);
-        btnActions.push(function () { completeStep(i); });
-        if (App.store.isStepDone(lab._id, i)) markStepUI(i);
-      });
-      // The current step is the first incomplete one; show it on load.
-      var current = nextActiveStep(0);
-      if (current != null) openStepOnly(current);
-      // Reflect any previously completed steps in the objective checkboxes.
-      (lab.objectives || []).forEach(function (o, i) { syncObjectiveCheckbox(i); });
-    }
-    var done = App.store.isLabDone(lab._id);
-    root.appendChild(el('button', {
-      className: 'btn ' + (done ? 'btn-secondary' : 'btn-primary') + ' mt-3',
-      text: done ? 'Completed ✓' : 'Mark Complete',
-      onClick: function () {
-        App.store.markLabComplete(lab._id);
-        App.toast('Lab marked complete', 'success');
-        // All steps are done and the lab is marked complete, so leave the
-        // detail view automatically and return to the lab select menu.
-        App.core.navigate('#/labs');
-      }
-    }));
-  }
-
   /* ── Markdown progress report ────────────────────────────── */
   // Self-contained builder: recomputes everything from the store/content so it
   // is reusable by any view. Produces a rich, readable Markdown snapshot.
@@ -2647,11 +2049,9 @@
     var certName = cert ? cert.name : (certId || 'General');
     var questions = App.content.getByCert('questions', certId);
     var cards = App.content.getByCert('flashcards', certId);
-    var labs = App.content.getByCert('labs', certId);
     var answers = App.store.getAnswers({ cert: certId });
     var reviews = App.store.getCardReviews({ cert: certId });
     var exams = App.store.getExams(certId);
-    var labsDone = App.store.get('labsDone', {});
     var settings = App.store.getSettings();
     var threshold = (settings.passThreshold && settings.passThreshold[certId]) || 70;
 
@@ -2673,13 +2073,11 @@
     var reviewed = {}; reviews.forEach(function (r) { if (r.cardId) reviewed[r.cardId] = true; });
     var coverage = questions.length ? pct(Object.keys(seenQ).length, questions.length)
       : (cards.length ? pct(Object.keys(reviewed).length, cards.length) : null);
-    var labsDoneCount = labs.filter(function (l) { return labsDone[l._id]; }).length;
 
-    // Streak derived from all activity (answers, reviews, labs).
+    // Streak derived from all activity (answers, reviews).
     var activeDays = {};
     answers.forEach(function (a) { if (a.ts) activeDays[dayStart(a.ts)] = true; });
     reviews.forEach(function (r) { if (r.ts || r.sessionTs) activeDays[dayStart(r.ts || r.sessionTs)] = true; });
-    labs.forEach(function (l) { if (labsDone[l._id]) activeDays[dayStart(labsDone[l._id])] = true; });
     var dayKeys = Object.keys(activeDays).map(Number).sort(function (a, b) { return a - b; });
     var longest = 0, run = 0, prev = null;
     dayKeys.forEach(function (k) {
@@ -2695,7 +2093,6 @@
     // Chapter rows, mirroring the Stats view's aggregation.
     var qMap = App.content.getChapters(certId, 'questions');
     var fMap = App.content.getChapters(certId, 'flashcards');
-    var lMap = App.content.getChapters(certId, 'labs');
     var rowKeys = [];
     function addKeys(map) {
       Object.keys(map).forEach(function (k) {
@@ -2704,7 +2101,7 @@
         if (!existing) rowKeys.push({ key: k, number: number });
       });
     }
-    addKeys(qMap); addKeys(fMap); addKeys(lMap);
+    addKeys(qMap); addKeys(fMap);
     rowKeys.sort(function (a, b) {
       if (a.number != null && b.number != null) return a.number - b.number;
       if (a.number != null) return -1;
@@ -2715,21 +2112,17 @@
     var chapterRows = rowKeys.map(function (entry, index) {
       var qKey = chapterKeyFor('questions', entry.key) || entry.key;
       var fKey = chapterKeyFor('flashcards', entry.key);
-      var lKey = chapterKeyFor('labs', entry.key);
       var qItems = qMap[qKey] || [];
       var fItems = fKey ? (fMap[fKey] || []) : [];
-      var lItems = lKey ? (lMap[lKey] || []) : [];
       var qAnswers = answers.filter(function (a) { return chapterKeyFor('questions', a.chapter) === qKey; });
       var qSeen = {}; qAnswers.forEach(function (a) { if (a.qId) qSeen[a.qId] = true; });
       var fReviews = reviews.filter(function (r) {
         return chapterKeyFor('flashcards', r.chapter) === fKey || (!fKey && chapterKeyFor('questions', r.chapter) === qKey);
       });
       var fSeen = {}; fReviews.forEach(function (r) { if (r.cardId) fSeen[r.cardId] = true; });
-      var lDone = lItems.filter(function (l) { return labsDone[l._id]; }).length;
       var comps = [];
       if (qItems.length) comps.push(Object.keys(qSeen).length / qItems.length);
       if (fItems.length) comps.push(Object.keys(fSeen).length / fItems.length);
-      if (lItems.length) comps.push(lDone / lItems.length);
       var cov = comps.length ? Math.round((comps.reduce(function (a, b) { return a + b; }, 0) / comps.length) * 100) : 0;
       var acc = pct(qAnswers.filter(function (a) { return a.correct; }).length, qAnswers.length);
       var status = cov >= 90 && (acc == null || acc >= 80) ? 'Strong' : cov > 0 ? 'In progress' : 'Not started';
@@ -2744,8 +2137,6 @@
         attempts: qAnswers.length,
         cards: fItems.length,
         reviewedCards: Object.keys(fSeen).length,
-        labs: lItems.length,
-        labsDone: lDone,
         status: status
       };
     });
@@ -2802,7 +2193,6 @@
     L.push('| Certification coverage | ' + (coverage == null ? '—' : coverage + '%') + ' |');
     L.push('| Questions answered | ' + answers.length + ' (' + Object.keys(seenQ).length + ' unique) |');
     L.push('| Flashcard reviews | ' + reviews.length + ' (' + Object.keys(reviewed).length + ' unique cards) |');
-    L.push('| Labs completed | ' + labsDoneCount + ' / ' + labs.length + ' |');
     L.push('| Current streak | ' + current + ' day' + (current === 1 ? '' : 's') + ' |');
     L.push('| Longest streak | ' + longest + ' day' + (longest === 1 ? '' : 's') + ' |');
     L.push('| Cards due for review | ' + App.store.cardsDueCount(certId) + ' |');
@@ -2813,10 +2203,10 @@
     if (!chapterRows.length) {
       L.push('No chapter content loaded for this certification.');
     } else {
-      L.push('| Ch | Chapter | Questions | Seen | Coverage | Accuracy | Cards | Labs | Status |');
-      L.push('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+      L.push('| Ch | Chapter | Questions | Seen | Coverage | Accuracy | Cards | Status |');
+      L.push('| --- | --- | --- | --- | --- | --- | --- | --- |');
       chapterRows.forEach(function (r) {
-        L.push('| ' + r.number + ' | ' + escMd(r.title) + ' | ' + r.questions + ' | ' + r.seen + ' | ' + r.coverage + '% | ' + (r.accuracy == null ? '—' : r.accuracy + '%') + ' | ' + (r.cards ? r.reviewedCards + '/' + r.cards : '—') + ' | ' + (r.labs ? r.labsDone + '/' + r.labs : '—') + ' | ' + r.status + ' |');
+        L.push('| ' + r.number + ' | ' + escMd(r.title) + ' | ' + r.questions + ' | ' + r.seen + ' | ' + r.coverage + '% | ' + (r.accuracy == null ? '—' : r.accuracy + '%') + ' | ' + (r.cards ? r.reviewedCards + '/' + r.cards : '—') + ' | ' + r.status + ' |');
       });
     }
     L.push('');
@@ -2875,17 +2265,6 @@
     L.push('| Cards currently due | ' + App.store.cardsDueCount(certId) + ' |');
     L.push('');
 
-    if (labs.length) {
-      L.push('## Labs progress');
-      L.push('');
-      L.push('| Chapter | Progress |');
-      L.push('| --- | --- |');
-      chapterRows.filter(function (r) { return r.labs; }).forEach(function (r) {
-        L.push('| Ch ' + r.number + ' · ' + escMd(r.title) + ' | ' + r.labsDone + ' / ' + r.labs + ' |');
-      });
-      L.push('');
-    }
-
     var activity = App.store.getActivity(14, certId);
     var activeDays14 = activity.filter(function (d) { return d.count; });
     L.push('## Recent activity (last 14 days)');
@@ -2928,7 +2307,6 @@
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: coverage + '%' }), el('div', { className: 'stat-label', text: 'Question coverage' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.streakDays) }), el('div', { className: 'stat-label', text: 'Streak' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: utils.formatTime(Math.round(stats.timeOnTask / 1000)) }), el('div', { className: 'stat-label', text: 'Time on task' })]),
-      el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.labsDone) }), el('div', { className: 'stat-label', text: 'Labs done' })]),
       el('div', { className: 'stat-tile' }, [el('div', { className: 'stat-value', text: compactNumber(stats.cardsDue) }), el('div', { className: 'stat-label', text: 'Cards due' })])
     ]));
     root.appendChild(el('h3', { className: 'mt-3 mb-1', text: 'Accuracy by chapter' }));
@@ -3074,11 +2452,9 @@
 
     var questions = App.content.getByCert('questions', certId);
     var cards = App.content.getByCert('flashcards', certId);
-    var labs = App.content.getByCert('labs', certId);
     var allAnswers = App.store.getAnswers({ cert: certId });
     var allReviews = App.store.getCardReviews({ cert: certId });
     var exams = App.store.getExams(certId);
-    var labsDone = App.store.get('labsDone', {});
     var certColor = cert.color || 'var(--accent-cyan)';
     var selectedDays = 14;
 
@@ -3203,7 +2579,6 @@
       var events = [];
       allAnswers.forEach(function (a) { events.push({ ts: a.ts, kind: 'quiz', chapter: a.chapter, value: a.correct ? 1 : 0 }); });
       allReviews.forEach(function (r) { events.push({ ts: r.ts || r.sessionTs, kind: 'flashcards', chapter: r.chapter, value: r.outcome === 'next' ? 1 : 0 }); });
-      labs.forEach(function (lab) { if (labsDone[lab._id]) events.push({ ts: labsDone[lab._id], kind: 'labs', chapter: lab._chapter, value: 1 }); });
       return events.filter(function (e) { return e.ts; }).sort(function (a, b) { return a.ts - b.ts; });
     }
 
@@ -3231,28 +2606,24 @@
         var chapter = item.chapter;
         var qMap = App.content.getChapters(certId, 'questions');
         var fMap = App.content.getChapters(certId, 'flashcards');
-        var lMap = App.content.getChapters(certId, 'labs');
         var qKey = Object.keys(qMap).find(function (key) { return key === chapter || (App.content.chapterNumber(key) != null && App.content.chapterNumber(key) === App.content.chapterNumber(chapter)); });
         var fKey = Object.keys(fMap).find(function (key) { return key === chapter || (App.content.chapterNumber(key) != null && App.content.chapterNumber(key) === App.content.chapterNumber(chapter)); });
-        var lKey = Object.keys(lMap).find(function (key) { return key === chapter || (App.content.chapterNumber(key) != null && App.content.chapterNumber(key) === App.content.chapterNumber(chapter)); });
         var qItems = qKey ? qMap[qKey] : [];
         var fItems = fKey ? fMap[fKey] : [];
-        var lItems = lKey ? lMap[lKey] : [];
         var qAnswers = App.store.getAnswers({ cert: certId }).filter(function (a) { return a.chapter === qKey || (App.content.chapterNumber(a.chapter) != null && App.content.chapterNumber(a.chapter) === App.content.chapterNumber(chapter)); });
         var fReviews = App.store.getCardReviews({ cert: certId }).filter(function (r) { return r.chapter === fKey || (App.content.chapterNumber(r.chapter) != null && App.content.chapterNumber(r.chapter) === App.content.chapterNumber(chapter)); });
         var qSeen = {}; qAnswers.forEach(function (a) { if (a.qId) qSeen[a.qId] = true; });
         var fSeen = {}; fReviews.forEach(function (r) { if (r.cardId) fSeen[r.cardId] = true; });
-        var labsDoneCount = lItems.filter(function (lab) { return !!labsDone[lab._id]; }).length;
         return {
           key: chapter, number: chapterNumber(chapter, index), title: chapterTitle(chapter),
-          qKey: qKey || chapter, fKey: fKey, lKey: lKey, questions: qItems, cards: fItems, labs: lItems,
+          qKey: qKey || chapter, fKey: fKey, questions: qItems, cards: fItems,
           qAnswers: qAnswers, fReviews: fReviews, seenQuestions: item.questionsSeen, reviewedCards: item.flashcardsReviewed,
-          labsDone: labsDoneCount, coverage: item.coverage, accuracy: item.questionAccuracy,
+          coverage: item.coverage, accuracy: item.questionAccuracy,
           // Keep the dashboard's chapter numbers tied to the same canonical
           // performance record used by Stats, including cards and quizzes.
-          questionTotal: item.questions, cardTotal: item.flashcards, labTotal: item.labs,
+          questionTotal: item.questions, cardTotal: item.flashcards,
           status: item.coverage >= 90 && (item.questionAccuracy == null || item.questionAccuracy >= 80) ? 'Strong' : item.questionAccuracy != null && item.questionAccuracy < 60 && qAnswers.length >= 3 ? 'Needs review' : item.coverage > 0 ? 'In progress' : 'Not started',
-          lastTs: Math.max.apply(null, qAnswers.concat(fReviews).map(function (x) { return x.ts || x.sessionTs || 0; }).concat(lItems.map(function (x) { return labsDone[x._id] || 0; })).concat([0]))
+          lastTs: Math.max.apply(null, qAnswers.concat(fReviews).map(function (x) { return x.ts || x.sessionTs || 0; }).concat([0]))
         };
       });
     }
@@ -3269,7 +2640,7 @@
           if (!existing) keys.push({ key: key, number: number });
         });
       }
-      addKeys(qMap); addKeys(fMap); addKeys(lMap);
+      addKeys(qMap); addKeys(fMap);
       keys.sort(function (a, b) {
         if (a.number != null && b.number != null) return a.number - b.number;
         if (a.number != null) return -1;
@@ -3281,21 +2652,17 @@
         var chapter = entry.key;
         var qKey = chapterKeyFor('questions', chapter) || chapter;
         var fKey = chapterKeyFor('flashcards', chapter);
-        var lKey = chapterKeyFor('labs', chapter);
         var qItems = qMap[qKey] || [];
         var fItems = fKey ? (fMap[fKey] || []) : [];
-        var lItems = lKey ? (lMap[lKey] || []) : [];
         var qAnswers = allAnswers.filter(function (a) { return chapterKeyFor('questions', a.chapter) === qKey; });
         var qSeen = {}; qAnswers.forEach(function (a) { if (a.qId) qSeen[a.qId] = true; });
         var fReviews = allReviews.filter(function (r) {
           return chapterKeyFor('flashcards', r.chapter) === fKey || (!fKey && chapterKeyFor('questions', r.chapter) === qKey);
         });
         var fSeen = {}; fReviews.forEach(function (r) { if (r.cardId) fSeen[r.cardId] = true; });
-        var labsDoneCount = lItems.filter(function (lab) { return !!labsDone[lab._id]; }).length;
         var components = [];
         if (qItems.length) components.push(qItems.length ? Object.keys(qSeen).length / qItems.length : 0);
         if (fItems.length) components.push(fItems.length ? Object.keys(fSeen).length / fItems.length : 0);
-        if (lItems.length) components.push(labsDoneCount / lItems.length);
         var coverage = components.length ? Math.round((components.reduce(function (a, b) { return a + b; }, 0) / components.length) * 100) : 0;
         var qAccuracy = accuracy(qAnswers);
         var status = coverage >= 90 && (qAccuracy == null || qAccuracy >= 80) ? 'Strong' : coverage > 0 ? 'In progress' : 'Not started';
@@ -3306,19 +2673,16 @@
           title: chapterTitle(chapter),
           qKey: qKey,
           fKey: fKey,
-          lKey: lKey,
           questions: qItems,
           cards: fItems,
-          labs: lItems,
           qAnswers: qAnswers,
           fReviews: fReviews,
           seenQuestions: Object.keys(qSeen).length,
           reviewedCards: Object.keys(fSeen).length,
-          labsDone: labsDoneCount,
           coverage: Math.min(100, coverage),
           accuracy: qAccuracy,
           status: status,
-          lastTs: Math.max.apply(null, qAnswers.concat(fReviews).map(function (x) { return x.ts || x.sessionTs || 0; }).concat(lItems.map(function (x) { return labsDone[x._id] || 0; })).concat([0]))
+          lastTs: Math.max.apply(null, qAnswers.concat(fReviews).map(function (x) { return x.ts || x.sessionTs || 0; }).concat([0]))
         };
       });
     */
@@ -3448,9 +2812,6 @@
       } else if (type === 'flashcards' && row.fKey) {
         sessionStorage.setItem('reviewapp.fcSetup', JSON.stringify({ cert: certId, chapter: row.fKey }));
         App.core.navigate('#/flashcards');
-      } else if (type === 'labs' && row.lKey) {
-        sessionStorage.setItem('reviewapp.labsSetup', JSON.stringify({ cert: certId, chapter: row.lKey }));
-        App.core.navigate('#/labs');
       }
     }
 
@@ -3592,7 +2953,6 @@
       }
       coverageRow('Questions explored', Object.keys(seenQuestions).length, questions.length, certColor);
       coverageRow('Flashcards reviewed', Object.keys(reviewedCards).length, cards.length, 'var(--accent-cyan)');
-      coverageRow('Labs completed', labs.filter(function (lab) { return !!labsDone[lab._id]; }).length, labs.length, 'var(--accent-green)');
       coverageRow('Chapters completed', completedChapters, rows.length, 'var(--accent-amber)');
       coverageDetails.appendChild(el('div', { className: 'stats-coverage-summary' }, [el('span', { text: inProgressChapters + ' chapters in progress' }), el('span', { text: Math.max(0, rows.length - completedChapters - inProgressChapters) + ' not started' })]));
       coverageGrid.appendChild(coverageDetails); coverageSection.appendChild(coverageGrid); body.appendChild(coverageSection);
@@ -3602,7 +2962,7 @@
       else {
         var chapterTable = el('div', { className: 'stats-chapter-table', role: 'table', 'aria-label': 'Chapter performance' });
         var tableHead = el('div', { className: 'stats-chapter-head', role: 'row' });
-        ['Chapter', 'Coverage', 'Accuracy', 'Questions', 'Cards', 'Labs', 'Status'].forEach(function (label) { tableHead.appendChild(el('span', { role: 'columnheader', text: label })); });
+        ['Chapter', 'Coverage', 'Accuracy', 'Questions', 'Cards', 'Status'].forEach(function (label) { tableHead.appendChild(el('span', { role: 'columnheader', text: label })); });
         chapterTable.appendChild(tableHead);
         rows.forEach(function (row) {
           var details = el('details', { className: 'stats-chapter-details' });
@@ -3612,7 +2972,6 @@
           summary.appendChild(el('span', { text: row.accuracy == null ? '—' : row.accuracy + '%' }));
           summary.appendChild(el('span', { text: row.questions.length ? row.seenQuestions + ' / ' + row.questions.length : '—' }));
           summary.appendChild(el('span', { text: row.cards.length ? row.reviewedCards + ' / ' + row.cards.length : '—' }));
-          summary.appendChild(el('span', { text: row.labs.length ? row.labsDone + ' / ' + row.labs.length : '—' }));
           summary.appendChild(el('span', { className: 'stats-status ' + row.status.toLowerCase().replace(/\s/g, '-'), text: row.status }));
           details.appendChild(summary);
           var detail = el('div', { className: 'stats-chapter-detail' });
@@ -3620,7 +2979,6 @@
           var actions = el('div', { className: 'stats-action-row' });
           if (row.questions.length) actions.appendChild(el('button', { className: 'btn btn-primary btn-xs', text: 'Quiz', onClick: function (e) { e.preventDefault(); launchChapter('quiz', row); } }));
           if (row.cards.length) actions.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Flashcards', onClick: function (e) { e.preventDefault(); launchChapter('flashcards', row); } }));
-          if (row.labs.length) actions.appendChild(el('button', { className: 'btn btn-secondary btn-xs', text: 'Labs', onClick: function (e) { e.preventDefault(); launchChapter('labs', row); } }));
           var note = App.content.getChapterNotes(certId).find(function (n) { return n._chapter === row.qKey || (App.content.chapterNumber(n._chapter) != null && App.content.chapterNumber(n._chapter) === App.content.chapterNumber(row.qKey)); });
           if (note) actions.appendChild(el('button', { className: 'btn btn-ghost btn-xs', text: 'Notes', onClick: function (e) { e.preventDefault(); App.core.navigate('#/notes/' + encodeURIComponent(note._id)); } }));
           detail.appendChild(actions); details.appendChild(detail); chapterTable.appendChild(details);
@@ -3718,15 +3076,6 @@
         else readinessFill.style.width = Math.min(100, avgScore) + '%';
       }
       body.appendChild(examSection);
-
-      var labsSection = section('Hands-on practice', 'Labs progress', labs.length ? compactNumber(labs.filter(function (l) { return labsDone[l._id]; }).length) + ' / ' + compactNumber(labs.length) + ' completed' : 'No labs loaded', 'stats-labs-section');
-      if (!labs.length) labsSection.appendChild(emptyPanel('No labs available', 'This certification does not currently provide lab content.'));
-      else {
-        var labRows = rows.filter(function (r) { return r.labs.length; }).map(function (r) { return { label: r.number + ' · ' + r.title, value: Math.round(r.labsDone / r.labs.length * 100) }; });
-        labsSection.appendChild(renderHorizontalBars(labRows, 'var(--accent-green)'));
-        labsSection.appendChild(el('div', { className: 'stats-section-footer' }, [el('span', { className: 'text-muted', text: compactNumber(labs.filter(function (l) { return labsDone[l._id]; }).length) + ' completed · ' + compactNumber(labs.filter(function (l) { return !labsDone[l._id]; }).length) + ' remaining' }), el('button', { className: 'btn btn-secondary btn-sm', text: 'Open Labs', onClick: function () { App.core.navigate('#/labs'); } })]));
-      }
-      body.appendChild(labsSection);
 
       var consistency = section('Consistency', 'Study activity & consistency', selectedDays == null ? 'All recorded activity' : 'Last ' + selectedDays + ' days', 'stats-consistency-section');
       var events = activityEvents().filter(function (event) { return !selectedDays || inRange(event.ts, selectedDays); });
@@ -5041,8 +4390,8 @@
 
   var BACKUP_TYPE_META = [
     { id: 'everything', title: 'Everything', desc: 'Study data + certification material' },
-    { id: 'user', title: 'Statistics & Study Data', desc: 'Progress, answers, flashcard history, exams, labs, notes, and study activity.' },
-    { id: 'material', title: 'Study Material', desc: 'Questions, flashcards, labs, notes, and certification metadata.' }
+    { id: 'user', title: 'Statistics & Study Data', desc: 'Progress, answers, flashcard history, exams, notes, and study activity.' },
+    { id: 'material', title: 'Study Material', desc: 'Questions, flashcards, notes, and certification metadata.' }
   ];
 
   function backupIcon(kind) {
@@ -5243,7 +4592,7 @@
         if (pkg.manifest.includesUserData) {
           preview.appendChild(el('div', { className: 'backup-preview-block' }, [
             el('strong', { text: 'User data' }),
-            el('p', { className: 'text-muted mb-0', text: '✓ Quiz statistics · ✓ Flashcard history · ✓ Exam history · ✓ Lab progress · ✓ Personal notes · ✓ Study activity' })
+            el('p', { className: 'text-muted mb-0', text: '✓ Quiz statistics · ✓ Flashcard history · ✓ Exam history · ✓ Personal notes · ✓ Study activity' })
           ]));
         }
         if (pkg.manifest.includesStudyMaterial) {
@@ -5428,7 +4777,7 @@
     fileInp.addEventListener('change', function () {
       if (!fileInp.files || !fileInp.files.length) return;
       App.content.deepScan(fileInp.files, saveSnap.checked, function (found) {
-        App.toast('Deep-scan: ' + found.questions + ' Q · ' + found.flashcards + ' cards · ' + found.labs + ' labs · ' + found.notes + ' notes from ' + found.files + ' files', 'success', 4500);
+        App.toast('Deep-scan: ' + found.questions + ' Q · ' + found.flashcards + ' cards · ' + found.notes + ' notes from ' + found.files + ' files', 'success', 4500);
         App.core.handleRoute();
       });
     });
@@ -5440,10 +4789,10 @@
     root.appendChild(el('div', { className: 'settings-section', text: 'About' }));
     var about = el('div', { className: 'panel' });
     about.appendChild(el('div', { className: 'label-upper mb-1', text: 'About' }));
-    about.appendChild(el('p', { text: 'ReviewApp v1.3.5 — offline study hub for CompTIA Linux+ and Network+.' }));
+    about.appendChild(el('p', { text: 'ReviewApp v1.5.0 — offline study hub for CompTIA Linux+ and Network+.' }));
     about.appendChild(el('p', { className: 'text-muted', style: { fontSize: '0.85rem' }, text: 'Vanilla HTML/CSS/JS. No network required. All data stays in your browser.' }));
     var c = App.content.counts();
-    about.appendChild(el('p', { className: 'mono text-muted mt-1', style: { fontSize: '0.8rem' }, text: 'Loaded: ' + c.questions + 'Q · ' + c.flashcards + 'C · ' + c.labs + 'L · ' + c.notes + 'N' }));
+    about.appendChild(el('p', { className: 'mono text-muted mt-1', style: { fontSize: '0.8rem' }, text: 'Loaded: ' + c.questions + 'Q · ' + c.flashcards + 'C · ' + c.notes + 'N' }));
     var attribution = el('div', { className: 'about-attribution' });
     var codeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     codeIcon.setAttribute('width', '13');
@@ -5459,13 +4808,11 @@
   }
 
   App.views = App.views || {};
-  App.views.labMockItems = labMockItems;
 
   App.core.registerRoute('dashboard', viewDashboardCommand);
   App.core.registerRoute('quiz', viewQuiz);
   App.core.registerRoute('exam', viewExam);
   App.core.registerRoute('flashcards', viewFlashcards);
-  App.core.registerRoute('labs', viewLabs);
   App.core.registerRoute('stats', viewStats);
   App.core.registerRoute('notes', viewNotes);
   App.core.registerRoute('tools', viewTools);

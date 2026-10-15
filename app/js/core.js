@@ -271,7 +271,7 @@
 
   var ROUTE_TITLES = {
     dashboard: 'Dashboard', quiz: 'Quiz', exam: 'Exam Sim', flashcards: 'Flashcards',
-    labs: 'Labs', stats: 'Stats', notes: 'Notes', tools: 'Tools', settings: 'Settings'
+    stats: 'Stats', notes: 'Notes', tools: 'Tools', settings: 'Settings'
   };
 
   function handleRoute() {
@@ -591,27 +591,6 @@
       if (App.quiz.discardExam) App.quiz.discardExam();
     }
     if (App.flashcards && App.flashcards.cancelSession) App.flashcards.cancelSession();
-
-    // Lab step completion is the lab's saved in-progress state. Completed labs
-    // remain untouched; only partial work for the previous certification is    // removed, identified from the lab content rather than the step key.
-    if (App.store && App.store.get) {
-      var stepsDone = App.store.get('labStepsDone', {});
-      var labs = App.content && App.content.getAll ? App.content.getAll('labs') : [];
-      var previousLabIds = {};
-      labs.forEach(function (lab) {
-        if (lab._cert === currentCertId) previousLabIds[lab._id] = true;
-      });
-      var changed = false;
-      Object.keys(stepsDone).forEach(function (key) {
-        var separator = key.lastIndexOf(':');
-        var labId = separator >= 0 ? key.slice(0, separator) : key;
-        if (previousLabIds[labId]) {
-          delete stepsDone[key];
-          changed = true;
-        }
-      });
-      if (changed) App.store.set('labStepsDone', stepsDone);
-    }
   }
 
   function activeSessionForCert() {
@@ -651,8 +630,8 @@
     if (currentCertId === id) { updateCertSelector(); return true; }
 
     // Switching certification intentionally discards all partial practice
-    // state. Quiz/flashcard attempts are deferred until completion, and lab
-    // steps are progress state rather than statistics, so none of it counts.
+    // state. Quiz/flashcard attempts are deferred until completion,
+    // so none of it counts.
     cancelActiveStudySessions();
     pauseActiveSessionTimers();
     currentCertId = id;
@@ -700,8 +679,7 @@
     if (!App.content || !App.content.getByCert) return '';
     var q = App.content.getByCert('questions', id).length;
     var c = App.content.getByCert('flashcards', id).length;
-    var l = App.content.getByCert('labs', id).length;
-    return q + ' Q · ' + c + ' cards · ' + l + ' labs';
+    return q + ' Q · ' + c + ' cards';
   }
 
   function updateCertSelector() {

@@ -12,7 +12,6 @@
     certs: [],
     questions: [],
     flashcards: [],
-    labs: [],
     notes: []
   };
   var manifest = null;
@@ -53,8 +52,6 @@
         registry.questions.push(entry);
       } else if (type === 'flashcards') {
         registry.flashcards.push(entry);
-      } else if (type === 'labs') {
-        registry.labs.push(entry);
       } else if (type === 'notes') {
         registry.notes.push(entry);
       }
@@ -64,7 +61,6 @@
   function wipe() {
     registry.questions = [];
     registry.flashcards = [];
-    registry.labs = [];
     registry.notes = [];
     invalidateCache();
   }
@@ -165,10 +161,9 @@
         if (App.core && App.core.updateCertSelector) App.core.updateCertSelector();
         var q = registry.questions.length;
         var c = registry.flashcards.length;
-        var l = registry.labs.length;
         var n = registry.notes.length;
         var nc = registry.certs.length;
-        App.toast('Loaded ' + q + ' questions · ' + c + ' cards · ' + l + ' labs · ' + n + ' notes from ' + nc + ' certifications', 'success', 4000);
+        App.toast('Loaded ' + q + ' questions · ' + c + ' cards · ' + n + ' notes from ' + nc + ' certifications', 'success', 4000);
         App.core.handleRoute();
       });
     }, function () {
@@ -179,7 +174,7 @@
   /* ── Deep scan ──────────────────────────────────────────── */
   function deepScan(files, saveSnapshot, cb) {
     wipe();
-    var found = { questions: 0, flashcards: 0, labs: 0, notes: 0, files: 0 };
+    var found = { questions: 0, flashcards: 0, notes: 0, files: 0 };
     var pending = 0;
     var done = 0;
 
@@ -224,12 +219,10 @@
             var url = URL.createObjectURL(blob);
             var beforeQ = registry.questions.length;
             var beforeC = registry.flashcards.length;
-            var beforeL = registry.labs.length;
             var beforeN = registry.notes.length;
             injectScript(url, function () {
               found.questions += registry.questions.length - beforeQ;
               found.flashcards += registry.flashcards.length - beforeC;
-              found.labs += registry.labs.length - beforeL;
               found.notes += registry.notes.length - beforeN;
               URL.revokeObjectURL(url);
               finishOne();
@@ -260,7 +253,6 @@
   function getAll(type) {
     if (type === 'questions') return registry.questions.slice();
     if (type === 'flashcards') return registry.flashcards.slice();
-    if (type === 'labs') return registry.labs.slice();
     if (type === 'notes') return registry.notes.slice();
     return [];
   }
@@ -360,7 +352,6 @@
     return {
       questions: registry.questions.length,
       flashcards: registry.flashcards.length,
-      labs: registry.labs.length,
       notes: registry.notes.length,
       certs: registry.certs.length
     };
@@ -463,24 +454,6 @@
               body.textContent = item.q;
             }
             App.core.openModal(body, { title: 'Practice Question' });
-          }
-        });
-      }
-    });
-
-    // Labs stay scoped to the current certification: they are never returned
-    // as cross-certification search results.
-    var curCert = currentCertId();
-    registry.labs.forEach(function (item) {
-      if (curCert && item._cert !== curCert) return;
-      var text = (item.title || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.scenario || '');
-      if (text.toLowerCase().indexOf(q) >= 0) {
-        results.push({
-          group: 'Labs',
-          title: item.title,
-          meta: certName(item._cert) + ' · difficulty ' + (item.difficulty || '?'),
-          action: function () {
-            App.core.navigate('#/labs/' + encodeURIComponent(item._id));
           }
         });
       }

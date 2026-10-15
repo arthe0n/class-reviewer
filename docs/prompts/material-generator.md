@@ -1,13 +1,13 @@
 # Material Generator — Certification-Aware Master Prompts
 
-Five independent, self-contained master prompts for generating ReviewApp study
-content (Flashcards, Questions, Labs, Notes, Command Summary) from raw notes
+Four independent, self-contained master prompts for generating ReviewApp study
+content (Flashcards, Questions, Notes, Command Summary) from raw notes
 for **any** IT/cybersecurity/networking certification — CompTIA or otherwise.
 
 **Content-bank policy:** Flashcards and Questions each produce a single bank
 of 75–100 items per chapter/topic — never fewer than 75, never more than 100 —
 built from the chapter's most important material (see each prompt's
-"Quantity window" rule). Labs, Notes, and Command Summary have no fixed count.
+"Quantity window" rule). Notes and Command Summary have no fixed count.
 
 **How to use:** copy exactly one section below (from its `## Name` heading to
 the next `=====================` separator), paste it into a fresh LLM
@@ -437,172 +437,6 @@ explanation, no preamble, no commentary before or after. The response must
 start with `window.ReviewApp.content.register(` and contain nothing else.
 
 =====================
-
-## Labs
-
-You are an expert certification-content architect generating **hands-on
-labs** for the ReviewApp study platform, from raw source notes the user will
-attach or paste below these instructions. Work entirely from this prompt —
-do not assume any other instructions were given previously.
-
-### Step 1 — Identify the certification and domain
-
-Analyze the supplied notes and determine the certification/family, domain,
-chapter/topic, and the kinds of technical entities present (commands,
-syntax, protocols, configuration, logs, procedures, etc.), using explicit
-names/codes when present and inference from terminology otherwise. Never
-stop to ask a question — make the most reasonable inference and proceed.
-
-### Step 2 — Determine what a "lab" means for this domain
-
-Do not assume every certification supports a terminal/shell lab. Adapt the
-lab format to what the source material can actually support:
-
-- **Command-line/OS topics (Linux+, etc.):** real shell commands, files,
-  permissions, processes, services, logs, configuration, troubleshooting —
-  using commands appropriate to the actual OS/tool discussed in the notes.
-- **Networking topics:** subnetting/address-planning exercises, command-
-  output analysis, topology interpretation, configuration analysis,
-  simulated diagnostic/troubleshooting tasks — using realistic commands or
-  clearly-simulated exercises where a live network isn't implied.
-- **Security topics:** log analysis, access-control scenarios,
-  configuration review, policy analysis, cryptographic reasoning, incident
-  scenarios, architecture decisions, evidence interpretation.
-- **Analyst/SOC topics:** log triage, indicator/alert analysis, threat
-  detection reasoning, vulnerability prioritization, SIEM-style analysis
-  using provided mock data, IOC extraction, investigation workflows.
-- **Conceptual topics with no natural hands-on analog:** only build a
-  practical exercise if the notes genuinely support one (e.g. a worked
-  calculation, a decision exercise using provided data). Do not invent fake
-  interactivity or a lab environment the app cannot support.
-
-A lab may use: shell commands, provided mock data, logs, configuration
-snippets, simulated output, or deterministic text-based analysis exercises.
-Every lab must produce a meaningful, observable learning result the learner
-can verify against `check`/`expectedOutput`.
-
-Do not write OS-specific rules ("solutions must be real Linux commands that
-work on a standard distro") unless the notes are actually about that OS.
-For command-line topics, use real commands for the OS/tool the notes
-discuss; for networking, use realistic or clearly-simulated commands; for
-security-analysis topics, use safe, realistic data.
-
-**Minimum coverage:** produce at least 4–5 distinct labs for the
-chapter/topic, provided the notes contain enough genuinely distinct,
-lab-worthy material to support that many without inventing fake
-interactivity — scale up when the source is large enough to justify more
-separate labs (e.g. distinct sub-topics each warranting their own
-scenario). Never pad toward the minimum with filler or artificial
-interactivity; if the notes only support one coherent hands-on scenario,
-produce that one well-built lab rather than splitting it into
-artificially thin ones just to hit a count.
-
-### Step 3 — Source fidelity
-
-The notes are the primary source of truth for scenario content. You may use
-general domain knowledge to write technically correct commands/solutions
-and realistic mock data, but never fabricate a command, flag, port,
-protocol, or config syntax that isn't real and correct for the stated
-context.
-
-### Step 4 — Output schema (exact — do not modify)
-
-Emit exactly one JavaScript file calling `window.ReviewApp.content.register`:
-
-```js
-window.ReviewApp.content.register({
-  type: "labs",
-  cert: "<normalized-cert-slug>",
-  chapter: "<chapter/topic label>",
-  items: [
-    {
-      title: "<lab title>",
-      difficulty: 1,
-      minutes: 20,
-      scenario: "<markdown context/story>",
-      objectives: ["<objective 1>", "<objective 2>"],
-      objectiveSteps: [[0], [1]],
-      mockData: ["<optional supplied file/data snippet>"],
-      steps: [
-        {
-          do: "<instruction>",
-          command: "<optional internal command metadata, not shown to learner>",
-          hint: "<revealable guidance — never gives away the solution>",
-          solution: "<revealable, copyable answer>",
-          expectedOutput: "<concrete representative output, or '(no output)'>",
-          expectedOutputDynamic: false,
-          check: "<one-line learner-facing verification guidance>"
-        }
-      ],
-      tags: ["<lowercase>", "<tags>"]
-    }
-  ]
-});
-```
-
-Field rules:
-
-- `cert` / `chapter`: same rules as the Flashcards prompt.
-- `title`: required, concise.
-- `difficulty`: optional, integer 1–3.
-- `minutes`: optional, realistic estimate for the actual work involved.
-- `scenario`: required markdown string giving context/story for the lab.
-- `objectives`: optional checklist of what the learner accomplishes.
-- `objectiveSteps`: optional array parallel to `objectives`, each entry a
-  step index or array of step indices that satisfy that objective. Omit
-  when objective *i* maps cleanly to step *i* — it defaults that way.
-- `mockData`: optional array of supplied files/data/log excerpts the
-  learner works from, when the exercise needs simulated input.
-- `steps`: required array. Each step's `do` is required; `command` is
-  optional internal metadata not surfaced to the learner; `hint`,
-  `solution`, `expectedOutput`, `expectedOutputDynamic`, and `check` are
-  optional but strongly encouraged where they add real value.
-- `tags`: lowercase, concise, certification-aware.
-- Do not add fields beyond this schema. Do not rename fields. Do not
-  introduce JSON, TypeScript, or a different `register()` shape.
-- Any literal double quote inside `scenario`, `objectives`, `mockData`,
-  `steps[].do`, `steps[].hint`, `steps[].solution`,
-  `steps[].expectedOutput`, `steps[].check`, or `tags` must be escaped as
-  `\"` so the file remains valid JavaScript. The same applies to any
-  literal backslash (`\\`) in a command or path (e.g. `C:\\Users\\...`).
-  Never leave an unescaped `"` inside a string literal.
-
-### Step 5 — Hint/solution/output discipline (strict separation)
-
-- **hint** = guidance only. It must never accidentally reveal the solution
-  or make it trivially derivable.
-- **solution** = the actual answer (a real command, config snippet, or
-  worked answer), copyable as-is.
-- **expectedOutput** = a concrete, representative result of running the
-  solution. Use `expectedOutputDynamic: true` when output legitimately
-  varies by system/run (timestamps, PIDs, hostnames, etc.) rather than
-  inventing a fake-precise output. Use `"(no output)"` when that's the
-  realistic result.
-- **check** = a short, learner-facing description of how to verify success
-  — not a restatement of the solution.
-
-### Step 6 — Internal validation (perform silently, do not narrate)
-
-Before finalizing, internally check:
-1. Certification/domain correctly identified; lab format matches what the
-   domain can actually support (Step 2) — no fake interactivity.
-2. Every command/config/solution is real and correct for the stated
-   OS/tool/context — nothing fabricated.
-3. hint never leaks the solution; solution is complete and correct;
-   expectedOutput is realistic (or correctly marked dynamic).
-4. `objectives`/`objectiveSteps` correctly correspond to `steps`.
-5. `difficulty`/`minutes` are realistic for the actual work involved.
-6. No placeholders, no filler steps, no invented interactivity.
-7. `cert`, `chapter`, and `tags` correctly formed.
-8. The output is valid, complete JavaScript matching the schema exactly.
-
-Do not show this checklist or your reasoning in the output.
-
-### Step 7 — Output purity (strict)
-
-Output **only** the complete `.js` file content. No markdown code fences, no
-explanation, no preamble, no commentary before or after. The response must
-start with `window.ReviewApp.content.register(` and contain nothing else.
 
 =====================
 

@@ -1,6 +1,6 @@
 /* ReviewApp content manifest — the ONLY file to update when adding content */
 window.ReviewApp.content.setManifest({
-  contentVersion: "1.2.6",
+  contentVersion: "1.3.0",
   certs: [
     { id: "linux-plus", name: "CompTIA Linux+", color: "#f8a63b" },
     { id: "network-plus", name: "CompTIA Network+", color: "#5ad1e6" },
@@ -10,7 +10,6 @@ window.ReviewApp.content.setManifest({
     // ====================  Class  ====================
     // ----------------- Flashcards -----------------
     // ----------------- Questions -----------------
-    // ----------------- Labs -----------------
     // ----------------- Notes -----------------
 
 
@@ -30,11 +29,6 @@ window.ReviewApp.content.setManifest({
     "linux-plus/questions/ch04-filtering-redirecting-editing-flashcards.js",
 
 
-    // ----------------- Labs -----------------
-    "linux-plus/labs/ch01-exploring-linux-labs.js",
-    "linux-plus/labs/ch02-servers-services-security-labs.js",
-    "linux-plus/labs/ch03-files-dirs-search-labs.js",
-    "linux-plus/labs/ch04-filtering-redirecting-editing-labs.js",
 
     // ----------------- Notes -----------------
     "linux-plus/notes/ch01-notes.js",
@@ -54,10 +48,6 @@ window.ReviewApp.content.setManifest({
     "network-plus/questions/ch01-intro-to-networking-questions.js",
     "network-plus/questions/ch02-infrastructure-documentation-questions.js",
     "network-plus/questions/ch03-addressing-ports-dns-troubleshooting-questions.js",
-    // ----------------- Labs -----------------
-    "network-plus/labs/ch01-intro-to-networking-labs.js",
-    "network-plus/labs/ch02-infrastructure-documentation-labs.js",
-    "network-plus/labs/ch03-addressing-ports-dns-troubleshooting-labs.js",
     // ----------------- Notes -----------------
     "network-plus/notes/ch01-notes.js",
     "network-plus/notes/ch02-notes.js",

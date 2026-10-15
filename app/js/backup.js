@@ -12,15 +12,15 @@
   var BACKUP_VERSION = 2;
   var LEGACY_BACKUP_VERSION = 1;
   var LEGACY_USER_KEYS = [
-    'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews',
+    'answers', 'streak', 'exams', 'leitner', 'cardReviews',
     'flashSessions', 'flashSession', 'personalNotes', 'timeOnTask'
   ];
   var USER_KEYS = [
-    'currentCert', 'settings', 'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews',
+    'currentCert', 'settings', 'answers', 'streak', 'exams', 'leitner', 'cardReviews',
     'flashSessions', 'flashSession', 'quizSession', 'examSession', 'personalNotes', 'timeOnTask'
   ];
   var USER_ARRAY_KEYS = ['answers', 'exams', 'cardReviews', 'flashSessions', 'personalNotes'];
-  var MATERIAL_TYPES = ['questions', 'flashcards', 'labs', 'notes'];
+  var MATERIAL_TYPES = ['questions', 'flashcards', 'notes'];
   var MAX_ENTRIES = 5000;
   var MAX_UNCOMPRESSED = 100 * 1024 * 1024;
 
@@ -94,8 +94,6 @@
     addArray(data.cardReviews, function (item) { return item.cert || item._cert; });
     addArray(data.flashSessions, function (item) { return item.cert || item._cert; });
     addArray(data.personalNotes, function (item) { return item.cert || item._cert; });
-    Object.keys(data.labsDone || {}).forEach(function (key) { add(key.split(':')[0]); });
-    Object.keys(data.labStepsDone || {}).forEach(function (key) { add(key.split(':')[0]); });
     Object.keys(data.leitner || {}).forEach(function (key) { add(key.split(':')[0]); });
     if (data.flashSession) add(data.flashSession.cert || data.flashSession._cert);
     if (data.quizSession) add(data.quizSession.cert || data.quizSession._cert);
@@ -110,7 +108,7 @@
       var fallback;
       if (name === 'currentCert' || name === 'flashSession' || name === 'quizSession' || name === 'examSession') fallback = null;
       else if (name === 'settings') fallback = {};
-      else if (name === 'labsDone' || name === 'labStepsDone' || name === 'leitner') fallback = {};
+      else if (name === 'leitner') fallback = {};
       else if (name === 'timeOnTask') fallback = 0;
       else fallback = [];
       data[name] = clone(App.store.get(name, fallback));
@@ -123,7 +121,7 @@
     var current = App.content.getRegistry() || {};
     var allowed = {};
     ids.forEach(function (id) { allowed[id] = true; });
-    var registry = { certs: [], questions: [], flashcards: [], labs: [], notes: [] };
+    var registry = { certs: [], questions: [], flashcards: [], notes: [] };
     registry.certs = (current.certs || []).filter(function (cert) { return allowed[cert.id]; }).map(clone);
     MATERIAL_TYPES.forEach(function (type) {
       registry[type] = (current[type] || []).filter(function (item) { return allowed[item._cert]; }).map(clone);
@@ -592,8 +590,6 @@
     expectedUserKeys.forEach(function (key) { data[key] = parseJSON(pkg.entries, 'user-data/' + key + '.json', true); });
     var scope = unique((index.certifications || []).filter(safeId));
     USER_ARRAY_KEYS.forEach(function (key) { mergeArray(key, data[key], scope); });
-    mergeObject('labsDone', data.labsDone, scope);
-    mergeObject('labStepsDone', data.labStepsDone, scope);
     mergeObject('leitner', data.leitner, scope);
     if (data.streak) App.store.set('streak', clone(data.streak));
     if (data.timeOnTask != null) App.store.set('timeOnTask', data.timeOnTask);
@@ -621,7 +617,7 @@
     if (!pkg.snapshot) return Promise.resolve({ imported: 0, replaced: 0, kept: 0 });
     var imported = pkg.snapshot.registry;
     var ids = pkg.certifications.map(function (cert) { return cert.id; });
-    var current = clone(App.content.getRegistry() || { certs: [], questions: [], flashcards: [], labs: [], notes: [] });
+    var current = clone(App.content.getRegistry() || { certs: [], questions: [], flashcards: [], notes: [] });
     var replace = {};
     var kept = {};
     ids.forEach(function (id) {
@@ -629,7 +625,7 @@
       if (decision === 'replace') replace[id] = true;
       else kept[id] = true;
     });
-    var registry = { certs: [], questions: [], flashcards: [], labs: [], notes: [] };
+    var registry = { certs: [], questions: [], flashcards: [], notes: [] };
     registry.certs = (current.certs || []).filter(function (cert) { return !replace[cert.id]; }).map(clone);
     // Imported certifications replace conflicting material or append as new.
     ids.forEach(function (id) {

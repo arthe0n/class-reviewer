@@ -10,7 +10,6 @@ The versioned `ReviewAppUserData` database (currently schema version 2) stores:
 
 - active certification and application settings;
 - quiz answers, exam attempts, streak, and time-on-task;
-- lab completion and per-step progress;
 - flashcard Leitner state, review history, summaries, and active sessions;
 - active Quiz and Exam sessions so they can be resumed after a reload;
 - personal notes; and
@@ -24,7 +23,7 @@ database and migration to finish before rendering the application.
 ## What remains file-based
 
 Certification material is not migrated into the database as the source of
-truth. Questions, flashcards, labs, notes, certification metadata, and the
+truth. Questions, flashcards, notes, certification metadata, and the
 manifest remain under `certifications/` and are loaded through
 `certifications/_manifest.js`.
 

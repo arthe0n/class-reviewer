@@ -10,10 +10,10 @@ practical details.
 - **[Persistence Architecture](./PERSISTENCE.md)** — IndexedDB storage, migration, and recovery.
 - **[Adding Certifications & Content](./CONTENT.md)** — how to register and write study material.
 - **[Study Flows](./STUDY-FLOWS.md)** — how the app is meant to be used day to day.
-- **[Content Format](./CONTENT_FORMAT.md)** — full question/flashcard/lab/note schemas.
+- **[Content Format](./CONTENT_FORMAT.md)** — full question/flashcard/note schemas.
 
 **AI prompts**
 
 Prompt templates are grouped in [`prompts/`](./prompts/). See [`prompts/README.md`](./prompts/README.md) for the index.
 
-- **[Material Generator prompts](./prompts/material-generator.md)** — copy-and-paste prompts for generating ReviewApp content files (flashcards, questions, labs, notes) from your notes.
+- **[Material Generator prompts](./prompts/material-generator.md)** — copy-and-paste prompts for generating ReviewApp content files (flashcards, questions, notes) from your notes.

@@ -31,8 +31,6 @@
     answers: [],
     streak: { last: null, count: 0, best: 0 },
     exams: [],
-    labsDone: {},
-    labStepsDone: {},
     leitner: {},
     cardReviews: [],
     flashSessions: [],
@@ -63,8 +61,6 @@
     memory.answers = [];
     memory.streak = { last: null, count: 0, best: 0 };
     memory.exams = [];
-    memory.labsDone = {};
-    memory.labStepsDone = {};
     memory.leitner = {};
     memory.cardReviews = [];
     memory.flashSessions = [];
@@ -137,15 +133,6 @@
     return colon > 0 ? text.slice(0, colon) : null;
   }
 
-  function labIdAndStep(value) {
-    var text = String(value || '');
-    var colon = text.lastIndexOf(':');
-    if (colon <= 0) return null;
-    var index = Number(text.slice(colon + 1));
-    if (!isFinite(index) || index < 0) return null;
-    return { labId: text.slice(0, colon), stepIndex: index };
-  }
-
   function normalizeSettings(value, directTheme, directSidebar, warnings) {
     var settings = clone(DEFAULT_SETTINGS);
     if (isObject(value)) {
@@ -169,35 +156,8 @@
     var flashSessions = objectArray(readLegacyJson('flashSessions', [], warnings).value, 'flashSessions', 200, warnings, true);
     var personalNotes = objectArray(readLegacyJson('personalNotes', [], warnings).value, 'personalNotes', 5000, warnings, false);
 
-    var labsDone = objectMap(readLegacyJson('labsDone', {}, warnings).value, 'labsDone', warnings);
-    var labStepsDone = objectMap(readLegacyJson('labStepsDone', {}, warnings).value, 'labStepsDone', warnings);
     var leitner = objectMap(readLegacyJson('leitner', {}, warnings).value, 'leitner', warnings);
-    var labProgress = [];
 
-    Object.keys(labsDone).forEach(function (labId) {
-      var ts = Number(labsDone[labId]);
-      if (!isFinite(ts) || ts <= 0) return;
-      labProgress.push({
-        key: labId,
-        kind: 'lab',
-        labId: labId,
-        cert: certFromKey(labId),
-        completedAt: ts
-      });
-    });
-    Object.keys(labStepsDone).forEach(function (stepKey) {
-      var parsed = labIdAndStep(stepKey);
-      var ts = Number(labStepsDone[stepKey]);
-      if (!parsed || !isFinite(ts) || ts <= 0) return;
-      labProgress.push({
-        key: stepKey,
-        kind: 'step',
-        labId: parsed.labId,
-        stepIndex: parsed.stepIndex,
-        cert: certFromKey(parsed.labId),
-        completedAt: ts
-      });
-    });
 
     var leitnerRecords = [];
     Object.keys(leitner).forEach(function (cardKey) {
@@ -258,7 +218,6 @@
       settings: [{ key: 'settings', value: settings, updatedAt: Date.now() }],
       answers: answers,
       exams: exams,
-      labProgress: labProgress,
       leitner: leitnerRecords,
       cardReviews: cardReviews,
       flashSessions: flashSessions,
@@ -292,7 +251,6 @@
       App.persistence.get('settings', 'settings'),
       App.persistence.getAll('answers'),
       App.persistence.getAll('exams'),
-      App.persistence.getAll('labProgress'),
       App.persistence.getAll('leitner'),
       App.persistence.getAll('cardReviews'),
       App.persistence.getAll('flashSessions'),
@@ -308,32 +266,25 @@
       memory.settings = normalizeSettings(all[1] && all[1].value, null, null, []);
       memory.answers = all[2].filter(isObject);
       memory.exams = all[3].filter(isObject);
-      memory.labsDone = {};
-      memory.labStepsDone = {};
-      all[4].forEach(function (record) {
-        if (!record || !record.key || !record.completedAt) return;
-        if (record.kind === 'lab') memory.labsDone[record.labId || record.key] = record.completedAt;
-        if (record.kind === 'step') memory.labStepsDone[record.key] = record.completedAt;
-      });
       memory.leitner = {};
-      all[5].forEach(function (record) {
+      all[4].forEach(function (record) {
         if (record && record.cardKey) memory.leitner[record.cardKey] = {
           box: Number(record.box) || 1,
           lastSeen: Number(record.lastSeen) || 0,
           nextDue: Number(record.nextDue) || 0
         };
       });
-      memory.cardReviews = all[6].filter(isObject);
-      memory.flashSessions = all[7].filter(isObject);
+      memory.cardReviews = all[5].filter(isObject);
+      memory.flashSessions = all[6].filter(isObject);
       memory.activeSessions = {};
-      all[8].forEach(function (record) {
+      all[7].forEach(function (record) {
         if (record && record.type && record.state) memory.activeSessions[record.type] = record.state;
       });
-      memory.personalNotes = all[9].filter(isObject);
-      memory.contentSnapshot = all[10] && all[10].registry ? {
-        registry: all[10].registry,
-        manifest: all[10].manifest || null,
-        ts: all[10].ts || 0
+      memory.personalNotes = all[8].filter(isObject);
+      memory.contentSnapshot = all[9] && all[9].registry ? {
+        registry: all[9].registry,
+        manifest: all[9].manifest || null,
+        ts: all[9].ts || 0
       } : null;
     });
   }
@@ -391,19 +342,6 @@
     return { key: 'settings', value: clone(memory.settings), updatedAt: Date.now() };
   }
 
-  function labRecords() {
-    var records = [];
-    Object.keys(memory.labsDone).forEach(function (labId) {
-      records.push({ key: labId, kind: 'lab', labId: labId, cert: certFromKey(labId), completedAt: memory.labsDone[labId] });
-    });
-    Object.keys(memory.labStepsDone).forEach(function (stepKey) {
-      var parsed = labIdAndStep(stepKey);
-      if (!parsed) return;
-      records.push({ key: stepKey, kind: 'step', labId: parsed.labId, stepIndex: parsed.stepIndex, cert: certFromKey(parsed.labId), completedAt: memory.labStepsDone[stepKey] });
-    });
-    return records;
-  }
-
   function leitnerRecords() {
     return Object.keys(memory.leitner).map(function (cardKey) {
       var state = memory.leitner[cardKey] || {};
@@ -425,7 +363,6 @@
     if (name === 'settings') return App.persistence.put('settings', settingsRecord());
     if (name === 'answers') return App.persistence.replace('answers', memory.answers);
     if (name === 'exams') return App.persistence.replace('exams', memory.exams);
-    if (name === 'labsDone' || name === 'labStepsDone') return App.persistence.replace('labProgress', labRecords());
     if (name === 'leitner') return App.persistence.replace('leitner', leitnerRecords());
     if (name === 'cardReviews') return App.persistence.replace('cardReviews', memory.cardReviews);
     if (name === 'flashSessions') return App.persistence.replace('flashSessions', memory.flashSessions);
@@ -455,8 +392,6 @@
     else if (name === 'timeOnTask') memory.timeOnTask = Number(value) >= 0 ? Number(value) : 0;
     else if (name === 'answers') memory.answers = Array.isArray(value) ? value : [];
     else if (name === 'exams') memory.exams = Array.isArray(value) ? value : [];
-    else if (name === 'labsDone') memory.labsDone = isObject(value) ? value : {};
-    else if (name === 'labStepsDone') memory.labStepsDone = isObject(value) ? value : {};
     else if (name === 'leitner') memory.leitner = isObject(value) ? value : {};
     else if (name === 'cardReviews') memory.cardReviews = Array.isArray(value) ? value : [];
     else if (name === 'flashSessions') memory.flashSessions = Array.isArray(value) ? value : [];
@@ -475,8 +410,6 @@
     else if (name === 'timeOnTask') value = memory.timeOnTask;
     else if (name === 'answers') value = memory.answers;
     else if (name === 'exams') value = memory.exams;
-    else if (name === 'labsDone') value = memory.labsDone;
-    else if (name === 'labStepsDone') value = memory.labStepsDone;
     else if (name === 'leitner') value = memory.leitner;
     else if (name === 'cardReviews') value = memory.cardReviews;
     else if (name === 'flashSessions') value = memory.flashSessions;
@@ -623,44 +556,6 @@
 
   function getExams(cert) { return cert ? memory.exams.filter(function (e) { return e.cert === cert; }) : memory.exams; }
 
-  /* ── Labs completed ─────────────────────────────────────── */
-  function labProgressRecord(keyName, kind, labId, stepIndex, ts) {
-    return { key: keyName, kind: kind, labId: labId, stepIndex: stepIndex, cert: certFromKey(labId), completedAt: ts };
-  }
-
-  function markLabComplete(labId) {
-    memory.labsDone[labId] = Date.now();
-    var ts = memory.labsDone[labId];
-    enqueue(function () { return App.persistence.put('labProgress', labProgressRecord(labId, 'lab', labId, null, ts)); });
-  }
-
-  function isLabDone(labId) { return !!memory.labsDone[labId]; }
-
-  function stepKey(labId, stepIndex) { return labId + ':' + stepIndex; }
-
-  function markStepDone(labId, stepIndex) {
-    var keyName = stepKey(labId, stepIndex);
-    memory.labStepsDone[keyName] = Date.now();
-    var parsed = labIdAndStep(keyName);
-    var ts = memory.labStepsDone[keyName];
-    enqueue(function () { return App.persistence.put('labProgress', labProgressRecord(keyName, 'step', parsed ? parsed.labId : labId, parsed ? parsed.stepIndex : stepIndex, ts)); });
-  }
-
-  function isStepDone(labId, stepIndex) { return !!memory.labStepsDone[stepKey(labId, stepIndex)]; }
-
-  function unmarkStepDone(labId, stepIndex) {
-    var k = stepKey(labId, stepIndex);
-    if (!memory.labStepsDone[k]) return;
-    delete memory.labStepsDone[k];
-    enqueue(function () { return App.persistence.remove('labProgress', k); });
-  }
-
-  function labsCompletedCount(cert) {
-    var keys = Object.keys(memory.labsDone);
-    if (!cert) return keys.length;
-    return keys.filter(function (k) { return k.indexOf(cert + ':') === 0; }).length;
-  }
-
   /* ── Flashcard Leitner state ────────────────────────────── */
   function getCardState(cardKey) { return memory.leitner[cardKey] || { box: 1, lastSeen: 0, nextDue: 0 }; }
 
@@ -750,7 +645,6 @@
   function chapterPerformance(cert) {
     var questions = App.content.getChapters(cert, 'questions');
     var flashcards = App.content.getChapters(cert, 'flashcards');
-    var labs = App.content.getChapters(cert, 'labs');
     var keys = [];
 
     function addKeys(map) {
@@ -758,7 +652,7 @@
         if (!keys.some(function (existing) { return sameChapter(existing, chapter); })) keys.push(chapter);
       });
     }
-    addKeys(questions); addKeys(flashcards); addKeys(labs);
+    addKeys(questions); addKeys(flashcards);
 
     var answers = getAnswers({ cert: cert });
     var reviews = getCardReviews({ cert: cert });
@@ -772,10 +666,8 @@
     return keys.map(function (chapter) {
       var qKey = Object.keys(questions).find(function (key) { return sameChapter(key, chapter); });
       var fKey = Object.keys(flashcards).find(function (key) { return sameChapter(key, chapter); });
-      var lKey = Object.keys(labs).find(function (key) { return sameChapter(key, chapter); });
       var qItems = qKey ? questions[qKey] : [];
       var fItems = fKey ? flashcards[fKey] : [];
-      var lItems = lKey ? labs[lKey] : [];
       var qAnswers = answers.filter(function (answer) { return chapterMatches(answer.chapter, qKey, chapter); });
       var fReviews = reviews.filter(function (review) { return chapterMatches(review.chapter, fKey, chapter); });
       var seenQuestions = {};
@@ -785,7 +677,6 @@
       var components = [];
       if (qItems.length) components.push(Object.keys(seenQuestions).length / qItems.length);
       if (fItems.length) components.push(Object.keys(reviewedCards).length / fItems.length);
-      if (lItems.length) components.push(lItems.filter(function (lab) { return isLabDone(lab._id); }).length / lItems.length);
       return {
         chapter: chapter,
         questions: qItems.length,
@@ -795,8 +686,6 @@
         flashcards: fItems.length,
         flashcardsReviewed: Object.keys(reviewedCards).length,
         flashcardReviews: fReviews.length,
-        labs: lItems.length,
-        labsDone: lItems.filter(function (lab) { return isLabDone(lab._id); }).length,
         coverage: components.length ? Math.round(components.reduce(function (sum, value) { return sum + value; }, 0) / components.length * 100) : 0
       };
     });
@@ -951,8 +840,6 @@
       answers: clone(memory.answers),
       streak: clone(memory.streak),
       exams: clone(memory.exams),
-      labsDone: clone(memory.labsDone),
-      labStepsDone: clone(memory.labStepsDone),
       leitner: clone(memory.leitner),
       cardReviews: clone(memory.cardReviews),
       flashSessions: clone(memory.flashSessions),
@@ -967,7 +854,7 @@
 
   function importFullBackup(data) {
     if (!data || (data.version !== 1 && data.version !== 2)) throw new Error('Invalid backup format');
-    ['currentCert', 'answers', 'streak', 'exams', 'labsDone', 'labStepsDone', 'leitner', 'cardReviews', 'flashSessions', 'personalNotes', 'settings', 'timeOnTask'].forEach(function (name) {
+    ['currentCert', 'answers', 'streak', 'exams', 'leitner', 'cardReviews', 'flashSessions', 'personalNotes', 'settings', 'timeOnTask'].forEach(function (name) {
       if (data[name] !== undefined) set(name, clone(data[name]));
     });
     if (data.flashSession !== undefined) set('flashSession', clone(data.flashSession));
@@ -987,8 +874,6 @@
     memory.answers = [];
     memory.streak = { last: null, count: 0, best: 0 };
     memory.exams = [];
-    memory.labsDone = {};
-    memory.labStepsDone = {};
     memory.leitner = {};
     memory.cardReviews = [];
     memory.flashSessions = [];
@@ -998,7 +883,6 @@
       return Promise.all([
         App.persistence.clear('answers'),
         App.persistence.clear('exams'),
-        App.persistence.clear('labProgress'),
         App.persistence.clear('leitner'),
         App.persistence.clear('cardReviews'),
         App.persistence.clear('flashSessions'),
@@ -1029,7 +913,6 @@
       accuracy: accuracy,
       streakDays: memory.streak.count || 0,
       cardsDue: cardsDueCount(cert),
-      labsDone: labsCompletedCount(cert),
       timeOnTask: memory.timeOnTask
     };
   }
@@ -1056,12 +939,6 @@
     getActivity: getActivity,
     saveExamAttempt: saveExamAttempt,
     getExams: getExams,
-    markLabComplete: markLabComplete,
-    isLabDone: isLabDone,
-    labsCompletedCount: labsCompletedCount,
-    markStepDone: markStepDone,
-    isStepDone: isStepDone,
-    unmarkStepDone: unmarkStepDone,
     getCardState: getCardState,
     setCardState: setCardState,
     gradeCard: gradeCard,

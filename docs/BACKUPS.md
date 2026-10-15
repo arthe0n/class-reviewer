@@ -14,8 +14,8 @@ click away.
 Choose what to include:
 
 - **Statistics & Study Data** — progress, answers, flashcard history, exams,
-  lab completion, notes, and study activity.
-- **Study Material** — questions, flashcards, labs, notes, and certification
+  notes, and study activity.
+- **Study Material** — questions, flashcards, notes, and certification
   metadata.
 - **Everything** — your study data plus the certification material you select.
 
@@ -61,7 +61,7 @@ versioned database without deleting the legacy keys. A failed or interrupted
 migration can therefore be retried safely. Normal application writes use
 IndexedDB; the legacy localStorage values are no longer used after migration.
 
-Use **Wipe progress** to clear answers, streaks, exams, lab completion, Leitner
+Use **Wipe progress** to clear answers, streaks, exams, Leitner
 state, flashcard history, active study sessions, and time-on-task. It does not
 delete certification files, the optional content cache, personal notes, or
 appearance settings.

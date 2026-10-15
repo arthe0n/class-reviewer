@@ -18,7 +18,6 @@ window.ReviewApp.content.setManifest({
   files: [
     "network-plus/questions/ch01-networking-fundamentals.js",
     "network-plus/flashcards/ch01-networking-fundamentals.js",
-    "network-plus/labs/ch01-networking-labs.js",
     "network-plus/notes/ch01-networking-notes.js"
   ]
 });
@@ -32,7 +31,6 @@ picker and works with all certification-scoped views and global search.
 
 - **Questions** — multiple choice, multi-select, true/false, fill-in, and generic matching questions (including legacy command matching).
 - **Flashcards** — front/back cards with tags.
-- **Labs** — hands-on scenarios with objectives, hints, and solutions.
 - **Notes** — markdown notes grouped by chapter.
 
 ## Content structure
@@ -43,12 +41,10 @@ certifications/
 ├── linux-plus/
 │   ├── questions/
 │   ├── flashcards/
-│   ├── labs/
 │   └── notes/
 └── network-plus/
     ├── questions/
     ├── flashcards/
-    ├── labs/
     └── notes/
 ```
 
@@ -76,7 +72,7 @@ window.ReviewApp.content.register({
 
 Matching questions can pair any coherent item group from the notes with its meaning, definition, purpose, behavior, or other natural counterpart; they are not limited to commands and flags.
 
-For complete field-by-field schemas for questions, flashcards, labs, and notes,
+For complete field-by-field schemas for questions, flashcards, and notes,
 see **[CONTENT_FORMAT.md](./CONTENT_FORMAT.md)**.
 
 To generate content from your own notes, copy a ready-to-use prompt from
