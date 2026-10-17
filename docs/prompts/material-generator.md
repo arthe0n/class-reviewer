@@ -5,9 +5,26 @@ content (Flashcards, Questions, Notes, Command Summary) from raw notes
 for **any** IT/cybersecurity/networking certification — CompTIA or otherwise.
 
 **Content-bank policy:** Flashcards and Questions each produce a single bank
-of 75–100 items per chapter/topic — never fewer than 75, never more than 100 —
-built from the chapter's most important material (see each prompt's
-"Quantity window" rule). Notes and Command Summary have no fixed count.
+of 70–130 items per chapter/topic — never fewer than 70, never more than 130 —
+with a target of approximately 120 items whenever the source supports that
+much distinct, high-value material. The two limits apply independently:
+130 flashcards plus 130 quiz questions for one unit is allowed; 130 combined
+is not the rule. Counts apply to completed items only (cards / questions),
+never to headings, answer choices, explanations, or examples. Aim for 120,
+accept 70+ when the unit is thinner, and never pad with duplicates, trivia,
+or filler to reach a number. If the source cannot support 70 distinct,
+high-value items without inventing facts, report the limitation instead of
+fabricating content. Notes and Command Summary have no fixed count.
+
+**Shared quality rules (enforced independently inside each prompt below):**
+quantity as stated here; certification-exam prioritization (core concepts,
+distinctions, procedures, and application over trivia); source-grounded
+accuracy (the supplied unit is authoritative — never invent facts, specs, or
+objectives it does not support); proportional topic coverage; semantic
+(not merely textual) deduplication within and across categories; and final
+validation before output. Because each section below runs alone, every
+relevant prompt restates the shared rules it needs rather than referencing
+another section.
 
 **How to use:** copy exactly one section below (from its `## Name` heading to
 the next `=====================` separator), paste it into a fresh LLM
@@ -96,54 +113,99 @@ actually teaches — do not manufacture relationships it doesn't support.
 - When correctness varies by OS/distro/vendor/version, state the relevant
   distinction only if it materially affects correctness.
 
-### Step 4 — Relevance, concision, and prioritization (avoid card bloat)
+### Step 4 — Relevance, exam prioritization, coverage, and deduplication
 
 Every flashcard must test a relevant, meaningful point from the supplied
-material. Keep fronts concise and backs focused: ask one clear question and
-avoid unnecessary setup, trivia, or broad questions that combine unrelated
-facts. Prioritize:
+material and prepare the learner for certification-level questions — not
+merely summarize the unit or test isolated recall. Keep fronts concise and
+backs focused: ask one clear question, give a correct, concise,
+self-contained answer, and avoid unnecessary setup, trivia, or broad
+questions that combine unrelated facts.
 
-- **High value:** foundational, frequently confused with something similar,
-  explicitly emphasized in the notes, practical/exam-relevant, or essential
-  to later concepts.
-- **Medium value:** supporting terminology and secondary distinctions —
-  include selectively.
-- **Low value:** incidental details, decorative examples, repeated
-  explanations — generally omit.
+**Flashcard quality standards:** each card tests one primary concept, fact,
+definition, distinction, process step, or other clearly identifiable learning
+objective. The front is clear and specific; the back preserves technical
+accuracy (terminology, units, conditions, distinctions) with enough context
+to be understandable on its own. Avoid vague fronts with several plausible
+answers, overlong backs that merge unrelated facts, trivial variations of
+other cards, and splitting one concept into near-identical cards to inflate
+the count. Use scenario-based cards where they test application better than
+direct recall — but do not turn every card into a long scenario when direct
+recall is more effective.
 
-Avoid: trivial acronym cards for abbreviations that don't need dedicated
-recall, hundreds of near-duplicate numeric-fact cards, and multiple cards
-that test the exact same fact from indistinguishable angles. Different
-phrasings of the same fact are acceptable only when they test a genuinely
-different cognitive angle (e.g., recognition vs. application).
+**Exam prioritization — most important material only:** the bank must be the
+chapter's most important material, not a uniform sample of it and not a
+transcription in document order. Rank every candidate card by exam relevance
+(importance to the subject, certification relevance, emphasis in the notes,
+and power to unlock related questions), prioritizing:
 
-**Quantity window (absolute):** every chapter/topic must produce **at least 75
-flashcards and at most 100** — a fixed target of 100 is wrong, and so is
-stopping below 75. This floor exists so the bank is large enough to support
-spaced review, weak-spot drills, and search across the whole chapter.
+- Core concepts and foundational principles the rest builds on.
+- Essential terminology, definitions, and technical vocabulary.
+- Important processes, workflows, procedures, and sequences.
+- Differences between similar concepts, technologies, protocols, methods, or
+  procedures; common misconceptions and easily confused pairs.
+- Advantages, disadvantages, limitations, use cases, and appropriate
+  applications; technical requirements, prerequisites, and conditions.
+- Explicit numbers, thresholds, ranges, formulas, rules, ports, and standards
+  from the source; troubleshooting symptoms, causes, and solutions; security
+  risks and mitigations where relevant.
+- Decision points (select the right method, technology, configuration, or
+  response), exceptions and special cases, relationships between concepts,
+  and application over rote recall — while keeping essential recall cards
+  for facts the exam demands.
 
-If the notes support more than 100 relevant cards, rank candidates and keep
-the 100 that matter most (tie-break toward the most foundational and most
-frequently confused). If the notes appear too thin to reach 75, first mine
+Rank: (1) explicitly emphasized, foundational, or frequently confused
+material; (2) material this certification is known to test in this domain,
+applied to what the notes actually teach; (3) supporting terminology and
+secondary distinctions worth recalling. Include every rank-1 item, then fill
+with rank-2 and selective rank-3 material; drop incidental details,
+decorative examples, and repeated explanations. Never let a minor detail
+displace a central concept just because it appears explicitly.
+
+**Coverage plan:** before writing cards, review the whole unit, identify its
+principal topics, subtopics, definitions, procedures, distinctions, and key
+examples, and plan distribution by importance and depth — not equal shares
+per topic and not document order. A central topic with essential
+distinctions deserves more cards than a short secondary one. After drafting,
+check for important omissions, add missing high-value cards (within limits,
+without duplicating), and remove low-value ones.
+
+**Quantity window (absolute):** every chapter/topic must produce **at least 70
+flashcards and at most 130, targeting approximately 120** when the source
+supports that much distinct, high-value material. This floor exists so the
+bank is large enough to support spaced review, weak-spot drills, and search
+across the whole chapter. The count applies to completed cards only — never
+to headings, tags, or explanations. Never exceed 130 cards for one unit,
+never stop at a low number when important material remains, and never pad
+with repetitive, trivial, or near-duplicate cards to reach the target.
+
+If the notes support more than 130 relevant cards, rank candidates and keep
+the ~120 that matter most (tie-break toward the most foundational and most
+frequently confused). If the notes appear too thin to reach 70, first mine
 them more deeply for well-supported relationships (definitions, purposes,
 distinctions, commands, flags, ports, procedures, examples, comparisons)
 before deciding they are genuinely thin; do not manufacture filler, trivia,
-or near-duplicates to hit the floor, and never exceed 100.
+or near-duplicates to hit the floor, never exceed 130, and never invent
+facts. If 70 distinct high-value cards are genuinely unsupported, state the
+limitation plainly instead of fabricating content.
 
-**Selection — most important material only:** the bank must be the chapter's
-most important material, not a uniform sample of it. Rank every candidate
-card by exam relevance:
-
-1. Explicitly emphasized, high-value, or foundational material the rest of
-   the chapter builds on (core definitions, key distinctions, essential
-   commands, central procedures).
-2. Material the certification is known to test heavily in this domain,
-   applied to what the notes actually teach.
-3. Supporting terminology and secondary distinctions worth recalling.
-
-Include every rank-1 item, then fill toward 75–100 with rank-2 and selective
-rank-3 material; drop everything below. When choosing between overlapping
-candidates, prefer the least-overlapping, most distinguishing cards.
+**Semantic deduplication (mandatory):** different wording is not a different
+card, and a quiz-format rephrase is not a different card. Before finalizing:
+(1) name the core learning objective of each candidate card; (2) compare it
+against every other card in this set; (3) compare it against any available
+quiz questions or tracking manifest for the same unit (when other outputs
+are provided alongside this prompt, deduplicate across the complete set — a
+fact covered as a quiz question must not return as a flashcard unless it
+tests a meaningfully different objective, e.g. recalling a port versus
+selecting it in a troubleshooting scenario); (4) drop or rewrite any card
+whose correct answer requires no meaningfully different knowledge or
+reasoning than another item — including rewordings, answer-format swaps, and
+superficial scenario changes (different names/devices, same tested fact);
+(5) keep the stronger, more exam-relevant variant; (6) recheck after edits.
+Two cards may share a topic only when they demand genuinely different
+knowledge or reasoning. If no cross-category manifest or companion output is
+available, enforce uniqueness within this set and do not claim
+cross-category comparison was performed.
 
 ### Step 5 — Output schema (exact — do not modify)
 
@@ -193,15 +255,28 @@ Before finalizing output, internally check:
    a generic template.
 3. Every fact is either directly supported by the notes or safe, accurate
    general knowledge used only to clarify — nothing invented.
-4. Every card is concise, directly relevant to the supplied material, and
-   tests one clear idea.
-5. There are no duplicate or near-duplicate cards, filler, or placeholders.
-6. The total number of cards is between 75 and 100 inclusive.
-7. Coverage matches what's actually high-value in the source, not an
+4. Every card is concise, directly relevant to the supplied material,
+   prioritizes certification-relevant knowledge, tests one clear learning
+   objective, and suits active recall.
+5. Major topics and subtopics receive appropriate proportional coverage;
+   no important omission remains unfilled while trivia is kept.
+6. No two cards are semantic duplicates — different wording, answer formats,
+   or superficial scenario changes do not count as distinct; cross-category
+   duplicates were checked whenever companion outputs or a manifest were
+   available (and no such claim is made when they were not).
+7. No card was added merely to reach the target count; nothing is filler or
+   a placeholder.
+8. The completed card count is between 70 and 130 inclusive (~120 when the
+   source supports it); if below 70, the thin-source limitation is reported
+   rather than padded.
+9. Coverage matches what's actually high-value in the source, not an
    external syllabus.
-8. Tags are lowercase, concise, and meaningful.
-9. `cert` and `chapter` are correctly formed.
-10. The output is valid, complete JavaScript matching the schema exactly.
+10. Tags are lowercase, concise, and meaningful.
+11. `cert` and `chapter` are correctly formed.
+12. The output is valid, complete JavaScript matching the schema exactly.
+
+If any check fails, revise the affected cards and repeat the necessary
+checks before finalizing.
 
 Do not show this checklist or your reasoning in the output.
 
@@ -369,46 +444,112 @@ Balance rule (applies within one option set, not the question stem): all 5
 choices must be comparable in length, detail, specificity, grammar, tone,
 and technical sophistication. Never make the correct choice the longest,
 shortest, most qualified, or only fully explained option — vary which
-position/length pattern is correct across the question set. Keep the
-question stem itself as concise as the objective allows; short, evenly
-matched choices are fine and encouraged when the concept supports it.
+position/length pattern is correct across the question set. Keep the question stem itself as concise as the objective allows —
+short, evenly matched choices are fine and encouraged when the concept supports it.
 
 Perform a blind review pass before finalizing: for each mcq/multi question,
 mentally strip the `answer` field and confirm the correct option is not
 identifiable purely from wording, length, or specificity patterns.
 
-### Step 6 — Relevance, importance, prioritization, and duplicate avoidance
+### Step 6 — Relevance, exam prioritization, coverage, and deduplication
 
-Favor foundational facts, commonly confused pairs, explicitly emphasized
-material, practical scenarios, and content essential to later concepts. Every
-question must be supported by and relevant to the supplied material. Avoid
-trivia, unnecessary setup, and repeated questions testing the same fact (for
-example, asking about DNS port 53 five different ways without a new cognitive
-angle). Different phrasings are appropriate only when they test a genuinely
-different skill, such as recognition versus application.
+Design the set for certification-exam reasoning and technical knowledge —
+not for summarizing the unit or testing isolated recall. Balance foundational
+knowledge, conceptual understanding, technical distinctions, and practical
+application. Favor foundational facts, commonly confused pairs, explicitly
+emphasized material, practical scenarios, and content essential to later
+concepts. Every question must be supported by and relevant to the supplied material. Avoid
+trivia, unnecessary setup, trick wording, unsupported
+assumptions, and repeated questions testing the same fact (for example,
+asking about DNS port 53 five different ways without a new cognitive angle).
+Keep basic recall questions where the underlying fact, definition, or
+distinction is exam-essential — but do not make every question needlessly
+complicated.
+
+**Exam-oriented reasoning:** where the source supports it, require the
+learner to identify the correct concept from a practical scenario; explain
+why one solution fits and another does not; distinguish similar terms or
+technologies; predict what changes when a condition changes; choose the most
+appropriate next step in a process; apply a rule to a realistic situation;
+or recognize the consequence of a wrong configuration or procedure.
 
 **Selection — most important material only:** the bank must cover the
-chapter's most important material, not sample it uniformly. Rank candidate
-questions by exam relevance — first the explicitly emphasized, foundational,
-and commonly confused material the chapter centers on; then the material this
-certification is known to test in this domain; then supporting terminology
-and secondary distinctions. Cover all rank-1 material first, then fill with
-rank-2 and selective rank-3 questions. Never manufacture filler or
-near-duplicates to reach a count, and never exhaust the budget on trivia
-while core material goes untested.
+chapter's most important material, not sample it uniformly and not follow
+document order. Rank candidate questions by exam relevance (importance,
+certification relevance, emphasis in the notes, power to unlock related
+questions), prioritizing: core concepts and principles; essential
+terminology; processes, workflows, and sequences; similar-concept
+distinctions and common misconceptions; advantages, limitations, use cases,
+requirements, and conditions; explicit numbers, thresholds, formulas, rules,
+ports, and standards; troubleshooting and decision scenarios; security
+considerations where relevant; exceptions and special cases; and
+relationships between concepts. Cover all rank-1 material first (explicitly
+emphasized, foundational, commonly confused), then rank-2 (heavily tested in
+this domain, applied to the notes), then selective rank-3 (supporting terms
+and secondary distinctions). Never manufacture filler or near-duplicates to
+reach a count, and never exhaust the budget on trivia while core material
+goes untested. Never let a minor detail displace a central concept.
+
+**Quiz quality standards:** assess important concepts and distinctions with
+practical, scenario-based reasoning where appropriate. For `mcq`/`multi`
+there is exactly one unambiguously correct answer (or answer set) per the
+format, every distractor is genuinely incorrect per the source yet plausible
+(see Step 5), and nothing hinges on ambiguous wording. Explanations justify
+the correct answer by teaching the underlying principle — not by repeating
+the option text — and introduce no unsupported facts; source references
+follow this file's existing conventions. Keep all supported formats (`mcq`,
+`multi`, `tf`, `fill`, `match`, plus legacy `command_match` only as defined
+in Step 4): use each format where it best assesses a different learning
+objective, never to re-ask the same objective in another guise, and never
+remove a format merely to standardize.
+
+**Coverage plan:** before writing questions, review the whole unit, identify
+its principal topics, subtopics, learning objectives, procedures, and key
+distinctions, and plan distribution by importance and depth — never equal
+shares per topic and never document order. After drafting, check for
+important omissions, add missing high-value questions (within limits,
+without duplicating), and remove low-value ones.
 
 **Quantity window (absolute):** every chapter/topic must produce **at least
-75 questions and at most 100** — a fixed target of 100 is wrong, and so is
-stopping below 75. This floor exists so the bank is large enough to support
-random-mix, weak-spot, and exam-simulation practice across the whole chapter.
+70 questions and at most 130, targeting approximately 120** when the source
+supports that many distinct, high-value questions. This floor exists so the
+bank is large enough to support random-mix, weak-spot, and exam-simulation
+practice across the whole chapter. The count applies to completed questions
+only — never to headings, options, explanations, or examples. Never exceed
+130 questions for one unit, never stop at a low number when important
+material remains, and never pad with repetitive or trivial variations.
 
-If the notes support more than 100 relevant questions, rank candidates and
-keep the 100 that matter most (tie-break toward foundational concepts and
-commonly confused material). If the notes appear too thin to reach 75, mine
+If the notes support more than 130 relevant questions, rank candidates and
+keep the ~120 that matter most (tie-break toward foundational concepts and
+commonly confused material). If the notes appear too thin to reach 70, mine
 them more deeply for well-supported angles (application scenarios,
 distinctions, calculations, procedure order, interpretation of provided
-output) before deciding they are genuinely thin; do not pad with filler, and
-never exceed 100.
+output) before deciding they are genuinely thin; do not pad with filler,
+never exceed 130, and never invent facts. If 70 distinct high-value
+questions are genuinely unsupported, state the limitation plainly instead of
+fabricating content.
+
+**Semantic deduplication (mandatory):** different wording is not a different
+question, and a different format is not a different question. Before
+finalizing: (1) name the core learning objective of each candidate question;
+(2) compare it against every other question in this set — including across
+formats, so an `mcq` asking the primary purpose of a firewall and a `tf`
+asking whether a firewall controls traffic per security rules cannot both
+stand, nor can a `match` pair merely re-ask an `mcq` fact; (3) compare it
+against any available flashcards or tracking manifest for the same unit
+(when other outputs are provided alongside this prompt, deduplicate across
+the complete set — e.g. a flashcard "HTTPS → TCP 443" and an `mcq` asking
+which port HTTPS uses cannot both stand unless they test meaningfully
+different reasoning); (4) drop or rewrite anything whose correct answer
+requires no meaningfully different knowledge or reasoning — including
+rewordings, format swaps, and superficial scenario changes (different
+company/device names, same tested rule); (5) keep the stronger, more
+exam-relevant variant; (6) recheck after edits. Two questions may share a
+topic only when they demand genuinely different knowledge or reasoning
+(e.g. defining a backup type versus choosing a backup strategy for a
+recovery scenario). If no cross-category manifest or companion output is
+available, enforce uniqueness within this set and do not claim
+cross-category comparison was performed.
 
 ### Step 7 — Internal validation (perform silently, do not narrate)
 
@@ -421,12 +562,28 @@ Before finalizing, internally check:
    design.
 5. `match`/`command_match` pairs are coherent, unique, and non-trivial.
 6. No fabricated facts; no unsupported claims; no exam-authenticity claims.
-7. Questions are concise, directly relevant to the supplied material, and
-   each tests one clear idea.
-8. No duplicate/near-duplicate questions, filler, or placeholders.
-9. The total number of questions is between 75 and 100 inclusive.
-10. `cert`, `chapter`, and `tags` correctly formed.
-11. The output is valid, complete JavaScript matching the schema exactly.
+7. Questions are concise, directly relevant to the supplied material,
+   prioritize certification-relevant knowledge, and each tests one clear
+   idea with a clear, meaningful learning objective.
+8. Major topics and subtopics receive appropriate proportional coverage;
+   no important omission remains while trivia is kept.
+9. No two questions are semantic duplicates — different wording, formats,
+   or superficial scenario changes do not count as distinct; cross-category
+   duplicates were checked whenever companion outputs or a manifest were
+   available (and no such claim is made when they were not).
+10. Quiz answers and explanations are consistent with the source, teach the
+    underlying principle, and introduce no unsupported facts.
+11. No question was added merely to reach the target count; nothing is
+    filler or a placeholder.
+12. The completed question count is between 70 and 130 inclusive (~120 when
+    the source supports it); if below 70, the thin-source limitation is
+    reported rather than padded.
+13. `cert`, `chapter`, and `tags` correctly formed.
+14. The output schema, formatting, and conventions are unchanged, and the
+    output is valid, complete JavaScript matching the schema exactly.
+
+If any check fails, revise the affected questions and repeat the necessary
+checks before finalizing.
 
 Do not show this checklist or your reasoning in the output.
 

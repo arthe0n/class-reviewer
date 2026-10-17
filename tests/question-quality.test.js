@@ -2,7 +2,7 @@
  *
  * The LLM prompt is the generator in this project, so its output cannot be
  * tested deterministically. These checks cover the prompt contract, the
- * schema and 75-100 item budget of the checked-in question banks, and the
+ * schema and 70-130 item budget of the checked-in question banks, and the
  * runtime's answer remapping when choices are shuffled.
  *
  * Run with: node tests/question-quality.test.js
@@ -34,8 +34,8 @@ var manifest = fs.readFileSync(manifestPath, 'utf8');
   'vary the count of correct answers across',
   '1\u20134 zero-based indices',
   'most important material only',
-  'at least 75 questions and at most 100',
-  'at least 75\nflashcards and at most 100'
+  'at least\n70 questions and at most 130',
+  'at least 70\nflashcards and at most 130'
 ].forEach(function (requiredText) {
   assert.ok(prompt.toLowerCase().indexOf(requiredText.toLowerCase()) >= 0,
     'material-generator prompt should contain: ' + requiredText);
@@ -81,7 +81,7 @@ assert.ok(manifest.indexOf('contentVersion: "1.2.6"') >= 0,
 assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.length; }), [95, 87, 100, 100],
   'question banks should contain all expected chapter questions');
 
-// Every checked-in question bank must honor the 75-100 quantity window from
+// Every checked-in question bank must honor the 70-130 quantity window from
 // the material-generator prompt (flashcards and questions alike).
 var budgetPayloads = [];
 var bankDir = path.join(__dirname, '..', 'certifications');
@@ -111,8 +111,8 @@ assert.ok(budgetPayloads.length >= payloads.length,
 budgetPayloads.forEach(function (payload) {
   assert.ok(payload.type === 'flashcards' || payload.type === 'questions',
     'budget sweep should only load flashcards and questions payloads');
-  assert.ok(payload.items.length >= 75 && payload.items.length <= 100,
-    payload.cert + '/' + payload.chapter + ' (' + payload.type + ') should hold 75-100 items, got ' + payload.items.length);
+  assert.ok(payload.items.length >= 70 && payload.items.length <= 130,
+    payload.cert + '/' + payload.chapter + ' (' + payload.type + ') should hold 70-130 items, got ' + payload.items.length);
 });
 
 var questionCount = 0;
