@@ -445,11 +445,163 @@ choices must be comparable in length, detail, specificity, grammar, tone,
 and technical sophistication. Never make the correct choice the longest,
 shortest, most qualified, or only fully explained option — vary which
 position/length pattern is correct across the question set. Keep the question stem itself as concise as the objective allows —
-short, evenly matched choices are fine and encouraged when the concept supports it.
+short, evenly matched choices are fine and encouraged when the concept supports it. The correct answer must additionally never stand out as the only option containing an acronym, the only professional-sounding option, the only option mentioning security, the only precisely worded option, or an option with different grammatical structure or formatting — camouflage by comparability, not by obscurity.
 
 Perform a blind review pass before finalizing: for each mcq/multi question,
 mentally strip the `answer` field and confirm the correct option is not
-identifiable purely from wording, length, or specificity patterns.
+identifiable purely from wording, length, or specificity patterns. Then run
+the distractor validation pass below (checks A–I) on every `mcq`/`multi`:
+A. Relationship — are the distractors conceptually related to the correct
+answer (same neighborhood), not merely same-chapter concepts? B. Plausibility —
+could a student with incomplete knowledge reasonably choose them? C. Specificity —
+are they relevant to this exact question rather than merely chapter-related?
+D. Incorrectness — is each distractor objectively wrong under the stated
+conditions? E. Ambiguity — could any distractor also reasonably be considered
+correct? If yes, rewrite the question or replace the distractor. F. Elimination —
+could a student answer without understanding the tested concept because the
+options are obviously unrelated? If yes, improve the distractors. G. Pattern —
+does the correct answer stand out by wording, length, specificity, or
+formatting? If yes, rebalance. H. Difficulty — are at least most distractors
+genuinely competitive alternatives? If not, replace weak ones where the
+source supports better alternatives. I. Source fidelity — was anything
+invented without adequate technical support? If yes, replace it.
+
+**Guiding principle:** every multiple-choice question should test whether the
+learner can distinguish the correct concept from realistic alternatives,
+rather than whether they can identify the only option remotely related to
+the question. Prefer **semantically related distractors** over random or
+unrelated ones. Difficulty must come from distinguishing related concepts,
+not from unclear wording — prefer knowledge-based difficulty over
+ambiguity-based difficulty.
+
+**Distractor-selection procedure.** For each `mcq`/`multi` question:
+1. Name exactly what is being tested (one clear idea).
+2. Fix the correct answer.
+3. List the concepts, technologies, protocols, commands, methods, controls,
+   tools, procedures, or terms most commonly confused with that answer.
+4. Discard any candidate that is not objectively wrong under the question's
+   specific conditions.
+5. Select the strongest remaining distractors.
+Do not select distractors merely because they are technically valid concepts
+from the same chapter. Select distractors because they are plausible
+alternatives to the correct answer for this specific question. For example,
+if the question asks about a protocol for secure file transfer, a random
+networking protocol from elsewhere in the chapter is a poor distractor;
+prefer other file-transfer or closely related protocols whose
+characteristics differ in a way the learner is expected to understand.
+
+**Conceptual-neighborhood rule.** Distractors should generally come from the
+same conceptual neighborhood as the correct answer — the family of concepts
+a knowledgeable student could reasonably consider before distinguishing them:
+- **Networking (the answer is a protocol):** prefer related protocols,
+  same-purpose protocols, same-layer protocols, commonly confused protocols,
+  or protocols solving a related-but-different problem. Avoid unrelated
+  protocols, random networking terms, or concepts eliminable without subject
+  knowledge.
+- **Security (the answer is a control):** prefer other controls addressing
+  similar risks, related-problem controls, adjacent-situation controls, or
+  commonly confused controls. Avoid unrelated technologies, random attacks
+  or vulnerabilities, or different-category concepts.
+- **Linux/commands (the answer is a command):** prefer commands performing a
+  related operation, commonly confused commands, same-object-type commands,
+  similar-but-not-identical-result commands, or commands differing by a
+  specific option or behavior. Avoid random commands from unrelated categories.
+- **Cloud (the answer is a service):** prefer same-family services,
+  similar-problem services, commonly confused services, or services fitting
+  slightly different requirements. Avoid unrelated services with no plausible
+  scenario link.
+- **SOC/analyst (the answer is an action, tool, or technique):** prefer
+  same-workflow-stage actions, related tools, similar techniques, valid
+  actions for a different condition, or technically valid but operationally
+  inferior responses. Avoid obviously unrelated actions.
+For domains not listed, infer the equivalent neighborhood strategy from what
+the source material actually teaches.
+
+**One easy, three strong.** For a 5-option MCQ, when the subject matter
+allows, aim for approximately 1 clearly weaker/easier distractor, 3 strong
+conceptually related distractors, and 1 correct answer — with authored
+positions randomized naturally (never a fixed slot or a repeating rotation).
+Do not force this structure when the material does not support it: source
+fidelity outranks distractor strength. It is acceptable for one distractor to
+be easier to eliminate, but most incorrect choices must require actual
+knowledge to eliminate.
+
+**Wrong for a specific reason.** Each distractor should ideally be a
+recognizable misconception or near-miss: a related-but-different function;
+the right technology for a different requirement; a neighboring category; a
+different layer; a different security property; a different process stage;
+the right answer for a similar-but-different scenario; a similar name or
+purpose with different behavior; correct-if-one-condition-changed; or
+technically valid but not best given the requirements. A distractor should
+ideally teach the learner something about why the correct answer is correct —
+after reading the explanation, the student understands each distinction.
+
+**Unrelated-option prohibition (low-quality pattern).** Never write questions
+answerable by category recognition alone — e.g. "Which protocol securely
+transfers files?" with options SFTP / DHCP / DNS / ARP / ICMP. Although all
+are legitimate concepts, a student who barely understands the material can
+eliminate four without knowing anything about file-transfer protocols.
+Self-test every question: "Could a student who barely understands the material
+eliminate most of these options simply because they obviously belong to
+another category?" If yes, replace the weak distractors with conceptual
+neighbors.
+
+**Scenario-based distractors.** When the source supports scenarios, make
+distractors realistic alternative decisions against the stated conditions:
+the technology providing X but not B; B but not X; a similar function with a
+different limitation; the right choice if condition A differed; plus the
+correct technology. Force understanding of requirements, not keyword
+recognition.
+
+**Comparison-group pools.** When the source contains natural comparison
+groups, use them heavily as distractor pools — they produce
+certification-grade questions: FTP vs FTPS vs SFTP vs TFTP; TCP vs UDP; HTTP
+vs HTTPS; SSH vs Telnet; symmetric vs asymmetric encryption; hashing vs
+encryption vs encoding; authentication vs authorization; IDS vs IPS; RTO vs
+RPO; full vs differential vs incremental backup; RAID levels; authentication
+protocols; VPN technologies; security controls; incident-response phases;
+overlapping Linux commands; similar-function cloud services.
+
+**Worked example (illustrative — adapt to the actual domain, never copy
+blindly).** BAD: "Which protocol provides secure file transfer?" with SFTP /
+DHCP / DNS / ARP / ICMP — most distractors are unrelated to file transfer,
+so no protocol distinctions are tested. BETTER: "Which protocol provides
+secure file transfer over an encrypted SSH connection?" with FTP / TFTP /
+SFTP / FTPS / another source-supported related protocol — most alternatives
+belong to the same conceptual family, yet the wording makes exactly one
+answer objectively correct. If two technologies could both satisfy a
+requirement, add a constraint to the question that makes one the best answer —
+never resolve ambiguity by merely declaring an option correct.
+
+**Difficult, not confusing.** Good difficulty: similar concepts, common
+misconceptions, closely related technologies, different versions of a
+similar solution, similar commands, similar protocols, similar security
+controls, realistic scenario alternatives. Bad difficulty (never use):
+ambiguous wording, two defensible answers, obscure trivia, unspecified
+assumptions, trick questions, nearly identical options differing only in
+arbitrary wording, options contradicting the source, fake technical details.
+
+**Distractor quality hierarchy (a guide, not a rigid quota).** Tier 1 —
+commonly confused with the correct answer (best, e.g. SFTP vs FTPS vs FTP).
+Tier 2 — same category, different purpose (very good). Tier 3 — related
+technology that would be correct if one requirement changed (good). Tier 4 —
+same family but clearly distinguishable (acceptable). Tier 5 — unrelated
+concept (only sparingly, when the source supports nothing better; never fill
+a question with Tier 5 distractors).
+
+**Multi-answer questions.** The same principle applies to `multi`: incorrect
+options must still be plausible and conceptually related, so the learner must
+understand each valid/invalid distinction (e.g. for a security-property
+question, prefer technologies with related-but-different properties over
+random other-topic concepts). Keep 1–4 correct answers with naturally varied
+counts — never predictable.
+
+**Priority order.** 1. Correctness. 2. One unambiguous answer. 3. Source
+fidelity. 4. Relevant conceptual relationship. 5. Plausibility/difficulty.
+6. Option balance. Never sacrifice correctness for difficulty, and never
+invent technologies, commands, protocols, standards, or facts to manufacture
+harder distractors — if the source supports only three genuinely related
+alternatives, use the strongest technically valid options available.
 
 ### Step 6 — Relevance, exam prioritization, coverage, and deduplication
 
@@ -554,9 +706,13 @@ cross-category comparison was performed.
 ### Step 7 — Internal validation (perform silently, do not narrate)
 
 Before finalizing, internally check:
-1. Certification/domain correctly identified; question styles match Step 2.
-2. Every `mcq`/`multi` has exactly 5 balanced, plausible, non-identifiable
-   options; `answer` indices are valid and vary across the set.
+1. Certification/domain correctly identified; question styles match Step 2.2. Every `mcq`/`multi` has exactly 5 balanced, plausible, non-identifiable
+options; `answer` indices are valid and vary across the set. For `mcq` there
+is exactly one correct answer that the question wording objectively supports;
+distractors come from the correct answer's conceptual neighborhood (not
+random same-chapter concepts), are each wrong for a specific understandable
+reason, are mostly competitive (at most ~1 easy elimination), and cannot be
+eliminated by mere category recognition.
 3. `multi` correct-answer counts vary (not always 3).
 4. `fill` answers/accepts are reasonable and case/whitespace-tolerant by
    design.
@@ -578,8 +734,10 @@ Before finalizing, internally check:
 12. The completed question count is between 70 and 130 inclusive (~120 when
     the source supports it); if below 70, the thin-source limitation is
     reported rather than padded.
-13. `cert`, `chapter`, and `tags` correctly formed.
-14. The output schema, formatting, and conventions are unchanged, and the
+13. For `multi`, incorrect options are plausible and conceptually related
+    (not obviously unrelated filler), and correct-answer counts vary.
+14. `cert`, `chapter`, and `tags` correctly formed.
+15. The output schema, formatting, and conventions are unchanged, and the
     output is valid, complete JavaScript matching the schema exactly.
 
 If any check fails, revise the affected questions and repeat the necessary
