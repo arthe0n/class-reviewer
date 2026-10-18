@@ -247,6 +247,34 @@ window.ReviewApp.content.register({
   names, nesting, or the `register()` call shape. Do not introduce JSON,
   TypeScript, or any other format.
 
+**Reference exemplar (exact shape — imitate this formatting precisely).**
+Real cards from `network-plus/flashcards/ch03-addressing-ports-dns-troubleshooting-flashcards.js`:
+
+```js
+window.ReviewApp.content.register({
+type: "flashcards",
+cert: "network-plus",
+chapter: "Chapter 3: Addressing, Ports, DNS, and Troubleshooting",
+items: [
+{
+front: "Which OSI layer uses MAC addresses?",
+back: "The Data Link layer, Layer 2, uses MAC addresses to identify NICs and devices on the local network.",
+tags: ["network-plus", "mac", "osi"]
+},
+{
+front: "How long is a MAC address?",
+back: "A MAC address is 48 bits long.",
+tags: ["network-plus", "mac", "addressing"]
+}
+]
+});
+```
+
+Note the exact conventions: two-space-free flat layout, `type`/`cert`/
+`chapter` header lines with no indentation, one blank-free item block per
+card, lowercase tags, file ends with `]\n});`. Your output must look
+structurally identical — only the content differs.
+
 ### Step 6 — Internal validation (perform silently, do not narrate)
 
 Before finalizing output, internally check:
@@ -285,7 +313,11 @@ Do not show this checklist or your reasoning in the output.
 Output **only** the complete `.js` file content. No markdown code fences, no
 explanation, no preamble ("Here is your file..."), no commentary before or
 after. The response must start with `window.ReviewApp.content.register(` and
-contain nothing else.
+contain nothing else. The answer is a raw JavaScript file — not a JSON
+object, not a markdown document, not a chat reply. Its first line must be
+`window.ReviewApp.content.register({` and its last line must be `});`.
+If you catch yourself writing anything else (a summary, a question count,
+a usage note), delete it: the file content alone is the entire response.
 
 =====================
 
@@ -417,6 +449,76 @@ Type-specific detail:
   `command` (string, required) plus `pairs` of `{ option, description }`,
   both unique within the question. Prefer `match` for new content; use
   `command_match` only if explicitly instructed to preserve legacy format.
+
+**Reference exemplar (exact shape — imitate this formatting precisely).**
+Real items from `network-plus/questions/ch03-addressing-ports-dns-troubleshooting-questions.js`,
+one of each supported type:
+
+```js
+window.ReviewApp.content.register({
+type: "questions",
+cert: "network-plus",
+chapter: "Chapter 3: Addressing, Ports, DNS, and Troubleshooting",
+items: [
+{
+type: "mcq",
+q: "Which OSI layer uses MAC addresses to identify devices on the local network?",
+options: [ "Layer 2 - Data Link", "Layer 3 - Network", "Layer 4 - Transport", "Layer 7 - Application","Layer 1 - Physical"],
+answer: 0,
+explain: "MAC addressing operates at Layer 2, the Data Link layer. IP addresses work a layer above at Layer 3, and ports a layer higher at Layer 4.",
+tags: ["addressing", "osi", "mac"]
+},
+{
+type: "multi",
+q: "Which symptoms point toward DNS rather than basic IP connectivity?",
+options: [
+"An IP address can be pinged",
+"A hostname cannot be resolved",
+"The default gateway cannot be pinged",
+"A website name fails while its known IP works",
+"The loopback address fails"
+],
+answer: [0, 1, 3],
+explain: "Working IP connectivity combined with hostname or website-name failure points toward DNS/name resolution.",
+tags: ["dns", "troubleshooting"]
+},
+{
+type: "tf",
+q: "A switch learns destination MAC addresses from the destination field of every arriving frame.",
+answer: false,
+explain: "The chapter states that switches learn source MAC addresses as frames arrive and use destination MACs for forwarding decisions.",
+tags: ["switching", "mac"]
+},
+{
+type: "fill",
+q: "How many bits long is a MAC address?",
+answer: "48",
+accepts: ["48 bits"],
+explain: "A MAC address is 48 bits long: a 24-bit OUI plus a 24-bit device identifier.",
+tags: ["mac", "addressing"]
+},
+{
+type: "match",
+q: "Match each addressing concept to what it identifies.",
+pairs: [
+{ item: "MAC address", match: "NIC or device on the local network" },
+{ item: "IP address", match: "Host or interface across networks" },
+{ item: "Port", match: "Process or service on a host" },
+{ item: "FQDN", match: "Host by human-readable name" }
+],
+explain: "The chapter's mental model is MAC = local interface, IP = host/network location, port = process, and FQDN = human-readable host identity.",
+tags: ["addressing", "osi"]
+}
+]
+});
+```
+
+Note the exact conventions: flat layout with unindented `type`/`cert`/
+`chapter` header lines, one item block per question, `mcq`/`multi` always
+with exactly 5 options, zero-based `answer`, `explain` teaching the
+principle (never just repeating the option), lowercase `tags`, file ends
+with `]\n});`. Your output must look structurally identical — only the
+content differs.
 
 ### Step 5 — Distractor and choice-balance rules
 
@@ -750,6 +852,11 @@ Do not show this checklist or your reasoning in the output.
 Output **only** the complete `.js` file content. No markdown code fences, no
 explanation, no preamble, no commentary before or after. The response must
 start with `window.ReviewApp.content.register(` and contain nothing else.
+The answer is a raw JavaScript file — not a JSON object, not a markdown
+document, not a chat reply. Its first line must be
+`window.ReviewApp.content.register({` and its last line must be `});`.
+If you catch yourself writing anything else (a summary, a question count,
+a usage note), delete it: the file content alone is the entire response.
 
 =====================
 

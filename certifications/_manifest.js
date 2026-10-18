@@ -48,6 +48,7 @@ window.ReviewApp.content.setManifest({
     "network-plus/questions/ch01-intro-to-networking-questions.js",
     "network-plus/questions/ch02-infrastructure-documentation-questions.js",
     "network-plus/questions/ch03-addressing-ports-dns-troubleshooting-questions.js",
+    "network-plus/questions/ch04-protocols-questions.js",
     // ----------------- Notes -----------------
     "network-plus/notes/ch01-notes.js",
     "network-plus/notes/ch02-notes.js",
