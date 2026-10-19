@@ -1,6 +1,6 @@
 /* ReviewApp content manifest — the ONLY file to update when adding content */
 window.ReviewApp.content.setManifest({
-  contentVersion: "1.8.0",
+  contentVersion: "1.9.0",
   certs: [
     { id: "linux-plus", name: "CompTIA Linux+", color: "#f8a63b" },
     { id: "network-plus", name: "CompTIA Network+", color: "#5ad1e6" },
@@ -47,6 +47,7 @@ window.ReviewApp.content.setManifest({
     "network-plus/flashcards/ch05-cabling-flashcards.js",
     "network-plus/flashcards/ch06-wireless-networking-flashcards.js",
     "network-plus/flashcards/ch07-network-architecture-flashcards.js",
+    "network-plus/flashcards/ch08-network-segmentation-flashcards.js",
 
     // ----------------- Questions -----------------
     "network-plus/questions/ch01-intro-to-networking-questions.js",
@@ -56,6 +57,7 @@ window.ReviewApp.content.setManifest({
     "network-plus/questions/ch05-cabling-questions.js",
     "network-plus/questions/ch06-wireless-networking-questions.js",
     "network-plus/questions/ch07-network-architecture-questions.js",
+    "network-plus/questions/ch08-network-segmentation-questions.js",
     // ----------------- Notes -----------------
     "network-plus/notes/ch01-intro-to-networking-notes.js",
     "network-plus/notes/ch02-infrastructure-documentation-notes.js",
@@ -64,6 +66,7 @@ window.ReviewApp.content.setManifest({
     "network-plus/notes/ch05-cabling-notes.js",
     "network-plus/notes/ch06-wireless-networking-notes.js",
     "network-plus/notes/ch07-network-architecture-notes.js",
+    "network-plus/notes/ch08-network-segmentation-notes.js",
     
 
 
