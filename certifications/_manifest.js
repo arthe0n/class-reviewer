@@ -53,9 +53,9 @@ window.ReviewApp.content.setManifest({
     "network-plus/questions/ch04-protocols-questions.js",
     "network-plus/questions/ch05-cabling-questions.js",
     // ----------------- Notes -----------------
-    "network-plus/notes/ch01-notes.js",
-    "network-plus/notes/ch02-notes.js",
-    "network-plus/notes/ch03-notes.js",
+    "network-plus/notes/ch01-intro-to-networking-notes.js",
+    "network-plus/notes/ch02-infrastructure-documentation-notes.js",
+    "network-plus/notes/ch03-addressing-ports-dns-troubleshooting-notes.js",
     "network-plus/notes/ch04-protocols-notes.js",
     "network-plus/notes/ch05-cabling-notes.js",
     
