@@ -4,7 +4,7 @@
  * the real backup service with small in-memory application stubs, so they do
  * not require a browser or IndexedDB.
  *
- * Run with: node tests/backup-import.test.js
+ * Run with: node app/tests/backup-import.test.js
  */
 'use strict';
 
@@ -34,7 +34,7 @@ App.content = {
   load: function (done) { done(); }
 };
 
-require('../app/js/backup.js');
+require('../js/backup.js');
 
 var userKeys = [
   'currentCert', 'settings', 'answers', 'streak', 'exams', 'leitner', 'cardReviews',

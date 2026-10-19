@@ -11,14 +11,14 @@
    spacing, alternative symbolic forms), matrix diffs, and
    educational feedback.
 
-   Run with:  node tests/perms-exercise.test.js
+   Run with:  node app/tests/perms-exercise.test.js
    ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 // Both modules expect the ReviewApp namespace; stub enough to load them.
 global.window = { ReviewApp: { core: { utils: {} } } };
-require('../app/js/tools.js');
-require('../app/js/perms-exercise.js');
+require('../js/tools.js');
+require('../js/perms-exercise.js');
 
 var T = global.window.ReviewApp.tools;
 var E = global.window.ReviewApp.permExercise;

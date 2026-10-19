@@ -1,7 +1,7 @@
 # Documentation
 
 Detailed guides for ReviewApp live here. The main
-[`README.md`](../README.md) is the quick overview; these files cover the
+[`README.md`](../../README.md) is the quick overview; these files cover the
 practical details.
 
 **Guides**

@@ -1,7 +1,7 @@
 # Adding Certifications & Content
 
 Certifications and study material are registered in
-[`certifications/_manifest.js`](../certifications/_manifest.js). Content files
+[`certifications/_manifest.js`](../../certifications/_manifest.js). Content files
 are plain JavaScript that self-register — no build step is required.
 
 ## Adding a certification

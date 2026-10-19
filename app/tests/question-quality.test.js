@@ -5,7 +5,7 @@
  * schema and 70-130 item budget of the checked-in question banks, and the
  * runtime's answer remapping when choices are shuffled.
  *
- * Run with: node tests/question-quality.test.js
+ * Run with: node app/tests/question-quality.test.js
  */
 'use strict';
 
@@ -14,9 +14,9 @@ var fs = require('fs');
 var path = require('path');
 var vm = require('vm');
 
-var promptPath = path.join(__dirname, '..', 'docs', 'prompts', 'material-generator.md');
+var promptPath = path.join(__dirname, '..', '..', 'docs', 'prompts', 'material-generator.md');
 var prompt = fs.readFileSync(promptPath, 'utf8');
-var manifestPath = path.join(__dirname, '..', 'certifications', '_manifest.js');
+var manifestPath = path.join(__dirname, '..', '..', 'certifications', '_manifest.js');
 var manifest = fs.readFileSync(manifestPath, 'utf8');
 
 [
@@ -50,7 +50,7 @@ function loadQuestionPayloads() {
   ];
   var payloads = [];
   files.forEach(function (file) {
-    var source = fs.readFileSync(path.join(__dirname, '..', 'certifications', 'linux-plus', 'questions', file), 'utf8');
+    var source = fs.readFileSync(path.join(__dirname, '..', '..', 'certifications', 'linux-plus', 'questions', file), 'utf8');
     var context = {
       window: {
         ReviewApp: {
@@ -84,7 +84,7 @@ assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.le
 // Every checked-in question bank must honor the 70-130 quantity window from
 // the material-generator prompt (flashcards and questions alike).
 var budgetPayloads = [];
-var bankDir = path.join(__dirname, '..', 'certifications');
+var bankDir = path.join(__dirname, '..', '..', 'certifications');
 fs.readdirSync(bankDir).filter(function (entry) {
   return fs.statSync(path.join(bankDir, entry)).isDirectory();
 }).forEach(function (certDir) {
@@ -250,7 +250,7 @@ var shuffleUtils = {
   escapeHtml: function (value) { return String(value); }
 };
 global.window = { ReviewApp: { core: { utils: shuffleUtils } } };
-require('../app/js/quiz.js');
+require('../js/quiz.js');
 var quiz = global.window.ReviewApp.quiz;
 
 // Shell metacharacters are literal answer text. They must never disappear

@@ -7,13 +7,13 @@
    rejection of incomplete/unrelated answers, generic and legacy matching,
    and regression checks that the other question types keep their behavior.
 
-   Run with:  node tests/answer-validation.test.js
+   Run with:  node app/tests/answer-validation.test.js
    ═══════════════════════════════════════════════════════════ */
 'use strict';
 
 // quiz.js expects the ReviewApp namespace; stub enough to load the module.
 global.window = { ReviewApp: { core: { utils: {} } } };
-require('../app/js/quiz.js');
+require('../js/quiz.js');
 
 var quiz = global.window.ReviewApp.quiz;
 var passed = 0;

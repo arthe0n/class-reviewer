@@ -7,7 +7,7 @@
    score or written to the stats log), and skipped questions are
    not re-shown.
 
-   Run with:  node tests/quiz-retry.test.js
+   Run with:  node app/tests/quiz-retry.test.js
    ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -33,7 +33,7 @@ global.window = {
   }
 };
 
-require('../app/js/quiz.js');
+require('../js/quiz.js');
 
 var quiz = global.window.ReviewApp.quiz;
 var passed = 0;

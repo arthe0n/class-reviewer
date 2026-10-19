@@ -6,7 +6,7 @@
  * Also covers the view-only Previous peek: looking back at earlier cards must
  * never alter scheduling, the retry queue, or recorded attempts.
  *
- * Run with: node tests/flashcards.test.js
+ * Run with: node app/tests/flashcards.test.js
  */
 'use strict';
 
@@ -31,7 +31,7 @@ global.window = {
   }
 };
 
-require('../app/js/flashcards.js');
+require('../js/flashcards.js');
 var flashcards = global.window.ReviewApp.flashcards;
 var card = {
   _id: 'card-1',

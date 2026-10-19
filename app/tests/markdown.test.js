@@ -1,7 +1,7 @@
 /* ReviewApp · markdown.test.js
  *
  * Regression checks for the inline Markdown renderer used by quiz and other
- * study-content surfaces. Run with: node tests/markdown.test.js
+ * study-content surfaces. Run with: node app/tests/markdown.test.js
  */
 'use strict';
 
@@ -24,7 +24,7 @@ global.window = {
   }
 };
 
-require('../app/js/markdown.js');
+require('../js/markdown.js');
 var markdown = global.window.ReviewApp.markdown;
 
 var question = 'Which `ls` option lists hidden files?';

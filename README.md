@@ -33,17 +33,17 @@ data is kept privately in the browser's IndexedDB database.
 
 | Dashboard | Quiz |
 |---|---|
-| ![ReviewApp Dashboard](docs/screenshots/dashboard.png) | ![ReviewApp Quiz](docs/screenshots/quiz.png) |
+| ![ReviewApp Dashboard](app/docs/screenshots/dashboard.png) | ![ReviewApp Quiz](app/docs/screenshots/quiz.png) |
 | Certification-scoped progress, recommendations, activity, and chapter actions. | Five practice modes with chapter and certification context. |
 
 | Exam Simulation | Flashcards |
 |---|---|
-| ![ReviewApp Exam Simulation](docs/screenshots/exam.png) | ![ReviewApp Flashcards](docs/screenshots/flashcards.png) |
+| ![ReviewApp Exam Simulation](app/docs/screenshots/exam.png) | ![ReviewApp Flashcards](app/docs/screenshots/flashcards.png) |
 | Timed exam configuration with question palette and flag-for-review. | Card review with the Again / Next workflow and spaced repetition. |
 
 | Stats |
 |---|
-| ![ReviewApp Stats](docs/screenshots/stats.png) |
+| ![ReviewApp Stats](app/docs/screenshots/stats.png) |
 | Certification-scoped accuracy, coverage, activity, and weak areas. |
 
 ---
@@ -109,9 +109,9 @@ command output remain preserved as code blocks.
 
 Content is plain JavaScript that self-registers through
 `certifications/_manifest.js`. Add a certification's metadata and file paths
-there, then reload. See **[Adding Certifications & Content](./docs/CONTENT.md)**,
+there, then reload. See **[Adding Certifications & Content](./app/docs/CONTENT.md)**,
 and use the full schemas in
-**[CONTENT_FORMAT.md](./docs/CONTENT_FORMAT.md)** when writing content.
+**[CONTENT_FORMAT.md](./app/docs/CONTENT_FORMAT.md)** when writing content.
 
 ---
 
@@ -119,17 +119,17 @@ and use the full schemas in
 
 **Guides**
 
-- **[Documentation index](./docs/README.md)** — all guides at a glance
-- **[Backups & Data](./docs/BACKUPS.md)** — exporting and importing ZIP backups
-- **[Persistence Architecture](./docs/PERSISTENCE.md)** — IndexedDB storage, migration, and recovery
-- **[Adding Certifications & Content](./docs/CONTENT.md)** — how to add study material
-- **[Study Flows](./docs/STUDY-FLOWS.md)** — how the app is meant to be used
-- **[Content Format](./docs/CONTENT_FORMAT.md)** — full question/flashcard/note schemas
+- **[Documentation index](./app/docs/README.md)** — all guides at a glance
+- **[Backups & Data](./app/docs/BACKUPS.md)** — exporting and importing ZIP backups
+- **[Persistence Architecture](./app/docs/PERSISTENCE.md)** — IndexedDB storage, migration, and recovery
+- **[Adding Certifications & Content](./app/docs/CONTENT.md)** — how to add study material
+- **[Study Flows](./app/docs/STUDY-FLOWS.md)** — how the app is meant to be used
+- **[Content Format](./app/docs/CONTENT_FORMAT.md)** — full question/flashcard/note schemas
 
 **AI prompts**
 
-- **[Material Generator prompts](./docs/prompts/material-generator.md)** — ready-made prompts that turn your notes into complete content files (flashcards, questions, notes)
-- **[Book/PDF → Obsidian Notes](./docs/prompts/linux-to-obsidian.md)** — a copy-and-paste master prompt that converts a book or PDF into polished, structured Obsidian study notes
+- **[Material Generator prompts](./app/docs/prompts/material-generator.md)** — ready-made prompts that turn your notes into complete content files (flashcards, questions, notes)
+- **[Book/PDF → Obsidian Notes](./app/docs/prompts/linux-to-obsidian.md)** — a copy-and-paste master prompt that converts a book or PDF into polished, structured Obsidian study notes
 
 ---
 
@@ -155,13 +155,13 @@ self-register. The test suite is plain Node scripts with no dependencies; run
 each file directly:
 
 ```text
-node tests/answer-validation.test.js
-node tests/backup-import.test.js
-node tests/flashcards.test.js
-node tests/markdown.test.js
-node tests/perms-exercise.test.js
-node tests/question-quality.test.js
-node tests/quiz-retry.test.js
+node app/tests/answer-validation.test.js
+node app/tests/backup-import.test.js
+node app/tests/flashcards.test.js
+node app/tests/markdown.test.js
+node app/tests/perms-exercise.test.js
+node app/tests/question-quality.test.js
+node app/tests/quiz-retry.test.js
 ```
 
 ---
