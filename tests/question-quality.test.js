@@ -76,7 +76,7 @@ assert.strictEqual(payloads.length, 4, 'all checked-in Linux+ question banks sho
   assert.ok(manifest.indexOf('"' + file + '"') >= 0,
     'manifest should load the question bank: ' + file);
 });
-assert.ok(manifest.indexOf('contentVersion: "1.5.0"') >= 0,
+assert.ok(manifest.indexOf('contentVersion: "1.6.0"') >= 0,
   'manifest should version the content snapshot contract');
 assert.deepStrictEqual(payloads.map(function (payload) { return payload.items.length; }), [95, 87, 100, 100],
   'question banks should contain all expected chapter questions');
